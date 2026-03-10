@@ -1,0 +1,11 @@
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\bin\Debug\net8.0\kivoBackend.Core.deps.json
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\bin\Debug\net8.0\kivoBackend.Core.dll
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\bin\Debug\net8.0\kivoBackend.Core.pdb
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\obj\Debug\net8.0\kivoBackend.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\obj\Debug\net8.0\kivoBackend.Core.AssemblyInfoInputs.cache
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\obj\Debug\net8.0\kivoBackend.Core.AssemblyInfo.cs
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\obj\Debug\net8.0\kivoBackend.Core.csproj.CoreCompileInputs.cache
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\obj\Debug\net8.0\kivoBackend.Core.dll
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\obj\Debug\net8.0\refint\kivoBackend.Core.dll
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\obj\Debug\net8.0\kivoBackend.Core.pdb
+C:\Users\baume\Documents\faculdade\TCC\kivoBackend.Core\obj\Debug\net8.0\ref\kivoBackend.Core.dll

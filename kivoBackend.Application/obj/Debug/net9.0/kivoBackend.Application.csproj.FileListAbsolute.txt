@@ -1,0 +1,15 @@
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\bin\Debug\net9.0\kivoBackend.Application.deps.json
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\bin\Debug\net9.0\kivoBackend.Application.dll
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\bin\Debug\net9.0\kivoBackend.Application.pdb
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\bin\Debug\net9.0\kivoBackend.Core.dll
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\bin\Debug\net9.0\kivoBackend.Core.pdb
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\obj\Debug\net9.0\kivoBackend.Application.csproj.AssemblyReference.cache
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\obj\Debug\net9.0\kivoBackend.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\obj\Debug\net9.0\kivoBackend.Application.AssemblyInfoInputs.cache
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\obj\Debug\net9.0\kivoBackend.Application.AssemblyInfo.cs
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\obj\Debug\net9.0\kivoBackend.Application.csproj.CoreCompileInputs.cache
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\obj\Debug\net9.0\kivoBack.802CACF5.Up2Date
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\obj\Debug\net9.0\kivoBackend.Application.dll
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\obj\Debug\net9.0\refint\kivoBackend.Application.dll
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\obj\Debug\net9.0\kivoBackend.Application.pdb
+C:\Users\baume\documents\faculdade\tcc\kivoBackend.Application\obj\Debug\net9.0\ref\kivoBackend.Application.dll
