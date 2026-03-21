@@ -1,4 +1,5 @@
-﻿using System;
+﻿using kivoBackend.Core.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,10 +9,10 @@ namespace kivoBackend.Core.Interfaces
 {
     public interface IRepositoryGenerics<T> where T : class
     {
-        Task<IEnumerable<T>> GetAll();
-        Task<T?> GetById(Guid id);
-        Task<T> Add(T entity);
-        Task Update(T entity);
-        Task Remove(Guid id);
+        Task<IEnumerable<T>> ObterTodos();
+        Task<T?> ObterPorId(Guid id);
+        Task<T> Adicionar(T entidade);
+        Task Atualizar(T entidade);
+        Task Remover(Guid id);
     }
 }

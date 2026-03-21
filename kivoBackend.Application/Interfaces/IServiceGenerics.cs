@@ -8,10 +8,10 @@ namespace kivoBackend.Application.Interfaces
 {
     public interface IServiceGenerics<T> where T : class
     {
-        Task<IEnumerable<T>> GetAll();
-        Task<T?> GetById(Guid id);
-        Task<T> Add(T entity);
-        Task Update(T entity);
-        Task Remove(Guid id);
+        Task<IEnumerable<T>> ObterTodos();
+        Task<T?> ObterPorId(Guid id);
+        Task<T> Adicionar(T entidade);
+        Task Atualizar(T entidade);
+        Task Remover(Guid id);
     }
 }

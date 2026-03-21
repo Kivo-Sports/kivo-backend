@@ -18,29 +18,29 @@ namespace kivoBackend.Application.Services
             _repository = repository;
         }
 
-        public async Task<T> Add(T entity)
+        public async Task<T> Adicionar(T entidade)
         {
-            return await _repository.Add(entity);
+            return await _repository.Adicionar(entidade);
         }
 
-        public async Task<IEnumerable<T>> GetAll()
+        public async Task Atualizar(T entidade)
         {
-            return await _repository.GetAll();
+            await _repository.Atualizar(entidade);
         }
 
-        public async Task<T?> GetById(Guid id)
+        public async Task<T?> ObterPorId(Guid id)
         {
-            return await _repository.GetById(id);
+            return await _repository.ObterPorId(id);
         }
 
-        public Task Remove(Guid id)
+        public async Task<IEnumerable<T>> ObterTodos()
         {
-            return _repository.Remove(id);
+            return await _repository.ObterTodos();
         }
 
-        public async Task Update(T entity)
+        public async Task Remover(Guid id)
         {
-            await _repository.Update(entity);
+            await _repository.Remover(id);
         }
     }
 }

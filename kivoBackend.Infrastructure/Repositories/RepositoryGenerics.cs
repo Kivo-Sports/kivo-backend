@@ -20,38 +20,38 @@ namespace kivoBackend.Infrastructure.Repositories
             _db = context.Set<T>();
         }
 
-        public async Task<T> Add(T entity)
+        public async Task<T> Adicionar(T entidade)
         {
-            await _db.AddAsync(entity);
+            await _db.AddAsync(entidade);
             await _context.SaveChangesAsync();
-            return entity;
+            return entidade;
         }
 
-        public async Task<IEnumerable<T>> GetAll()
+        public async Task<IEnumerable<T>> ObterTodos()
         {
             return await _db.ToListAsync();
         }
 
-        public async Task<T?> GetById(Guid id)
+        public async Task<T?> ObterPorId(Guid id)
         {
             return await _db.FindAsync(id);
         }
 
-        public async Task Remove(Guid id)
+        public async Task Remover(Guid id)
         {
-            var entity = await GetById(id);
+            var entidade = await ObterPorId(id);
 
-            if (entity == null)
+            if (entidade == null)
             {
                 throw new Exception($"Registro com id {id} não encontrado");
             }
-            _db.Remove(entity);
+            _db.Remove(entidade);
             await _context.SaveChangesAsync();
         }
 
-        public async Task Update(T entity)
+        public async Task Atualizar(T entidade)
         {
-            _db.Update(entity);
+            _db.Update(entidade);
             await _context.SaveChangesAsync();
         }
     }
