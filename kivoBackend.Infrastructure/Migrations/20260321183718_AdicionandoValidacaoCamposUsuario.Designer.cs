@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using kivoBackend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using kivoBackend.Infrastructure.Data;
 namespace kivoBackend.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260321183718_AdicionandoValidacaoCamposUsuario")]
+    partial class AdicionandoValidacaoCamposUsuario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -280,10 +283,11 @@ namespace kivoBackend.Infrastructure.Migrations
 
             modelBuilder.Entity("kivoBackend.Core.Entities.CampeonatoTime", b =>
                 {
-                    b.Property<Guid>("CampeonatoId")
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("TimeId")
+                    b.Property<Guid>("CampeonatoId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("ConvidadoEm")
@@ -292,16 +296,18 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<int>("EnumStatusParticipacao")
                         .HasColumnType("int");
 
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<DateTime?>("RespondidoEm")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("RespondidoPorOrganizadorTimeId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("CampeonatoId", "TimeId");
+                    b.Property<Guid>("TimeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampeonatoId");
 
                     b.HasIndex("TimeId");
 
@@ -360,6 +366,7 @@ namespace kivoBackend.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Complemento")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Estado")
@@ -397,8 +404,7 @@ namespace kivoBackend.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EnderecoId")
-                        .IsUnique();
+                    b.HasIndex("EnderecoId");
 
                     b.HasIndex("UsuarioId")
                         .IsUnique();
@@ -420,8 +426,7 @@ namespace kivoBackend.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EnderecoId")
-                        .IsUnique();
+                    b.HasIndex("EnderecoId");
 
                     b.HasIndex("UsuarioId")
                         .IsUnique();
@@ -510,8 +515,7 @@ namespace kivoBackend.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EnderecoId")
-                        .IsUnique();
+                    b.HasIndex("EnderecoId");
 
                     b.HasIndex("UsuarioId")
                         .IsUnique();
@@ -667,9 +671,9 @@ namespace kivoBackend.Infrastructure.Migrations
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorCampeonato", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.Endereco", "Endereco")
-                        .WithOne()
-                        .HasForeignKey("kivoBackend.Core.Entities.OrganizadorCampeonato", "EnderecoId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .WithMany()
+                        .HasForeignKey("EnderecoId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
@@ -686,9 +690,9 @@ namespace kivoBackend.Infrastructure.Migrations
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorTime", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.Endereco", "Endereco")
-                        .WithOne()
-                        .HasForeignKey("kivoBackend.Core.Entities.OrganizadorTime", "EnderecoId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .WithMany()
+                        .HasForeignKey("EnderecoId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
@@ -727,9 +731,9 @@ namespace kivoBackend.Infrastructure.Migrations
             modelBuilder.Entity("kivoBackend.Core.Entities.Torcedor", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.Endereco", "Endereco")
-                        .WithOne()
-                        .HasForeignKey("kivoBackend.Core.Entities.Torcedor", "EnderecoId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .WithMany()
+                        .HasForeignKey("EnderecoId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")

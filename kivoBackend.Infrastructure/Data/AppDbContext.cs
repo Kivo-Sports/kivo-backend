@@ -28,10 +28,12 @@ namespace kivoBackend.Infrastructure.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // Configuração de unico CPF
             modelBuilder.Entity<Usuario>()
                 .HasIndex(u => u.Cpf)
                 .IsUnique();
 
+            // Relacionamentos 1:1 - Perfis com Usuário (Cascata para deletar perfil se usuário sumir)
             modelBuilder.Entity<Torcedor>()
                 .HasOne(t => t.Usuario)
                 .WithOne(u => u.Torcedor)
@@ -56,10 +58,35 @@ namespace kivoBackend.Infrastructure.Data
                 .HasForeignKey<Administrador>(a => a.UsuarioId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Relacionamentos com Endereço (Um para Um para cada perfil)
+            modelBuilder.Entity<Torcedor>()
+                .HasOne(t => t.Endereco)
+                .WithOne()
+                .HasForeignKey<Torcedor>(t => t.EnderecoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<OrganizadorTime>()
+                .HasOne(o => o.Endereco)
+                .WithOne()
+                .HasForeignKey<OrganizadorTime>(o => o.EnderecoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<OrganizadorCampeonato>()
+                .HasOne(o => o.Endereco)
+                .WithOne()
+                .HasForeignKey<OrganizadorCampeonato>(o => o.EnderecoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relacionamento OrganizadorCampeonato -> ContaBanco
             modelBuilder.Entity<ContaBanco>()
                 .HasOne(cb => cb.OrganizadorCampeonato)
                 .WithOne(oc => oc.ContaBanco)
-                .HasForeignKey<ContaBanco>(cb => cb.OrganizadorCampeonatoId);
+                .HasForeignKey<ContaBanco>(cb => cb.OrganizadorCampeonatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configuração da Tabela de Associação (N:N) Campeonato <-> Time
+            modelBuilder.Entity<CampeonatoTime>()
+                .HasKey(ct => new { ct.CampeonatoId, ct.TimeId });
 
             modelBuilder.Entity<CampeonatoTime>()
                 .HasOne(ct => ct.Campeonato)

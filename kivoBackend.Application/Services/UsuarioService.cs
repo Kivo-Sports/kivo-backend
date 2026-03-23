@@ -96,37 +96,57 @@ namespace kivoBackend.Application.Services
             await _repositoryGenerics.Atualizar(usuario);
         }
 
-        public async Task<Usuario> EditarUsuario(Guid id, Usuario usuario)
+        public async Task<Usuario> EditarDadosUsuario(Guid id, Usuario dadosEditados)
         {
-            var existente = await _repositoryGenerics.ObterPorId(id);
-            if(existente == null)
-            {
-                throw new KeyNotFoundException("Usuário não encontrado.");
-            }
+            var existente = await _usuarioRepository.ObterUsuarioPorId(id);
+
+            if (existente == null) throw new KeyNotFoundException("Usuário não encontrado.");
 
             var identityUser = await _userManager.FindByEmailAsync(existente.Email);
-            if(identityUser != null)
+            if (identityUser != null && existente.Email != dadosEditados.Email)
             {
-                identityUser.Email = usuario.Email;
-                identityUser.PhoneNumber = usuario.Telefone;
-                identityUser.UserName = usuario.Email;
-
-                var identityResult = await _userManager.UpdateAsync(identityUser);
-
-                if(!identityResult.Succeeded)
-                {
-                    var erros = string.Join(", ", identityResult.Errors.Select(e => e.Description));
-                    throw new Exception($"Erro na atualização do usuário: {erros}");
-                }
+                identityUser.Email = dadosEditados.Email;
+                identityUser.UserName = dadosEditados.Email;
+                await _userManager.UpdateAsync(identityUser);
             }
-                existente.Nome = usuario.Nome;
-                existente.Email = usuario.Email;
-                existente.Telefone = usuario.Telefone;
-                existente.DataNascimento = usuario.DataNascimento;
-                existente.Ativo = usuario.Ativo;
 
-                 await _repositoryGenerics.Atualizar(existente);
-                return existente;
+            existente.Nome = dadosEditados.Nome;
+            existente.Email = dadosEditados.Email;
+            existente.Telefone = dadosEditados.Telefone;
+            existente.DataNascimento = dadosEditados.DataNascimento;
+
+            var enderecoExistente = existente.EnumCargo switch
+            {
+                EnumCargo.Torcedor => existente.Torcedor?.Endereco,
+                EnumCargo.OrganizadorTime => existente.OrganizadorTime?.Endereco,
+                EnumCargo.OrganizadorCampeonato => existente.OrganizadorCampeonato?.Endereco,
+                _ => null
+            };
+
+            if (enderecoExistente != null && dadosEditados.Torcedor?.Endereco != null)
+            {
+                var novo = dadosEditados.Torcedor.Endereco;
+                enderecoExistente.Cep = novo.Cep;
+                enderecoExistente.Rua = novo.Rua;
+                enderecoExistente.Numero = novo.Numero;
+                enderecoExistente.Cidade = novo.Cidade;
+                enderecoExistente.Estado = novo.Estado;
+                enderecoExistente.Complemento = novo.Complemento ?? "";
+                enderecoExistente.Pais = novo.Pais ?? "Brasil";
+            }
+
+            if (existente.EnumCargo == EnumCargo.OrganizadorCampeonato && dadosEditados.OrganizadorCampeonato?.ContaBanco != null)
+            {
+                var cbExistente = existente.OrganizadorCampeonato.ContaBanco;
+                var cbNova = dadosEditados.OrganizadorCampeonato.ContaBanco;
+                cbExistente.Banco = cbNova.Banco;
+                cbExistente.Agencia = cbNova.Agencia;
+                cbExistente.Conta = cbNova.Conta;
+                cbExistente.ChavePix = cbNova.ChavePix;
+            }
+
+            await _repositoryGenerics.Atualizar(existente);
+            return existente;
         }
 
         public void InicializarPerfilPorCargo(Usuario usuario)
@@ -158,7 +178,7 @@ namespace kivoBackend.Application.Services
 
         public async Task<IEnumerable<Usuario>> ObterTodosUsuarios()
         {
-            var usuarios = await _repositoryGenerics.ObterTodos();
+            var usuarios = await _usuarioRepository.ObterTodosUsuarios();
             if(usuarios == null || !usuarios.Any())
             {
                 throw new KeyNotFoundException("Nenhum usuário encontrado.");
@@ -166,14 +186,14 @@ namespace kivoBackend.Application.Services
             return usuarios;
         }
 
-        public Task<Usuario> ObterUsuarioPorCpf(string cpf)
+        public async Task<Usuario?> ObterUsuarioPorCpf(string cpf)
         {
-            return _usuarioRepository.ObterUsuarioPorCpf(cpf);
+            return await _usuarioRepository.ObterUsuarioPorCpf(cpf);
         }
 
         public async Task<Usuario> ObterUsuarioPorId(Guid id)
         {
-            var usuario = await _repositoryGenerics.ObterPorId(id);
+            var usuario = await _usuarioRepository.ObterUsuarioPorId(id);
 
             if(usuario == null)
             {

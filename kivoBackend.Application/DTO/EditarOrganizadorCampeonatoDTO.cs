@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace kivoBackend.Application.DTO
 {
-    public class CriarTorcedorDto : UsuarioDTO
+    public class EditarOrganizadorCampeonatoDTO : EditarUsuarioDTO
     {
-        public EnderecoDto Endereco { get; set; }
+        public ContaBancoDto? ContaBanco { get; set; }
     }
 }

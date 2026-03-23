@@ -9,6 +9,8 @@ namespace kivoBackend.Core.Interfaces
 {
     public interface IRepositoryUsuario
     {
-        Task<Usuario> ObterUsuarioPorCpf(string cpf);
+        Task<Usuario?> ObterUsuarioPorCpf(string cpf);
+        Task<Usuario?> ObterUsuarioPorId(Guid id);
+        Task<IEnumerable<Usuario>> ObterTodosUsuarios();
     }
 }

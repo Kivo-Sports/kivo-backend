@@ -18,9 +18,34 @@ namespace kivoBackend.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<Usuario> ObterUsuarioPorCpf(string cpf)
+        public async Task<Usuario?> ObterUsuarioPorCpf(string cpf)
         {
-            return await _context.Usuarios.FirstOrDefaultAsync(u => u.Cpf == cpf);
+            return await _context.Usuarios
+                .Include(u => u.Torcedor).ThenInclude(t => t.Endereco)
+                .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Endereco)
+                .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
+                .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
+                .FirstOrDefaultAsync(u => u.Cpf == cpf);
+        }
+
+        public async Task<Usuario?> ObterUsuarioPorId(Guid id)
+        {
+            return await _context.Usuarios
+                .Include(u => u.Torcedor).ThenInclude(t => t.Endereco)
+                .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Endereco)
+                .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
+                .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
+                .FirstOrDefaultAsync(u => u.Id == id);
+        }
+
+        public async Task<IEnumerable<Usuario>> ObterTodosUsuarios()
+        {
+            return await _context.Usuarios
+                .Include(u => u.Torcedor).ThenInclude(t => t.Endereco)
+                .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Endereco)
+                .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
+                .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
+                .ToListAsync();
         }
     }
 }

@@ -46,7 +46,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("cpf/{cpf}")]
-        public async Task<IActionResult> GetByCpf(string cpf)
+        public async Task<IActionResult> ObterPorCpf(string cpf)
         {
             var usuario = await _usuarioService.ObterUsuarioPorCpf(cpf);
             if (usuario == null) return NotFound("Usuário não encontrado com este CPF.");
@@ -60,6 +60,20 @@ namespace kivoBackend.Presentation.Controller
             try
             {
                 var usuario = MapearBase(dto, EnumCargo.Torcedor);
+
+                usuario.Torcedor = new Torcedor
+                {
+                    Endereco = new Endereco
+                    {
+                        Cep = dto.Endereco.Cep,
+                        Rua = dto.Endereco.Rua,
+                        Numero = dto.Endereco.Numero,
+                        Cidade = dto.Endereco.Cidade,
+                        Estado = dto.Endereco.Estado,
+                        Complemento = "",
+                        Pais = "Brasil"
+                    }
+                };
 
                 var resultado = await _usuarioService.CriarUsuario(usuario, dto.Senha);
 
@@ -86,7 +100,9 @@ namespace kivoBackend.Presentation.Controller
                         Rua = dto.Endereco.Rua,
                         Numero = dto.Endereco.Numero,
                         Cidade = dto.Endereco.Cidade,
-                        Estado = dto.Endereco.Estado
+                        Estado = dto.Endereco.Estado,
+                        Complemento = "",
+                        Pais = "Brasil"
                     }
                 };
 
@@ -111,7 +127,9 @@ namespace kivoBackend.Presentation.Controller
                         Rua = dto.Endereco.Rua,
                         Numero = dto.Endereco.Numero,
                         Cidade = dto.Endereco.Cidade,
-                        Estado = dto.Endereco.Estado
+                        Estado = dto.Endereco.Estado,
+                        Complemento = "",
+                        Pais = "Brasil"
                     },
                     ContaBanco = new ContaBanco
                     {
@@ -152,23 +170,59 @@ namespace kivoBackend.Presentation.Controller
             };
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Put(Guid id, [FromBody] Usuario usuario)
+        [HttpPut("torcedor/{id}")]
+        public async Task<IActionResult> EditarTorcedor(Guid id, [FromBody] EditarUsuarioDTO dto)
         {
             try
             {
-                var atualizado = await _usuarioService.EditarUsuario(id, usuario);
-                return Ok(atualizado);
+                var usuario = MapearParaUpdate(dto);
+                usuario.Torcedor = new Torcedor { Endereco = MapearEndereco(dto.Endereco) };
+
+                var resultado = await _usuarioService.EditarDadosUsuario(id, usuario);
+                return Ok(resultado);
             }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
+
+        [HttpPut("organizador-campeonato/{id}")]
+        public async Task<IActionResult> EditarOrganizadorCampeonato(Guid id, [FromBody] EditarOrganizadorCampeonatoDTO dto)
+        {
+            try
+            {
+                var usuario = MapearParaUpdate(dto);
+                usuario.OrganizadorCampeonato = new OrganizadorCampeonato
+                {
+                    Endereco = MapearEndereco(dto.Endereco),
+                    ContaBanco = new ContaBanco
+                    {
+                        Banco = dto.ContaBanco.Banco,
+                        Agencia = dto.ContaBanco.Agencia,
+                        Conta = dto.ContaBanco.Conta,
+                        ChavePix = dto.ContaBanco.ChavePix
+                    }
+                };
+
+                var resultado = await _usuarioService.EditarDadosUsuario(id, usuario);
+                return Ok(resultado);
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+        private Usuario MapearParaUpdate(EditarUsuarioDTO dto) => new Usuario
+        {
+            Nome = dto.Nome,
+            Email = dto.Email,
+            Telefone = dto.Telefone,
+            DataNascimento = dto.DataNascimento
+        };
+
+        private Endereco MapearEndereco(EnderecoDto d) => new Endereco
+        {
+            Cep = d.Cep,
+            Rua = d.Rua,
+            Numero = d.Numero,
+            Cidade = d.Cidade,
+            Estado = d.Estado
+        };
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)

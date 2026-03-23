@@ -20,14 +20,9 @@ namespace kivoBackend.Core.Entities
         public EnumCargo EnumCargo { get; set; }
         public bool Ativo { get; set; }
         public DateTime CriadoEm { get; set; }
-
-        [JsonIgnore]
         public Torcedor Torcedor { get; set; }
-        [JsonIgnore]
         public OrganizadorTime OrganizadorTime { get; set; }
-        [JsonIgnore]
         public OrganizadorCampeonato OrganizadorCampeonato { get; set; }
-        [JsonIgnore]
         public Administrador Administrador { get; set; }
 
     }
