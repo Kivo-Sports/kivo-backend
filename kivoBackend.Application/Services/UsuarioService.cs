@@ -99,7 +99,6 @@ namespace kivoBackend.Application.Services
         public async Task<Usuario> EditarDadosUsuario(Guid id, Usuario dadosEditados)
         {
             var existente = await _usuarioRepository.ObterUsuarioPorId(id);
-
             if (existente == null) throw new KeyNotFoundException("Usuário não encontrado.");
 
             var identityUser = await _userManager.FindByEmailAsync(existente.Email);
@@ -115,7 +114,7 @@ namespace kivoBackend.Application.Services
             existente.Telefone = dadosEditados.Telefone;
             existente.DataNascimento = dadosEditados.DataNascimento;
 
-            var enderecoExistente = existente.EnumCargo switch
+            var enderecoNoBanco = existente.EnumCargo switch
             {
                 EnumCargo.Torcedor => existente.Torcedor?.Endereco,
                 EnumCargo.OrganizadorTime => existente.OrganizadorTime?.Endereco,
@@ -123,22 +122,26 @@ namespace kivoBackend.Application.Services
                 _ => null
             };
 
-            if (enderecoExistente != null && dadosEditados.Torcedor?.Endereco != null)
+            var enderecoEnviadoPelaAPI = dadosEditados.Torcedor?.Endereco
+                               ?? dadosEditados.OrganizadorTime?.Endereco
+                               ?? dadosEditados.OrganizadorCampeonato?.Endereco;
+
+            if (enderecoNoBanco != null && enderecoEnviadoPelaAPI != null)
             {
-                var novo = dadosEditados.Torcedor.Endereco;
-                enderecoExistente.Cep = novo.Cep;
-                enderecoExistente.Rua = novo.Rua;
-                enderecoExistente.Numero = novo.Numero;
-                enderecoExistente.Cidade = novo.Cidade;
-                enderecoExistente.Estado = novo.Estado;
-                enderecoExistente.Complemento = novo.Complemento ?? "";
-                enderecoExistente.Pais = novo.Pais ?? "Brasil";
+                enderecoNoBanco.Cep = enderecoEnviadoPelaAPI.Cep;
+                enderecoNoBanco.Rua = enderecoEnviadoPelaAPI.Rua;
+                enderecoNoBanco.Numero = enderecoEnviadoPelaAPI.Numero;
+                enderecoNoBanco.Cidade = enderecoEnviadoPelaAPI.Cidade;
+                enderecoNoBanco.Estado = enderecoEnviadoPelaAPI.Estado;
+                enderecoNoBanco.Complemento = enderecoEnviadoPelaAPI.Complemento ?? "";
+                enderecoNoBanco.Pais = enderecoEnviadoPelaAPI.Pais ?? "Brasil";
             }
 
             if (existente.EnumCargo == EnumCargo.OrganizadorCampeonato && dadosEditados.OrganizadorCampeonato?.ContaBanco != null)
             {
                 var cbExistente = existente.OrganizadorCampeonato.ContaBanco;
                 var cbNova = dadosEditados.OrganizadorCampeonato.ContaBanco;
+
                 cbExistente.Banco = cbNova.Banco;
                 cbExistente.Agencia = cbNova.Agencia;
                 cbExistente.Conta = cbNova.Conta;
