@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace kivoBackend.Application.DTO
 {
-    public class ContaBancoDto
+    public class ContaBancoDTO
     {
         public string Banco { get; set; }
         public string Agencia { get; set; }

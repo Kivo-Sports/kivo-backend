@@ -22,7 +22,8 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
-                var retorno = await _usuarioService.ObterTodosUsuarios();
+                var usuarios = await _usuarioService.ObterTodosUsuarios();
+                var retorno = usuarios.Select(u => MapearParaLista(u));
                 return Ok(retorno);
             }
             catch (KeyNotFoundException ex)
@@ -37,7 +38,7 @@ namespace kivoBackend.Presentation.Controller
             try
             {
                 var usuario = await _usuarioService.ObterUsuarioPorId(id);
-                return Ok(usuario);
+                return Ok(MapearParaLista(usuario));
             }
             catch (KeyNotFoundException ex)
             {
@@ -51,7 +52,7 @@ namespace kivoBackend.Presentation.Controller
             var usuario = await _usuarioService.ObterUsuarioPorCpf(cpf);
             if (usuario == null) return NotFound("Usuário não encontrado com este CPF.");
 
-            return Ok(usuario);
+            return Ok(MapearParaLista(usuario));
         }
 
         [HttpPost("torcedor")]
@@ -179,13 +180,27 @@ namespace kivoBackend.Presentation.Controller
                 usuario.Torcedor = new Torcedor { Endereco = MapearEndereco(dto.Endereco) };
 
                 var resultado = await _usuarioService.EditarDadosUsuario(id, usuario);
-                return Ok(resultado);
+                return Ok(MapearParaLista(resultado));
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPut("organizador-time/{id}")]
+        public async Task<IActionResult> EditarOrgTime(Guid id, [FromBody] EditarUsuarioDTO dto)
+        {
+            try
+            {
+                var usuario = MapearParaUpdate(dto);
+                usuario.OrganizadorTime = new OrganizadorTime { Endereco = MapearEndereco(dto.Endereco) };
+
+                var resultado = await _usuarioService.EditarDadosUsuario(id, usuario);
+                return Ok(MapearParaLista(resultado));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
         [HttpPut("organizador-campeonato/{id}")]
-        public async Task<IActionResult> EditarOrganizadorCampeonato(Guid id, [FromBody] EditarOrganizadorCampeonatoDTO dto)
+        public async Task<IActionResult> EditarOrgCampeonato(Guid id, [FromBody] EditarOrganizadorCampeonatoDTO dto)
         {
             try
             {
@@ -203,7 +218,19 @@ namespace kivoBackend.Presentation.Controller
                 };
 
                 var resultado = await _usuarioService.EditarDadosUsuario(id, usuario);
-                return Ok(resultado);
+                return Ok(MapearParaLista(resultado));
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPut("admin/{id}")]
+        public async Task<IActionResult> EditarAdmin(Guid id, [FromBody] EditarUsuarioDTO dto)
+        {
+            try
+            {
+                var usuario = MapearParaUpdate(dto);
+                var resultado = await _usuarioService.EditarDadosUsuario(id, usuario);
+                return Ok(MapearParaLista(resultado));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
@@ -221,8 +248,67 @@ namespace kivoBackend.Presentation.Controller
             Rua = d.Rua,
             Numero = d.Numero,
             Cidade = d.Cidade,
-            Estado = d.Estado
+            Estado = d.Estado,
+            Complemento = d.Complemento ?? "", 
+            Pais = d.Pais ?? "Brasil"
         };
+
+        private EnderecoDto MapearEnderecoParaDto(Endereco e) => new EnderecoDto
+        {
+            Cep = e.Cep,
+            Rua = e.Rua,
+            Numero = e.Numero,
+            Cidade = e.Cidade,
+            Estado = e.Estado,
+            Complemento = e.Complemento ?? "", 
+            Pais = e.Pais ?? "Brasil"
+        };
+        private ListarUsuarioDTO MapearParaLista(Usuario u)
+        {
+            var dto = new ListarUsuarioDTO
+            {
+                Id = u.Id,
+                Nome = u.Nome,
+                Email = u.Email,
+                Cpf = u.Cpf,
+                Telefone = u.Telefone,
+                DataNascimento = u.DataNascimento,
+                Ativo = u.Ativo,
+                Cargo = u.EnumCargo.ToString() 
+            };
+
+            switch (u.EnumCargo)
+            {
+                case EnumCargo.Torcedor:
+                    if (u.Torcedor?.Endereco != null)
+                        dto.Endereco = MapearEnderecoParaDto(u.Torcedor.Endereco);
+                    break;
+
+                case EnumCargo.OrganizadorTime:
+                    if (u.OrganizadorTime?.Endereco != null)
+                        dto.Endereco = MapearEnderecoParaDto(u.OrganizadorTime.Endereco);
+                    break;
+
+                case EnumCargo.OrganizadorCampeonato:
+                    if (u.OrganizadorCampeonato?.Endereco != null)
+                        dto.Endereco = MapearEnderecoParaDto(u.OrganizadorCampeonato.Endereco);
+
+                    if (u.OrganizadorCampeonato?.ContaBanco != null)
+                    {
+                        var cb = u.OrganizadorCampeonato.ContaBanco;
+                        dto.ContaBanco = new ContaBancoDTO
+                        {
+                            Banco = cb.Banco,
+                            Agencia = cb.Agencia,
+                            Conta = cb.Conta,
+                            ChavePix = cb.ChavePix
+                        };
+                    }
+                    break;
+            }
+
+            return dto;
+        }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)

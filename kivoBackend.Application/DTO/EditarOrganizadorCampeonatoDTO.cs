@@ -8,6 +8,6 @@ namespace kivoBackend.Application.DTO
 {
     public class EditarOrganizadorCampeonatoDTO : EditarUsuarioDTO
     {
-        public ContaBancoDto? ContaBanco { get; set; }
+        public ContaBancoDTO? ContaBanco { get; set; }
     }
 }

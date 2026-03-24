@@ -34,6 +34,11 @@ namespace kivoBackend.Application.Services
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
+            if (usuario.Ativo)
+            {
+                throw new InvalidOperationException("Esta conta já está ativa.");
+            }
+
             var identityUser = await _userManager.FindByEmailAsync(usuario.Email);
             if(identityUser != null)
             {
@@ -92,6 +97,10 @@ namespace kivoBackend.Application.Services
         public async Task DesativarConta(Usuario usuario)
         {
             var usuarioExistente = await _repositoryGenerics.ObterPorId(usuario.Id);
+            if (!usuario.Ativo)
+            {
+                throw new InvalidOperationException("Esta conta já está Desativada.");
+            }
             usuario.Ativo = false;
             await _repositoryGenerics.Atualizar(usuario);
         }
@@ -100,6 +109,12 @@ namespace kivoBackend.Application.Services
         {
             var existente = await _usuarioRepository.ObterUsuarioPorId(id);
             if (existente == null) throw new KeyNotFoundException("Usuário não encontrado.");
+
+            if (!existente.Ativo)
+            {
+                throw new InvalidOperationException("Não é permitido atualizar uma conta que não está ativa. " +
+                                                    "Reative-a e tente novamente");
+            }
 
             var identityUser = await _userManager.FindByEmailAsync(existente.Email);
             if (identityUser != null && existente.Email != dadosEditados.Email)
@@ -213,6 +228,7 @@ namespace kivoBackend.Application.Services
             {
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
+
             var identityUser = await _userManager.FindByEmailAsync(usuario.Email);
             if (identityUser != null)
             {
