@@ -18,5 +18,6 @@ namespace kivoBackend.Application.DTO
         public bool Ativo { get; set; }
         public EnderecoDto? Endereco { get; set; }
         public ContaBancoDTO? ContaBanco { get; set; }
+        public List<string>? TimesAdministrados { get; set; }
     }
 }

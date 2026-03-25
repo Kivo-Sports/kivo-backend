@@ -287,6 +287,10 @@ namespace kivoBackend.Presentation.Controller
                 case EnumCargo.OrganizadorTime:
                     if (u.OrganizadorTime?.Endereco != null)
                         dto.Endereco = MapearEnderecoParaDto(u.OrganizadorTime.Endereco);
+                    if(u.OrganizadorTime.Times != null)
+                    {
+                        dto.TimesAdministrados = u.OrganizadorTime.Times.Select(t => t.Nome).ToList();
+                    }
                     break;
 
                 case EnumCargo.OrganizadorCampeonato:

@@ -23,6 +23,7 @@ namespace kivoBackend.Infrastructure.Repositories
             return await _context.Usuarios
                 .Include(u => u.Torcedor).ThenInclude(t => t.Endereco)
                 .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Endereco)
+                .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Times)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
                 .FirstOrDefaultAsync(u => u.Cpf == cpf);
@@ -33,6 +34,7 @@ namespace kivoBackend.Infrastructure.Repositories
             return await _context.Usuarios
                 .Include(u => u.Torcedor).ThenInclude(t => t.Endereco)
                 .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Endereco)
+                .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Times)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
                 .FirstOrDefaultAsync(u => u.Id == id);
@@ -43,6 +45,7 @@ namespace kivoBackend.Infrastructure.Repositories
             return await _context.Usuarios
                 .Include(u => u.Torcedor).ThenInclude(t => t.Endereco)
                 .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Endereco)
+                .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Times)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
                 .ToListAsync();
