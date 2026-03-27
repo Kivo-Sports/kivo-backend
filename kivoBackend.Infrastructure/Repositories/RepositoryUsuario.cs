@@ -29,6 +29,17 @@ namespace kivoBackend.Infrastructure.Repositories
                 .FirstOrDefaultAsync(u => u.Cpf == cpf);
         }
 
+        public async Task<Usuario?> ObterUsuarioPorEmail(string email)
+        {
+            return await _context.Usuarios
+                .Include(u => u.Torcedor).ThenInclude(t => t.Endereco)
+                .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Endereco)
+                .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Times)
+                .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
+                .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
+                .FirstOrDefaultAsync(u => u.Email == email);
+        }
+
         public async Task<Usuario?> ObterUsuarioPorId(Guid id)
         {
             return await _context.Usuarios

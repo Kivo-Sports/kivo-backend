@@ -16,6 +16,7 @@ namespace kivoBackend.Application.Interfaces
         Task<Usuario> EditarDadosUsuario(Guid id, Usuario usuario);
         Task<Usuario> RemoverUsuario(Guid id);
         Task<Usuario?> ObterUsuarioPorCpf(string cpf);
+        Task<Usuario?> ObterUsuarioPorEmail(string email);
         void InicializarPerfilPorCargo(Usuario usuario);
         Task DesativarConta(Usuario usuario);
         Task AtivarConta(Guid id);

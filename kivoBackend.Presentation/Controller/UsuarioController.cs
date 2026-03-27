@@ -3,6 +3,7 @@ using kivoBackend.Application.Interfaces;
 using kivoBackend.Application.Services;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace kivoBackend.Presentation.Controller
@@ -147,6 +148,7 @@ namespace kivoBackend.Presentation.Controller
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
+        [Authorize(Roles = "Administrador")]
         [HttpPost("admin")]
         public async Task<IActionResult> PostAdmin([FromBody] UsuarioDTO dto)
         {
@@ -223,6 +225,7 @@ namespace kivoBackend.Presentation.Controller
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
+        [Authorize(Roles = "Administrador")]
         [HttpPut("admin/{id}")]
         public async Task<IActionResult> EditarAdmin(Guid id, [FromBody] EditarUsuarioDTO dto)
         {

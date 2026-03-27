@@ -239,5 +239,10 @@ namespace kivoBackend.Application.Services
             await DesativarConta(usuario);
             return usuario;
         }
+
+        public async Task<Usuario?> ObterUsuarioPorEmail(string email)
+        {
+            return await _usuarioRepository.ObterUsuarioPorEmail(email);
+        }
     }
 }
