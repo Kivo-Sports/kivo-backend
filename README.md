@@ -2,7 +2,6 @@
 
 <img src="https://img.shields.io/badge/version-0.1.0-00C896?style=for-the-badge" />
 <img src="https://img.shields.io/badge/status-em%20desenvolvimento-FFB800?style=for-the-badge" />
-<img src="https://img.shields.io/badge/licença-MIT-blue?style=for-the-badge" />
 
 # ⚽ KIVO SPORTS — Backend
 
