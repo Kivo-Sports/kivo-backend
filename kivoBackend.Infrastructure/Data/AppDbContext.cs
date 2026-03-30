@@ -23,6 +23,8 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<Campeonato> Campeonatos { get; set; }
         public DbSet<CampeonatoTime> CampeonatoTimes { get; set; }
         public DbSet<RecuperacaoSenha> RecuperacoesSenha { get; set; }
+        public DbSet<CodigoReativacao> CodigosReativacao { get; set; }
+        public DbSet<VerificationCode> VerificationCodes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -99,6 +101,20 @@ namespace kivoBackend.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(ct => ct.TimeId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Configuração CodigoReativacao -> Usuario
+            modelBuilder.Entity<CodigoReativacao>()
+                .HasOne(cr => cr.Usuario)
+                .WithMany()
+                .HasForeignKey(cr => cr.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configuração VerificationCode -> Usuario (genérico para todas as verificações)
+            modelBuilder.Entity<VerificationCode>()
+                .HasOne(vc => vc.Usuario)
+                .WithMany()
+                .HasForeignKey(vc => vc.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
