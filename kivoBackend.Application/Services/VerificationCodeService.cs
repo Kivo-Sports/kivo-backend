@@ -3,6 +3,8 @@ using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
 using kivoBackend.Core.Interfaces;
 using System;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace kivoBackend.Application.Services
@@ -15,25 +17,35 @@ namespace kivoBackend.Application.Services
         {
             _repository = repository;
         }
+        private string GerarHash(string codigo)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                var bytes = Encoding.UTF8.GetBytes(codigo);
+                var hash = sha256.ComputeHash(bytes);
+                return Convert.ToBase64String(hash);
+            }
+        }
 
         public async Task<string> GerarCodigoAsync(Guid usuarioId, VerificationCodeType tipo, int duracao = 5)
         {
-            // 1. Buscar código válido existente (reutilizar se já enviado)
             var codigoExistente = await _repository.ObterCodigoValidoAsync(usuarioId, tipo);
             if (codigoExistente != null)
-                return codigoExistente.Codigo;
+            {
+                codigoExistente.Usado = true;
+                await _repository.Atualizar(codigoExistente);
+            }
 
-            // 2. Gerar novo código (6 dígitos)
             var random = new Random();
             var codigo = random.Next(100000, 999999).ToString();
 
-            // 3. Salvar no banco
             var novoCodigoVerificacao = new VerificationCode
             {
                 UsuarioId = usuarioId,
-                Codigo = codigo,
+                Codigo = GerarHash(codigo),
                 Tipo = tipo,
-                ExpiraEm = DateTime.Now.AddMinutes(duracao)
+                ExpiraEm = DateTime.Now.AddMinutes(duracao),
+                MaximoTentativas = 5 
             };
 
             await _repository.Adicionar(novoCodigoVerificacao);
@@ -42,23 +54,53 @@ namespace kivoBackend.Application.Services
 
         public async Task<bool> ValidarCodigoAsync(Guid usuarioId, string codigo, VerificationCodeType tipo)
         {
-            var codigoValido = await _repository.ObterCodigoAsync(usuarioId, codigo, tipo);
+            var codigoValido = await _repository.ObterCodigoValidoAsync(usuarioId, tipo);
 
             if (codigoValido == null)
-                return false;
+                throw new InvalidOperationException("Nenhum código válido encontrado. Solicite um novo.");
 
             if (codigoValido.Usado)
-                return false;
+                throw new InvalidOperationException("Este código já foi utilizado.");
 
-            if (DateTime.Now > codigoValido.ExpiraEm)
-                return false;
+            if (DateTime.Now > codigoValido.ExpiraEm) { 
+                await _repository.Remover(codigoValido.Id);
+                throw new InvalidOperationException("Código expirado. Solicite um novo.");
+            }
+
+            if (codigoValido.Tentativas >= codigoValido.MaximoTentativas)
+            {
+                await _repository.Remover(codigoValido.Id);
+
+                throw new InvalidOperationException("Número máximo de tentativas excedido. Solicite um novo código.");
+            }
+
+            var codigoHash = GerarHash(codigo);
+            codigoValido.Tentativas++;
+
+            if (codigoValido.Codigo != codigoHash)
+            {
+                if (codigoValido.Tentativas >= codigoValido.MaximoTentativas)
+                {
+                    await _repository.Remover(codigoValido.Id);
+
+                    throw new InvalidOperationException("Número máximo de tentativas excedido. Solicite um novo código.");
+                }
+
+                await _repository.Atualizar(codigoValido);
+
+                var restantes = codigoValido.MaximoTentativas - codigoValido.Tentativas;
+
+                throw new InvalidOperationException($"Código inválido. Tentativas restantes: {restantes}");
+            }
+            codigoValido.Usado = true;
+            await _repository.Remover(codigoValido.Id);
 
             return true;
         }
 
         public async Task MarcarComoUsadoAsync(Guid usuarioId, string codigo, VerificationCodeType tipo)
         {
-            var codigoValido = await _repository.ObterCodigoAsync(usuarioId, codigo, tipo);
+            var codigoValido = await _repository.ObterCodigoValidoAsync(usuarioId, tipo);
 
             if (codigoValido != null)
             {

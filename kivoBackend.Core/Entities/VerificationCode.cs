@@ -11,13 +11,13 @@ namespace kivoBackend.Core.Entities
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid UsuarioId { get; set; }
-        public string Codigo { get; set; }  // 6 dígitos ou token
+        public string Codigo { get; set; }
         public VerificationCodeType Tipo { get; set; }
         public bool Usado { get; set; } = false;
         public DateTime ExpiraEm { get; set; }
         public DateTime CriadoEm { get; set; } = DateTime.Now;
-
-        // Navigation
+        public int Tentativas { get; set; } = 0;
+        public int MaximoTentativas { get; set; } = 5;
         public Usuario Usuario { get; set; }
     }
 }

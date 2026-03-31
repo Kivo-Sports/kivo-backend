@@ -26,7 +26,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Swagger (J� com sua configura��o de cadeado/Authorize)
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -72,7 +72,7 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// --- CONFIGURA��O DE AUTENTICA��O JWT ---
+// --- CONFIGURAÇÃO DE AUTENTICAÇÃO JWT ---
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -99,13 +99,13 @@ builder.Services.AddAuthentication(options =>
             context.HandleResponse();
             context.Response.StatusCode = 401;
             context.Response.ContentType = "application/json";
-            return context.Response.WriteAsync("{\"message\": \"Voc� precisa estar logado para acessar este recurso.\"}");
+            return context.Response.WriteAsync("{\"message\": \"Você precisa estar logado para acessar este recurso.\"}");
         },
         OnForbidden = context =>
         {
             context.Response.StatusCode = 403;
             context.Response.ContentType = "application/json";
-            return context.Response.WriteAsync("{\"message\": \"Acesso negado: seu perfil n�o tem permiss�o para esta a��o.\"}");
+            return context.Response.WriteAsync("{\"message\": \"Acesso negado: seu perfil n�o tem permissão para esta a��o.\"}");
         }
     };
 });
@@ -139,7 +139,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Inicializa��o de Roles
+// Inicialização de Roles
 using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();

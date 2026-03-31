@@ -31,7 +31,6 @@ namespace kivoBackend.Application.Services
         {
             try
             {
-                // Obter configurações do SMTP
                 var smtpServer = _configuration["EmailSettings:SmtpServer"];
                 var smtpPort = int.Parse(_configuration["EmailSettings:SmtpPort"] ?? "587");
                 var senderEmail = _configuration["EmailSettings:SenderEmail"];
@@ -39,16 +38,13 @@ namespace kivoBackend.Application.Services
                 var senderName = _configuration["EmailSettings:SenderName"] ?? "Kivo Sports";
                 var enableSSL = bool.Parse(_configuration["EmailSettings:EnableSSL"] ?? "true");
 
-                // Validar configurações
                 if (string.IsNullOrEmpty(smtpServer) || string.IsNullOrEmpty(senderEmail) || string.IsNullOrEmpty(senderPassword))
                 {
                     throw new InvalidOperationException("Configurações de SMTP não estão completas no appsettings.json");
                 }
 
-                // Construir corpo do email com template genérico
                 var corpo = ConstruirTemplateGenerico(nomeUsuario, codigo, titulo, mensagem);
 
-                // Enviar email
                 using (var client = new SmtpClient(smtpServer, smtpPort))
                 {
                     client.EnableSsl = enableSSL;
@@ -68,9 +64,8 @@ namespace kivoBackend.Application.Services
             }
             catch (Exception ex)
             {
-                // Registrar erro (pode implementar logger depois)
                 Console.WriteLine($"Erro ao enviar email: {ex.Message}");
-                throw new InvalidOperationException($"Erro ao enviar email: {ex.Message}", ex);
+                throw new InvalidOperationException("Erro ao enviar email. Tente novamente mais tarde.");
             }
         }
 
@@ -93,50 +88,50 @@ namespace kivoBackend.Application.Services
         private string ConstruirTemplateGenerico(string nome, string codigo, string titulo, string mensagem)
         {
             return $@"
-<!DOCTYPE html>
-<html lang='pt-BR'>
-<head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background-color: #00E676; padding: 20px; text-align: center; color: white; border-radius: 5px 5px 0 0; }}
-        .content {{ background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }}
-        .code-box {{ background-color: #fff; padding: 15px; border: 2px solid #00E676; border-radius: 5px; text-align: center; margin: 20px 0; }}
-        .code {{ font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #00E676; }}
-        .footer {{ background-color: #f0f0f0; padding: 15px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 5px 5px; }}
-        .warning {{ color: #ff6b6b; font-weight: bold; }}
-    </style>
-</head>
-<body>
-    <div class='container'>
-        <div class='header'>
-            <h1>Kivo Sports</h1>
-        </div>
-        <div class='content'>
-            <p>Olá <strong>{nome}</strong>,</p>
+            <!DOCTYPE html>
+            <html lang='pt-BR'>
+            <head>
+                <meta charset='UTF-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                    .header {{ background-color: #00E676; padding: 20px; text-align: center; color: white; border-radius: 5px 5px 0 0; }}
+                    .content {{ background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }}
+                    .code-box {{ background-color: #fff; padding: 15px; border: 2px solid #00E676; border-radius: 5px; text-align: center; margin: 20px 0; }}
+                    .code {{ font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #00E676; }}
+                    .footer {{ background-color: #f0f0f0; padding: 15px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 5px 5px; }}
+                    .warning {{ color: #ff6b6b; font-weight: bold; }}
+                </style>
+            </head>
+            <body>
+                <div class='container'>
+                    <div class='header'>
+                        <h1>Kivo Sports</h1>
+                    </div>
+                    <div class='content'>
+                        <p>Olá <strong>{nome}</strong>,</p>
 
-            <p>{mensagem}</p>
+                        <p>{mensagem}</p>
 
-            <div class='code-box'>
-                <p style='margin: 0; font-size: 14px; color: #666;'>Seu código de verificação:</p>
-                <div class='code'>{codigo}</div>
-            </div>
+                        <div class='code-box'>
+                            <p style='margin: 0; font-size: 14px; color: #666;'>Seu código de verificação:</p>
+                            <div class='code'>{codigo}</div>
+                        </div>
 
-            <p><strong>⏱ Este código expira em alguns minutos.</strong></p>
+                        <p><strong>⏱ Este código expira em 5 minutos.</strong></p>
 
-            <p class='warning'>⚠️ Se você não solicitou isto, ignore este email. Este é um email automático, não responda.</p>
+                        <p class='warning'>⚠️ Se você não solicitou isto, ignore este email. Este é um email automático, não responda.</p>
 
-            <p>Dúvidas? Entre em contato com nosso suporte em support@kivo.com</p>
-        </div>
-        <div class='footer'>
-            <p>&copy; 2026 Kivo Sports. Todos os direitos reservados.</p>
-        </div>
-    </div>
-</body>
-</html>
-";
+                        <p>Dúvidas? Entre em contato com nosso suporte em kivosportsuporte@gmail.com</p>
+                    </div>
+                    <div class='footer'>
+                        <p>&copy; 2026 Kivo Sports. Todos os direitos reservados.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            ";
         }
 
         /// <summary>
@@ -145,50 +140,50 @@ namespace kivoBackend.Application.Services
         private string ConstruirCorpoEmail(string nomeUsuario, string codigo)
         {
             return $@"
-<!DOCTYPE html>
-<html lang='pt-BR'>
-<head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background-color: #00E676; padding: 20px; text-align: center; color: white; border-radius: 5px 5px 0 0; }}
-        .content {{ background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }}
-        .code-box {{ background-color: #fff; padding: 15px; border: 2px solid #00E676; border-radius: 5px; text-align: center; margin: 20px 0; }}
-        .code {{ font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #00E676; }}
-        .footer {{ background-color: #f0f0f0; padding: 15px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 5px 5px; }}
-        .warning {{ color: #ff6b6b; font-weight: bold; }}
-    </style>
-</head>
-<body>
-    <div class='container'>
-        <div class='header'>
-            <h1>Kivo Sports</h1>
-        </div>
-        <div class='content'>
-            <p>Olá <strong>{nomeUsuario}</strong>,</p>
+            <!DOCTYPE html>
+            <html lang='pt-BR'>
+            <head>
+                <meta charset='UTF-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                    .header {{ background-color: #00E676; padding: 20px; text-align: center; color: white; border-radius: 5px 5px 0 0; }}
+                    .content {{ background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }}
+                    .code-box {{ background-color: #fff; padding: 15px; border: 2px solid #00E676; border-radius: 5px; text-align: center; margin: 20px 0; }}
+                    .code {{ font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #00E676; }}
+                    .footer {{ background-color: #f0f0f0; padding: 15px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 5px 5px; }}
+                    .warning {{ color: #ff6b6b; font-weight: bold; }}
+                </style>
+            </head>
+            <body>
+                <div class='container'>
+                    <div class='header'>
+                        <h1>Kivo Sports</h1>
+                    </div>
+                    <div class='content'>
+                        <p>Olá <strong>{nomeUsuario}</strong>,</p>
 
-            <p>Recebemos uma solicitação para reativar sua conta no Kivo Sports. Para confirmar sua identidade e reativar a conta, use o código abaixo:</p>
+                        <p>Recebemos uma solicitação para reativar sua conta no Kivo Sports. Para confirmar sua identidade e reativar a conta, use o código abaixo:</p>
 
-            <div class='code-box'>
-                <p style='margin: 0; font-size: 14px; color: #666;'>Seu código de reativação:</p>
-                <div class='code'>{codigo}</div>
-            </div>
+                        <div class='code-box'>
+                            <p style='margin: 0; font-size: 14px; color: #666;'>Seu código de reativação:</p>
+                            <div class='code'>{codigo}</div>
+                        </div>
 
-            <p><strong>⏱ Este código expira em 5 minutos.</strong></p>
+                        <p><strong>⏱ Este código expira em 5 minutos.</strong></p>
 
-            <p class='warning'>⚠️ Se você não solicitou reativar sua conta, ignore este email. Este é um email automático, não responda.</p>
+                        <p class='warning'>⚠️ Se você não solicitou reativar sua conta, ignore este email. Este é um email automático, não responda.</p>
 
-            <p>Dúvidas? Entre em contato com nosso suporte em support@kivo.com</p>
-        </div>
-        <div class='footer'>
-            <p>&copy; 2026 Kivo Sports. Todos os direitos reservados.</p>
-        </div>
-    </div>
-</body>
-</html>
-";
+                        <p>Dúvidas? Entre em contato com nosso suporte em support@kivo.com</p>
+                    </div>
+                    <div class='footer'>
+                        <p>&copy; 2026 Kivo Sports. Todos os direitos reservados.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            ";
         }
     }
 }
