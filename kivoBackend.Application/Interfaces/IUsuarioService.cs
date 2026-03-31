@@ -20,5 +20,7 @@ namespace kivoBackend.Application.Interfaces
         void InicializarPerfilPorCargo(Usuario usuario);
         Task DesativarConta(Usuario usuario);
         Task AtivarConta(Guid id);
+        Task GerarCodigoReativacao(string email);
+        Task ConfirmarReativacao(string email, string codigo);
     }
 }

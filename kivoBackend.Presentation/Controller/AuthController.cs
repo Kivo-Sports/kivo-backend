@@ -1,7 +1,7 @@
 ﻿using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Application.Services;
-using kivoBackend.Core.Entities; 
+using kivoBackend.Core.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -65,6 +65,66 @@ namespace kivoBackend.Presentation.Controller
                     usuarioKivo.Id
                 }
             });
+        }
+
+        /// <summary>
+        /// Endpoint para solicitar envio de código de reativação por email
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("enviar-codigo-reativacao")]
+        public async Task<IActionResult> EnviarCodigoReativacao([FromBody] EnviarCodigoReativacaoDTO dto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(new { message = "Email inválido" });
+
+                await _usuarioService.GerarCodigoReativacao(dto.Email);
+
+                return Ok(new { message = "Código de reativação enviado com sucesso para o email fornecido" });
+            }
+            catch (KeyNotFoundException)
+            {
+                return BadRequest(new { message = "Usuário não encontrado" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Erro ao enviar código: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Endpoint para confirmar reativação de conta com código de 6 dígitos
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("confirmar-reativacao")]
+        public async Task<IActionResult> ConfirmarReativacao([FromBody] ConfirmarReativacaoDTO dto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(new { message = "Dados inválidos" });
+
+                await _usuarioService.ConfirmarReativacao(dto.Email, dto.Codigo);
+
+                return Ok(new { message = "Conta reativada com sucesso! Você já pode fazer login" });
+            }
+            catch (KeyNotFoundException)
+            {
+                return BadRequest(new { message = "Usuário não encontrado" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Erro ao confirmar reativação: {ex.Message}" });
+            }
         }
     }
 }

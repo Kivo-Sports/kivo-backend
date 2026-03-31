@@ -16,14 +16,21 @@ namespace kivoBackend.Application.Services
         private readonly IRepositoryGenerics<Usuario> _repositoryGenerics;
         private readonly IRepositoryUsuario _usuarioRepository;
         private readonly UserManager<IdentityUser> _userManager;
+        private readonly IEmailService _emailService;
+        private readonly IRepositoryGenerics<CodigoReativacao> _codigoRepository;
+        private readonly IVerificationCodeService _verificationCodeService;
 
-        public UsuarioService(IRepositoryGenerics<Usuario> repositoryGenerics, IRepositoryUsuario usuarioRepository, 
-            UserManager<IdentityUser> userManager) : base(repositoryGenerics)
+        public UsuarioService(IRepositoryGenerics<Usuario> repositoryGenerics, IRepositoryUsuario usuarioRepository,
+            UserManager<IdentityUser> userManager, IEmailService emailService, IRepositoryGenerics<CodigoReativacao> codigoRepository,
+            IVerificationCodeService verificationCodeService)
+            : base(repositoryGenerics)
         {
             _repositoryGenerics = repositoryGenerics;
             _usuarioRepository = usuarioRepository;
             _userManager = userManager;
-
+            _emailService = emailService;
+            _codigoRepository = codigoRepository;
+            _verificationCodeService = verificationCodeService;
         }
 
         public async Task AtivarConta(Guid id)
@@ -243,6 +250,82 @@ namespace kivoBackend.Application.Services
         public async Task<Usuario?> ObterUsuarioPorEmail(string email)
         {
             return await _usuarioRepository.ObterUsuarioPorEmail(email);
+        }
+
+        /// <summary>
+        /// Gera um código de 6 dígitos para reativação de conta e envia por email
+        /// </summary>
+        public async Task GerarCodigoReativacao(string email)
+        {
+            // Obter usuário pelo email
+            var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
+            if (usuario == null)
+            {
+                throw new KeyNotFoundException("Usuário não encontrado.");
+            }
+
+            // Verificar se conta está ativa (se estiver, não precisa reativar)
+            if (usuario.Ativo)
+            {
+                throw new InvalidOperationException("Esta conta já está ativa.");
+            }
+
+            // Gerar código usando o serviço genérico
+            var codigo = await _verificationCodeService.GerarCodigoAsync(
+                usuario.Id,
+                VerificationCodeType.AccountReactivation,
+                duracao: 5
+            );
+
+            // Enviar email com código
+            await _emailService.EnviarEmailComCodigoAsync(
+                usuario.Email,
+                usuario.Nome,
+                codigo,
+                "Código de Reativação da Sua Conta",
+                "Recebemos uma solicitação para reativar sua conta. Use o código abaixo para confirmar sua identidade:"
+            );
+        }
+
+        /// <summary>
+        /// Confirma a reativação usando o código recebido por email
+        /// </summary>
+        public async Task ConfirmarReativacao(string email, string codigo)
+        {
+            // Obter usuário pelo email
+            var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
+            if (usuario == null)
+            {
+                throw new KeyNotFoundException("Usuário não encontrado.");
+            }
+
+            // Verificar se conta já está ativa
+            if (usuario.Ativo)
+            {
+                throw new InvalidOperationException("Esta conta já está ativa.");
+            }
+
+            // Validar código usando o serviço genérico
+            bool valido = await _verificationCodeService.ValidarCodigoAsync(
+                usuario.Id,
+                codigo,
+                VerificationCodeType.AccountReactivation
+            );
+
+            if (!valido)
+            {
+                throw new InvalidOperationException("Código inválido ou expirado.");
+            }
+
+            // Marcar código como usado
+            await _verificationCodeService.MarcarComoUsadoAsync(
+                usuario.Id,
+                codigo,
+                VerificationCodeType.AccountReactivation
+            );
+
+            // Ativar conta
+            await AtivarConta(usuario.Id);
         }
     }
 }
