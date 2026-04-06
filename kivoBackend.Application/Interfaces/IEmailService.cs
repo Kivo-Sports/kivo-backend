@@ -8,7 +8,6 @@ namespace kivoBackend.Application.Interfaces
     public interface IEmailService
     {
         /// <summary>
-        /// Envia email genérico com código de verificação
         /// </summary>
         /// <param name="destinatario">Email do destinatário</param>
         /// <param name="nomeUsuario">Nome do usuário (para personalizar o email)</param>
@@ -23,7 +22,7 @@ namespace kivoBackend.Application.Interfaces
             string mensagem);
 
         /// <summary>
-        /// Envia email com código de reativação (método mantido para compatibilidade)
+        /// Envia email com código de reativação
         /// </summary>
         Task EnviarCodigoReativacaoAsync(string destinatario, string nomeUsuario, string codigo);
     }

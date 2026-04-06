@@ -214,7 +214,6 @@ namespace kivoBackend.Application.Services
                     break;
 
                 case EnumCargo.Administrador:
-                    // Admin users don't need a separate profile entity
                     break;
 
                 default: throw new ArgumentException("Cargo inválido.");
@@ -287,33 +286,28 @@ namespace kivoBackend.Application.Services
         /// </summary>
         public async Task GerarCodigoReativacao(string email)
         {
-            // Obter usuário pelo email
             var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
             if (usuario == null)
             {
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
-            // Validar que não é admin
             if (usuario.EnumCargo == EnumCargo.Administrador)
             {
                 throw new InvalidOperationException("Contas de administrador não podem ser reativadas via email. Use o painel de controle de admins.");
             }
 
-            // Verificar se conta está ativa (se estiver, não precisa reativar)
             if (usuario.Ativo)
             {
                 throw new InvalidOperationException("Esta conta já está ativa.");
             }
 
-            // Gerar código usando o serviço genérico
             var codigo = await _verificationCodeService.GerarCodigoAsync(
                 usuario.Id,
                 VerificationCodeType.AccountReactivation,
                 duracao: 5
             );
 
-            // Enviar email com código
             await _emailService.EnviarEmailComCodigoAsync(
                 usuario.Email,
                 usuario.Nome,
@@ -328,20 +322,17 @@ namespace kivoBackend.Application.Services
         /// </summary>
         public async Task ConfirmarReativacao(string email, string codigo)
         {
-            // Obter usuário pelo email
             var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
             if (usuario == null)
             {
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
-            // Verificar se conta já está ativa
             if (usuario.Ativo)
             {
                 throw new InvalidOperationException("Esta conta já está ativa.");
             }
 
-            // Validar código usando o serviço genérico
             bool valido = await _verificationCodeService.ValidarCodigoAsync(
                 usuario.Id,
                 codigo,
@@ -353,14 +344,12 @@ namespace kivoBackend.Application.Services
                 throw new InvalidOperationException("Código inválido ou expirado.");
             }
 
-            // Marcar código como usado
             await _verificationCodeService.MarcarComoUsadoAsync(
                 usuario.Id,
                 codigo,
                 VerificationCodeType.AccountReactivation
             );
 
-            // Ativar conta
             await AtivarConta(usuario.Id);
         }
 
@@ -369,21 +358,18 @@ namespace kivoBackend.Application.Services
         /// </summary>
         public async Task GerarCodigoRecuperacaoSenha(string email)
         {
-            // Obter usuário pelo email
             var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
             if (usuario == null)
             {
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
-            // Gerar código usando o serviço genérico
             var codigo = await _verificationCodeService.GerarCodigoAsync(
                 usuario.Id,
                 VerificationCodeType.PasswordReset,
                 duracao: 5
             );
 
-            // Enviar email com código
             await _emailService.EnviarEmailComCodigoAsync(
                 usuario.Email,
                 usuario.Nome,
@@ -398,14 +384,12 @@ namespace kivoBackend.Application.Services
         /// </summary>
         public async Task ConfirmarRecuperacaoSenha(string email, string codigo, string novaSenha)
         {
-            // Obter usuário pelo email
             var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
             if (usuario == null)
             {
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
-            // Validar código usando o serviço genérico
             bool valido = await _verificationCodeService.ValidarCodigoAsync(
                 usuario.Id,
                 codigo,
@@ -417,14 +401,12 @@ namespace kivoBackend.Application.Services
                 throw new InvalidOperationException("Código inválido ou expirado.");
             }
 
-            // Marcar código como usado
             await _verificationCodeService.MarcarComoUsadoAsync(
                 usuario.Id,
                 codigo,
                 VerificationCodeType.PasswordReset
             );
 
-            // Atualizar senha no Identity
             var identityUser = await _userManager.FindByEmailAsync(email);
             if (identityUser != null)
             {
@@ -438,7 +420,6 @@ namespace kivoBackend.Application.Services
                 }
             }
 
-            // Se conta estava desativada, ativar
             if (!usuario.Ativo)
             {
                 await AtivarConta(usuario.Id);
@@ -450,28 +431,24 @@ namespace kivoBackend.Application.Services
         /// </summary>
         public async Task RedefinirSenha(string email, string senhaAtual, string novaSenha)
         {
-            // Obter usuário pelo email
             var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
             if (usuario == null)
             {
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
-            // Obter IdentityUser
             var identityUser = await _userManager.FindByEmailAsync(email);
             if (identityUser == null)
             {
                 throw new KeyNotFoundException("Usuário não encontrado no sistema de autenticação.");
             }
 
-            // Validar senha atual
             var senhaValida = await _userManager.CheckPasswordAsync(identityUser, senhaAtual);
             if (!senhaValida)
             {
                 throw new InvalidOperationException("Senha atual incorreta.");
             }
 
-            // Atualizar para nova senha
             var result = await _userManager.ChangePasswordAsync(identityUser, senhaAtual, novaSenha);
 
             if (!result.Succeeded)

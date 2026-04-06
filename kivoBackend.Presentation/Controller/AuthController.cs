@@ -201,7 +201,6 @@ namespace kivoBackend.Presentation.Controller
                 if (!ModelState.IsValid)
                     return BadRequest(new { message = "Dados inválidos" });
 
-                // Obter email do usuário autenticado do token JWT
                 var email = User.FindFirst(ClaimTypes.Email)?.Value;
                 if (string.IsNullOrEmpty(email))
                     return Unauthorized(new { message = "Email não encontrado no token" });
