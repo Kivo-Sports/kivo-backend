@@ -14,7 +14,7 @@ namespace kivoBackend.Core.Entities
         public string Banco { get; set; }
         public string Agencia { get; set; }
         public string Conta { get; set; }
-        public string Tipo { get; set; }
+        public string? Tipo { get; set; }
         public string ChavePix { get; set; }
 
         public OrganizadorCampeonato OrganizadorCampeonato { get; set; }

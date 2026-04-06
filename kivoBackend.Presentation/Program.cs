@@ -1,15 +1,63 @@
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Application.Services;
 using kivoBackend.Core.Interfaces;
+using kivoBackend.Core.Entities;
+using kivoBackend.Core.Enums;
 using kivoBackend.Infrastructure.Data;
 using kivoBackend.Infrastructure.Repositories;
+using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
+// Carregar variáveis de ambiente do arquivo .env
+var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+if (File.Exists(envPath))
+{
+    Env.Load(envPath);
+}
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Adicionar variáveis de ambiente ao Configuration
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
+// Substituir placeholders de variáveis de ambiente no appsettings
+var config = builder.Configuration;
+var dbConnection = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
+    ?? "Server=localhost\\SQLEXPRESS;Database=KivoDb;Trusted_Connection=True;TrustServerCertificate=True;";
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? "KivoSports_Chave_Super_Secreta_2026_@!";
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "kivoBackend";
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "kivoFrontEnd";
+
+// Override da connection string
+builder.Configuration["ConnectionStrings:DefaultConnection"] = dbConnection;
+builder.Configuration["Jwt:Key"] = jwtKey;
+builder.Configuration["Jwt:Issuer"] = jwtIssuer;
+builder.Configuration["Jwt:Audience"] = jwtAudience;
+
+// Override das configurações de Email
+var smtpServer = Environment.GetEnvironmentVariable("SMTP_SERVER") ?? "smtp.gmail.com";
+var smtpPort = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
+var senderEmail = Environment.GetEnvironmentVariable("SENDER_EMAIL") ?? "kivosportsuporte@gmail.com";
+var senderPassword = Environment.GetEnvironmentVariable("SENDER_PASSWORD") ?? "";
+var senderName = Environment.GetEnvironmentVariable("SENDER_NAME") ?? "Kivo Sports";
+var enableSSL = Environment.GetEnvironmentVariable("ENABLE_SSL") ?? "true";
+
+builder.Configuration["EmailSettings:SmtpServer"] = smtpServer;
+builder.Configuration["EmailSettings:SmtpPort"] = smtpPort;
+builder.Configuration["EmailSettings:SenderEmail"] = senderEmail;
+builder.Configuration["EmailSettings:SenderPassword"] = senderPassword;
+builder.Configuration["EmailSettings:SenderName"] = senderName;
+builder.Configuration["EmailSettings:EnableSSL"] = enableSSL;
+
+// Override do CORS
+var corsOrigins = Environment.GetEnvironmentVariable("CORS_ORIGINS") ?? "http://localhost:3000,http://localhost:3001";
+builder.Configuration["CORS_ORIGINS"] = corsOrigins;
 
 // Controllers
 builder.Services.AddControllers();
@@ -17,9 +65,10 @@ builder.Services.AddControllers();
 // CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", builder =>
+    var origins = builder.Configuration["CORS_ORIGINS"]?.Split(',') ?? new[] { "http://localhost:3000", "http://localhost:3001" };
+    options.AddPolicy("AllowFrontend", corsBuilder =>
     {
-        builder.WithOrigins("http://localhost:3000", "http://localhost:3001")
+        corsBuilder.WithOrigins(origins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -57,7 +106,14 @@ builder.Services.AddSwaggerGen(c =>
 
 // DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions =>
+        {
+            sqlOptions.CommandTimeout(60);
+            sqlOptions.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
+        }
+    )
 );
 
 // Identity
@@ -139,17 +195,60 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Inicialização de Roles
+// Inicialização de Roles e Usuário Admin
 using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+    var usuarioRepository = scope.ServiceProvider.GetRequiredService<IRepositoryGenerics<Usuario>>();
+
     var roles = new[] { "Administrador", "Torcedor", "OrganizadorTime", "OrganizadorCampeonato" };
 
+    // Criar roles
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
         {
             await roleManager.CreateAsync(new IdentityRole(role));
+        }
+    }
+
+    // Criar usuário admin padrão
+    var adminEmail = "admin@kivo.com";
+    var adminUser = await userManager.FindByEmailAsync(adminEmail);
+
+    if (adminUser == null)
+    {
+        // 1. Criar IdentityUser
+        var newAdmin = new IdentityUser
+        {
+            UserName = adminEmail,
+            Email = adminEmail,
+            EmailConfirmed = true
+        };
+
+        var result = await userManager.CreateAsync(newAdmin, "Admin@123456");
+
+        if (result.Succeeded)
+        {
+            // 2. Adicionar role
+            await userManager.AddToRoleAsync(newAdmin, "Administrador");
+
+            // 3. Criar usuário na tabela Kivo
+            var usuarioAdmin = new Usuario
+            {
+                Id = Guid.NewGuid(),
+                Nome = "Administrador",
+                Email = adminEmail,
+                Cpf = "00000000000",
+                Telefone = "",
+                DataNascimento = new DateTime(2000, 1, 1),
+                EnumCargo = EnumCargo.Administrador,
+                Ativo = true,
+                CriadoEm = DateTime.Now
+            };
+
+            await usuarioRepository.Adicionar(usuarioAdmin);
         }
     }
 }

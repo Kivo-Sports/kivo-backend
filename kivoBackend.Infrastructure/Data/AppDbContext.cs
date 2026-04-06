@@ -16,7 +16,6 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<Torcedor> Torcedores { get; set; }
         public DbSet<OrganizadorTime> OrganizadoresTime { get; set; }
         public DbSet<OrganizadorCampeonato> OrganizadoresCampeonato { get; set; }
-        public DbSet<Administrador> Administradores { get; set; }
         public DbSet<Endereco> Enderecos { get; set; }
         public DbSet<ContaBanco> ContasBanco { get; set; }
         public DbSet<Time> Times { get; set; }
@@ -52,12 +51,6 @@ namespace kivoBackend.Infrastructure.Data
                 .HasOne(o => o.Usuario)
                 .WithOne(u => u.OrganizadorCampeonato)
                 .HasForeignKey<OrganizadorCampeonato>(o => o.UsuarioId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<Administrador>()
-                .HasOne(a => a.Usuario)
-                .WithOne(u => u.Administrador)
-                .HasForeignKey<Administrador>(a => a.UsuarioId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Relacionamentos com Endereço (Um para Um para cada perfil)

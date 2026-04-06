@@ -23,7 +23,6 @@ namespace kivoBackend.Core.Entities
         public Torcedor Torcedor { get; set; }
         public OrganizadorTime OrganizadorTime { get; set; }
         public OrganizadorCampeonato OrganizadorCampeonato { get; set; }
-        public Administrador Administrador { get; set; }
 
     }
 }

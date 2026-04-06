@@ -5,6 +5,7 @@ using kivoBackend.Core.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace kivoBackend.Presentation.Controller
 {
@@ -124,6 +125,102 @@ namespace kivoBackend.Presentation.Controller
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = $"Erro ao confirmar reativação: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Endpoint para solicitar envio de código de recuperação de senha
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("enviar-codigo-recuperacao-senha")]
+        public async Task<IActionResult> EnviarCodigoRecuperacaoSenha([FromBody] EnviarCodigoRecuperacaoSenhaDTO dto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(new { message = "Email inválido" });
+
+                await _usuarioService.GerarCodigoRecuperacaoSenha(dto.Email);
+
+                return Ok(new { message = "Código de recuperação enviado com sucesso para o email fornecido" });
+            }
+            catch (KeyNotFoundException)
+            {
+                return BadRequest(new { message = "Usuário não encontrado" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Erro ao enviar código: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Endpoint para confirmar recuperação de senha com código de 6 dígitos + nova senha
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("confirmar-recuperacao-senha")]
+        public async Task<IActionResult> ConfirmarRecuperacaoSenha([FromBody] ConfirmarRecuperacaoSenhaDTO dto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(new { message = "Dados inválidos" });
+
+                await _usuarioService.ConfirmarRecuperacaoSenha(dto.Email, dto.Codigo, dto.NovaSenha);
+
+                return Ok(new { message = "Senha atualizada com sucesso! Você já pode fazer login com a nova senha" });
+            }
+            catch (KeyNotFoundException)
+            {
+                return BadRequest(new { message = "Usuário não encontrado" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Erro ao confirmar recuperação: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Endpoint para redefinir senha de usuário autenticado
+        /// Requer token JWT válido e senha atual para validação
+        /// </summary>
+        [Authorize]
+        [HttpPost("redefinir-senha")]
+        public async Task<IActionResult> RedefinirSenha([FromBody] RedefinirSenhaDTO dto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(new { message = "Dados inválidos" });
+
+                // Obter email do usuário autenticado do token JWT
+                var email = User.FindFirst(ClaimTypes.Email)?.Value;
+                if (string.IsNullOrEmpty(email))
+                    return Unauthorized(new { message = "Email não encontrado no token" });
+
+                await _usuarioService.RedefinirSenha(email, dto.SenhaAtual, dto.NovaSenha);
+
+                return Ok(new { message = "Senha atualizada com sucesso!" });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { message = "Usuário não encontrado" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Erro ao redefinir senha: {ex.Message}" });
             }
         }
     }

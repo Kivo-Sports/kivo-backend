@@ -9,5 +9,7 @@ namespace kivoBackend.Application.DTO
     public class CriarTorcedorDto : UsuarioDTO
     {
         public EnderecoDto Endereco { get; set; }
+        // ContaBanco é aceito mas ignorado para torcedor (apenas para campeonato)
+        public ContaBancoDTO? ContaBanco { get; set; }
     }
 }

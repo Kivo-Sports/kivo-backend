@@ -62,5 +62,12 @@ namespace kivoBackend.Infrastructure.Repositories
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
                 .ToListAsync();
         }
+
+        public async Task<IEnumerable<Usuario>> ObterAdministradores()
+        {
+            return await _context.Usuarios
+                .Where(u => u.EnumCargo == kivoBackend.Core.Enums.EnumCargo.Administrador)
+                .ToListAsync();
+        }
     }
 }

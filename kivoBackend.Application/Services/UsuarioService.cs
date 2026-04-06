@@ -62,10 +62,24 @@ namespace kivoBackend.Application.Services
                 throw new ArgumentException("O CPF é obrigatório.");
             }
 
+            if (string.IsNullOrWhiteSpace(usuario.Email))
+            {
+                throw new ArgumentException("O e-mail é obrigatório.");
+            }
+
+            usuario.Email = usuario.Email.Trim();
+
             var usuarioExistente = await ObterUsuarioPorCpf(usuario.Cpf);
             if(usuarioExistente != null)
             {
                 throw new InvalidOperationException("Já existe um usuário com este CPF.");
+            }
+
+            var identityComMesmoEmail = await _userManager.FindByEmailAsync(usuario.Email);
+            var identityComMesmoUserName = await _userManager.FindByNameAsync(usuario.Email);
+            if (identityComMesmoEmail != null || identityComMesmoUserName != null)
+            {
+                throw new InvalidOperationException("Já existe um usuário com este e-mail.");
             }
 
             var identityUser = new IdentityUser
@@ -179,22 +193,28 @@ namespace kivoBackend.Application.Services
             switch (usuario.EnumCargo)
             {
                 case EnumCargo.Torcedor:
-                    usuario.Torcedor ??= new Torcedor { Id = Guid.NewGuid(), UsuarioId = usuario.Id };
+                    if (usuario.Torcedor == null)
+                        usuario.Torcedor = new Torcedor { Id = Guid.NewGuid(), UsuarioId = usuario.Id };
+                    else
+                        usuario.Torcedor.UsuarioId = usuario.Id;
                     break;
 
                 case EnumCargo.OrganizadorTime:
-                    usuario.OrganizadorTime ??= new OrganizadorTime { Id = Guid.NewGuid(), UsuarioId = usuario.Id };
-                    usuario.OrganizadorTime.UsuarioId = usuario.Id;
+                    if (usuario.OrganizadorTime == null)
+                        usuario.OrganizadorTime = new OrganizadorTime { Id = Guid.NewGuid(), UsuarioId = usuario.Id };
+                    else
+                        usuario.OrganizadorTime.UsuarioId = usuario.Id;
                     break;
 
                 case EnumCargo.OrganizadorCampeonato:
-                    usuario.OrganizadorCampeonato ??= new OrganizadorCampeonato { Id = Guid.NewGuid(), UsuarioId = usuario.Id };
-                    usuario.OrganizadorCampeonato.UsuarioId = usuario.Id;
+                    if (usuario.OrganizadorCampeonato == null)
+                        usuario.OrganizadorCampeonato = new OrganizadorCampeonato { Id = Guid.NewGuid(), UsuarioId = usuario.Id };
+                    else
+                        usuario.OrganizadorCampeonato.UsuarioId = usuario.Id;
                     break;
 
                 case EnumCargo.Administrador:
-                    usuario.Administrador ??= new Administrador { Id = Guid.NewGuid(), UsuarioId = usuario.Id };
-                    usuario.Administrador.UsuarioId = usuario.Id;
+                    // Admin users don't need a separate profile entity
                     break;
 
                 default: throw new ArgumentException("Cargo inválido.");
@@ -209,6 +229,16 @@ namespace kivoBackend.Application.Services
                 throw new KeyNotFoundException("Nenhum usuário encontrado.");
             }
             return usuarios;
+        }
+
+        public async Task<IEnumerable<Usuario>> ObterAdministradores()
+        {
+            var admins = await _usuarioRepository.ObterAdministradores();
+            if (admins == null || !admins.Any())
+            {
+                throw new KeyNotFoundException("Nenhum administrador encontrado.");
+            }
+            return admins;
         }
 
         public async Task<Usuario?> ObterUsuarioPorCpf(string cpf)
@@ -262,6 +292,12 @@ namespace kivoBackend.Application.Services
             if (usuario == null)
             {
                 throw new KeyNotFoundException("Usuário não encontrado.");
+            }
+
+            // Validar que não é admin
+            if (usuario.EnumCargo == EnumCargo.Administrador)
+            {
+                throw new InvalidOperationException("Contas de administrador não podem ser reativadas via email. Use o painel de controle de admins.");
             }
 
             // Verificar se conta está ativa (se estiver, não precisa reativar)
@@ -326,6 +362,156 @@ namespace kivoBackend.Application.Services
 
             // Ativar conta
             await AtivarConta(usuario.Id);
+        }
+
+        /// <summary>
+        /// Gera um código de 6 dígitos para recuperação de senha e envia por email
+        /// </summary>
+        public async Task GerarCodigoRecuperacaoSenha(string email)
+        {
+            // Obter usuário pelo email
+            var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
+            if (usuario == null)
+            {
+                throw new KeyNotFoundException("Usuário não encontrado.");
+            }
+
+            // Gerar código usando o serviço genérico
+            var codigo = await _verificationCodeService.GerarCodigoAsync(
+                usuario.Id,
+                VerificationCodeType.PasswordReset,
+                duracao: 5
+            );
+
+            // Enviar email com código
+            await _emailService.EnviarEmailComCodigoAsync(
+                usuario.Email,
+                usuario.Nome,
+                codigo,
+                "Código de Recuperação de Senha",
+                "Recebemos uma solicitação para recuperar sua senha. Use o código abaixo para confirmar sua identidade:"
+            );
+        }
+
+        /// <summary>
+        /// Confirma a recuperação de senha usando o código recebido por email e atualiza a senha
+        /// </summary>
+        public async Task ConfirmarRecuperacaoSenha(string email, string codigo, string novaSenha)
+        {
+            // Obter usuário pelo email
+            var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
+            if (usuario == null)
+            {
+                throw new KeyNotFoundException("Usuário não encontrado.");
+            }
+
+            // Validar código usando o serviço genérico
+            bool valido = await _verificationCodeService.ValidarCodigoAsync(
+                usuario.Id,
+                codigo,
+                VerificationCodeType.PasswordReset
+            );
+
+            if (!valido)
+            {
+                throw new InvalidOperationException("Código inválido ou expirado.");
+            }
+
+            // Marcar código como usado
+            await _verificationCodeService.MarcarComoUsadoAsync(
+                usuario.Id,
+                codigo,
+                VerificationCodeType.PasswordReset
+            );
+
+            // Atualizar senha no Identity
+            var identityUser = await _userManager.FindByEmailAsync(email);
+            if (identityUser != null)
+            {
+                var resetToken = await _userManager.GeneratePasswordResetTokenAsync(identityUser);
+                var result = await _userManager.ResetPasswordAsync(identityUser, resetToken, novaSenha);
+
+                if (!result.Succeeded)
+                {
+                    var erros = string.Join(", ", result.Errors.Select(e => e.Description));
+                    throw new InvalidOperationException($"Erro ao atualizar senha: {erros}");
+                }
+            }
+
+            // Se conta estava desativada, ativar
+            if (!usuario.Ativo)
+            {
+                await AtivarConta(usuario.Id);
+            }
+        }
+
+        /// <summary>
+        /// Redefinir senha de usuário autenticado (requer senha atual)
+        /// </summary>
+        public async Task RedefinirSenha(string email, string senhaAtual, string novaSenha)
+        {
+            // Obter usuário pelo email
+            var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
+            if (usuario == null)
+            {
+                throw new KeyNotFoundException("Usuário não encontrado.");
+            }
+
+            // Obter IdentityUser
+            var identityUser = await _userManager.FindByEmailAsync(email);
+            if (identityUser == null)
+            {
+                throw new KeyNotFoundException("Usuário não encontrado no sistema de autenticação.");
+            }
+
+            // Validar senha atual
+            var senhaValida = await _userManager.CheckPasswordAsync(identityUser, senhaAtual);
+            if (!senhaValida)
+            {
+                throw new InvalidOperationException("Senha atual incorreta.");
+            }
+
+            // Atualizar para nova senha
+            var result = await _userManager.ChangePasswordAsync(identityUser, senhaAtual, novaSenha);
+
+            if (!result.Succeeded)
+            {
+                var erros = string.Join(", ", result.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Erro ao atualizar senha: {erros}");
+            }
+        }
+
+        /// <summary>
+        /// Verificar se email já existe no banco de dados
+        /// </summary>
+        public async Task<bool> VerificarEmailExiste(string email)
+        {
+            if (string.IsNullOrEmpty(email))
+                return false;
+
+            var emailNormalizado = email.ToLower().Trim();
+            var usuario = await _usuarioRepository.ObterUsuarioPorEmail(emailNormalizado);
+            if (usuario != null)
+                return true;
+
+            var identityUser = await _userManager.FindByEmailAsync(emailNormalizado);
+            if (identityUser != null)
+                return true;
+
+            identityUser = await _userManager.FindByNameAsync(emailNormalizado);
+            return identityUser != null;
+        }
+
+        /// <summary>
+        /// Verificar se CPF já existe no banco de dados
+        /// </summary>
+        public async Task<bool> VerificarCpfExiste(string cpf)
+        {
+            if (string.IsNullOrEmpty(cpf))
+                return false;
+
+            var usuario = await _usuarioRepository.ObterUsuarioPorCpf(cpf);
+            return usuario != null;
         }
     }
 }
