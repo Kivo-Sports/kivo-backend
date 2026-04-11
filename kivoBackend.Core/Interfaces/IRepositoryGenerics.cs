@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -14,5 +15,6 @@ namespace kivoBackend.Core.Interfaces
         Task<T> Adicionar(T entidade);
         Task Atualizar(T entidade);
         Task Remover(Guid id);
+        Task<IEnumerable<T>> ObterTodosComIncludes(params Expression<Func<T, object>>[] includes);
     }
 }
