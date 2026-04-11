@@ -81,7 +81,7 @@ namespace kivoBackend.Infrastructure.Data
 
             // Configuração da Tabela de Associação (N:N) Campeonato <-> Time
             modelBuilder.Entity<CampeonatoTime>()
-                .HasKey(ct => new { ct.CampeonatoId, ct.TimeId });
+                .HasKey(ct => ct.Id);
 
             modelBuilder.Entity<CampeonatoTime>()
                 .HasOne(ct => ct.Campeonato)

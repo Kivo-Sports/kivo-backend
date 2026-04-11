@@ -175,6 +175,10 @@ builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
 builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
+builder.Services.AddScoped<ITimeService, TimeService>();
+builder.Services.AddScoped<ICampeonatoService, CampeonatoService>();
+builder.Services.AddScoped<IRepositoryCampeonato, RepositoryCampeonato>();
+builder.Services.AddScoped<IRepositoryTime, RepositoryTime>();
 
 var app = builder.Build();
 
