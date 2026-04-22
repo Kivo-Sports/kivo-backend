@@ -335,6 +335,8 @@ namespace kivoBackend.Presentation.Controller
                     break;
 
                 case EnumCargo.OrganizadorCampeonato:
+                    dto.OrganizadorCampeonatoId = u.OrganizadorCampeonato?.Id;
+
                     if (u.OrganizadorCampeonato?.Endereco != null)
                         dto.Endereco = MapearEnderecoParaDto(u.OrganizadorCampeonato.Endereco);
 

@@ -13,9 +13,16 @@ namespace kivoBackend.Application.Services
     public class CampeonatoService : ServiceGenerics<Campeonato>, ICampeonatoService
     {
         private readonly IRepositoryGenerics<CampeonatoTime> _CampeonatoTimeRepository;
+        private readonly IRepositoryGenerics<Campeonato> _campeonatoRepository;
         public CampeonatoService(IRepositoryGenerics<Campeonato> repositoryGenerics, IRepositoryGenerics<CampeonatoTime> CampeonatoTimeRepository, IRepositoryCampeonato RepositoryCampeonato) : base(repositoryGenerics)
         {
             _CampeonatoTimeRepository = CampeonatoTimeRepository;
+            _campeonatoRepository = repositoryGenerics;
+        }
+
+        public async Task<IEnumerable<Campeonato>> ObterTodosComTimes()
+        {
+            return await _campeonatoRepository.ObterTodosComIncludes(c => c.CampeonatoTimes);
         }
 
         public async Task AdicionarTimeAoCampeonato(Guid campeonatoId, Guid timeId)

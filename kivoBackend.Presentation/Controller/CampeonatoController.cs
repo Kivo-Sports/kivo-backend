@@ -22,7 +22,7 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
-                var campeonatos = await _campeonatoService.ObterTodos();
+                var campeonatos = await _campeonatoService.ObterTodosComTimes();
                 var retorno = campeonatos.Select(c => MapearParaDto(c));
                 return Ok(retorno);
             }
@@ -71,6 +71,7 @@ namespace kivoBackend.Presentation.Controller
             return new ListarCampeonatoDto
             {
                 Id = c.Id,
+                OrganizadorCampeonatoId = c.OrganizadorCampeonatoId,
                 Nome = c.Nome,
                 DataInicio = c.DataInicio,
                 DataFim = c.DataFim,
