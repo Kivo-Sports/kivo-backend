@@ -1,7 +1,9 @@
 ﻿using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace kivoBackend.Presentation.Controller
 {
@@ -10,22 +12,34 @@ namespace kivoBackend.Presentation.Controller
     public class TimeController : ControllerBase
     {
         private readonly ITimeService _timeService;
+        private readonly IUsuarioService _usuarioService;
 
-        public TimeController(ITimeService timeService)
+        public TimeController(ITimeService timeService, IUsuarioService usuarioService)
         {
             _timeService = timeService;
+            _usuarioService = usuarioService;
         }
 
         [HttpGet]
+        [Authorize(Roles = "OrganizadorTime")]
         public async Task<IActionResult> GetAll()
         {
             try
             {
-                var times = await _timeService.ObterTodos();
+                var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!Guid.TryParse(userIdString, out var userId))
+                    return Unauthorized(new { message = "Usuário não identificado." });
 
-                var retorno = times.Select(t => MapearParaDto(t));
+                var usuario = await _usuarioService.ObterUsuarioPorId(userId);
+                var organizadorTimeId = usuario.OrganizadorTime?.Id;
 
-                return Ok(retorno);
+                if (organizadorTimeId == null)
+                    return BadRequest(new { message = "Perfil de Organizador de Time não encontrado." });
+
+                var todos = await _timeService.ObterTodos();
+                var meusTimes = todos.Where(t => t.OrganizadorTimeId == organizadorTimeId.Value);
+
+                return Ok(meusTimes.Select(t => MapearParaDto(t)));
             }
             catch (Exception ex)
             {
@@ -85,7 +99,41 @@ namespace kivoBackend.Presentation.Controller
                 };
 
                 var resultado = await _timeService.Adicionar(novoTime);
-                return CreatedAtAction(nameof(GetById), new { id = resultado.Id }, resultado);
+                return CreatedAtAction(nameof(GetById), new { id = resultado.Id }, MapearParaDto(resultado));
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Put(Guid id, [FromBody] AtualizarTimeDto dto)
+        {
+            try
+            {
+                var time = await _timeService.ObterPorId(id);
+                if (time == null) return NotFound("Time não encontrado.");
+
+                time.Nome = dto.Nome;
+                time.Cidade = dto.Cidade;
+                time.Estado = dto.Estado;
+                time.LogoUrl = dto.LogoUrl;
+
+                await _timeService.Atualizar(time);
+                return Ok(MapearParaDto(time));
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult> ToggleStatus(Guid id)
+        {
+            try
+            {
+                var time = await _timeService.ObterPorId(id);
+                if (time == null) return NotFound("Time não encontrado.");
+
+                time.Ativo = !time.Ativo;
+                await _timeService.Atualizar(time);
+                return Ok(MapearParaDto(time));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }

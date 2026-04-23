@@ -16,5 +16,9 @@ namespace kivoBackend.Application.DTO
         public string Status { get; set; }
         public int TotalTimes { get; set; }
         public DateTime CriadoEm { get; set; }
+        public int PontosVitoria { get; set; }
+        public int PontosDerrota { get; set; }
+        public int PontosEmpate { get; set; }
+        public List<Guid> TimeIds { get; set; } = new();
     }
 }

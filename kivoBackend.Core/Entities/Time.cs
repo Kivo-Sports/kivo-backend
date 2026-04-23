@@ -14,7 +14,7 @@ namespace kivoBackend.Core.Entities
         public string Nome { get; set; }
         public string Cidade { get; set; }
         public string Estado { get; set; }
-        public string LogoUrl { get; set; }
+        public string? LogoUrl { get; set; }
 
         public bool Ativo { get; set; }
         public DateTime CriadoEm { get; set; }

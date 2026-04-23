@@ -243,6 +243,9 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                if (dto.ContaBanco == null)
+                    return BadRequest("Dados da conta bancária são obrigatórios.");
+
                 var usuario = MapearParaUpdate(dto);
                 usuario.OrganizadorCampeonato = new OrganizadorCampeonato
                 {
@@ -326,9 +329,10 @@ namespace kivoBackend.Presentation.Controller
                     break;
 
                 case EnumCargo.OrganizadorTime:
+                    dto.OrganizadorTimeId = u.OrganizadorTime?.Id;
                     if (u.OrganizadorTime?.Endereco != null)
                         dto.Endereco = MapearEnderecoParaDto(u.OrganizadorTime.Endereco);
-                    if(u.OrganizadorTime.Times != null)
+                    if(u.OrganizadorTime?.Times != null)
                     {
                         dto.TimesAdministrados = u.OrganizadorTime.Times.Select(t => t.Nome).ToList();
                     }
