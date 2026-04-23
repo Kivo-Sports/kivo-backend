@@ -179,6 +179,7 @@ builder.Services.AddScoped<ITimeService, TimeService>();
 builder.Services.AddScoped<ICampeonatoService, CampeonatoService>();
 builder.Services.AddScoped<IRepositoryCampeonato, RepositoryCampeonato>();
 builder.Services.AddScoped<IRepositoryTime, RepositoryTime>();
+builder.Services.AddScoped<IStorageService, GoogleStorageService>();
 
 var app = builder.Build();
 
