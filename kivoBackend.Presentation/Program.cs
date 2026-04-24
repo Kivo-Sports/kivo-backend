@@ -59,6 +59,10 @@ builder.Configuration["EmailSettings:EnableSSL"] = enableSSL;
 var corsOrigins = Environment.GetEnvironmentVariable("CORS_ORIGINS") ?? "http://localhost:3000,http://localhost:3001";
 builder.Configuration["CORS_ORIGINS"] = corsOrigins;
 
+
+builder.Configuration["FIREBASE_BUCKET"] = Environment.GetEnvironmentVariable("FIREBASE_BUCKET");
+builder.Configuration["GOOGLE_APPLICATION_CREDENTIALS"] = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
+
 // Controllers
 builder.Services.AddControllers();
 
@@ -179,7 +183,7 @@ builder.Services.AddScoped<ITimeService, TimeService>();
 builder.Services.AddScoped<ICampeonatoService, CampeonatoService>();
 builder.Services.AddScoped<IRepositoryCampeonato, RepositoryCampeonato>();
 builder.Services.AddScoped<IRepositoryTime, RepositoryTime>();
-builder.Services.AddScoped<IStorageService, GoogleStorageService>();
+builder.Services.AddScoped<IStorageService, ImageStorageService>();
 
 var app = builder.Build();
 
