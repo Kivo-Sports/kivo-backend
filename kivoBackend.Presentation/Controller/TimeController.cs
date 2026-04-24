@@ -28,6 +28,20 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                var times = await _timeService.ObterTodos();
+                return Ok(times.Select(t => MapearParaDto(t)));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("organizador")]
+        public async Task<IActionResult> GetAllOrganizador()
+        {
+            try
+            {
                 var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (!Guid.TryParse(userIdString, out var userId))
                     return Unauthorized(new { message = "Usuário não identificado." });
