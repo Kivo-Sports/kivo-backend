@@ -131,8 +131,7 @@ namespace kivoBackend.Presentation.Controller
                 };
 
                 var resultado = await _timeService.Adicionar(novoTime);
-                return Ok(resultado);
-                //return CreatedAtAction(nameof(GetById), new { id = resultado.Id }, MapearParaDto(resultado));
+                return CreatedAtAction(nameof(GetById), new { id = resultado.Id }, MapearParaDto(resultado));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
