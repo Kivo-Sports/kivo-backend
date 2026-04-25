@@ -9,11 +9,16 @@ namespace kivoBackend.Application.DTO
     public class ListarCampeonatoDto
     {
         public Guid Id { get; set; }
+        public Guid OrganizadorCampeonatoId { get; set; }
         public string Nome { get; set; }
         public DateTime DataInicio { get; set; }
         public DateTime DataFim { get; set; }
         public string Status { get; set; }
         public int TotalTimes { get; set; }
         public DateTime CriadoEm { get; set; }
+        public int PontosVitoria { get; set; }
+        public int PontosDerrota { get; set; }
+        public int PontosEmpate { get; set; }
+        public List<Guid> TimeIds { get; set; } = new();
     }
 }
