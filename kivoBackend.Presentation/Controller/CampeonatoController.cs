@@ -71,6 +71,7 @@ namespace kivoBackend.Presentation.Controller
             return new ListarCampeonatoDto
             {
                 Id = c.Id,
+                OrganizadorCampeonatoId = c.OrganizadorCampeonatoId,
                 Nome = c.Nome,
                 DataInicio = c.DataInicio,
                 DataFim = c.DataFim,
@@ -82,6 +83,33 @@ namespace kivoBackend.Presentation.Controller
                     .Select(ct => ct.TimeId)
                     .ToList() ?? new List<Guid>()
             };
+        }
+
+        [HttpPatch("{id}/abrir-inscricoes")]
+        public async Task<IActionResult> AbrirInscricoes(Guid id)
+        {
+            try
+            {
+                await _campeonatoService.AbrirInscricoes(id);
+                return Ok("Inscrições abertas com sucesso.");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPatch("{id}/cancelar")]
+        public async Task<IActionResult> Cancelar(Guid id)
+        {
+            try
+            {
+                var campeonato = await _campeonatoService.ObterPorId(id);
+                if (campeonato == null)
+                    return NotFound("Campeonato não encontrado.");
+
+                campeonato.EnumStatusCampeonato = EnumStatusCampeonato.Cancelado;
+                await _campeonatoService.Atualizar(campeonato);
+                return Ok("Campeonato cancelado com sucesso.");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
         [HttpDelete("{id}")]
@@ -138,7 +166,13 @@ namespace kivoBackend.Presentation.Controller
                     CampeonatoId = x.CampeonatoId,
                     NomeCampeonato = x.Campeonato?.Nome ?? "Campeonato não carregado",
                     NomeTime = x.Time?.Nome ?? "Time não carregado",
-                    ConvidadoEm = x.ConvidadoEm
+                    ConvidadoEm = x.ConvidadoEm,
+                    DataInicio = x.Campeonato?.DataInicio ?? DateTime.MinValue,
+                    DataFim = x.Campeonato?.DataFim ?? DateTime.MinValue,
+                    PontosVitoria = x.Campeonato?.PontosVitoria ?? 0,
+                    PontosDerrota = x.Campeonato?.PontosDerrota ?? 0,
+                    PontosEmpate = x.Campeonato?.PontosEmpate ?? 0,
+                    StatusCampeonato = x.Campeonato?.EnumStatusCampeonato.ToString() ?? ""
                 });
 
                 return Ok(retorno);

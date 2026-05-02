@@ -15,5 +15,7 @@ namespace kivoBackend.Application.Interfaces
         Task RemoverTimeDoCampeonato(Guid campeonatoId, Guid timeId);
         Task ResponderConviteCampeonato(Guid ParticipacaoId, Guid OrganizadorTimeId, bool aceito);
         Task<IEnumerable<CampeonatoTime>> ObterConvitesPorOrganizador(Guid organizadorTimeId);
+        Task<IEnumerable<Campeonato>> ObterTodosComTimes();
+        Task AbrirInscricoes(Guid campeonatoId);
     }
 }
