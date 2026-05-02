@@ -56,7 +56,7 @@ namespace kivoBackend.Infrastructure.Repositories
             await _context.SaveChangesAsync();
         }
 
-        public async Task<IEnumerable<T>> ObterTodosComIncludes(params Expression<Func<T, object>>[] includes)
+        public async Task<IEnumerable<T>> ObterComIncludes(params Expression<Func<T, object>>[] includes)
         {
             IQueryable<T> query = _db;
 
@@ -66,6 +66,15 @@ namespace kivoBackend.Infrastructure.Repositories
             }
 
             return await query.ToListAsync();
+        }
+        public async Task<IEnumerable<T>> Buscar(Expression<Func<T, bool>> predicate)
+        {
+            return await _db.Where(predicate).ToListAsync();
+        }
+
+        public async Task<T?> BuscarPrimeiro(Expression<Func<T, bool>> predicate)
+        {
+            return await _db.FirstOrDefaultAsync(predicate);
         }
     }
 }

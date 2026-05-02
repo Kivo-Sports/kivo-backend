@@ -9,6 +9,8 @@ namespace kivoBackend.Application.Interfaces
 {
     public interface ICampeonatoService : IServiceGenerics<Campeonato>
     {
+        Task<IEnumerable<Campeonato>> ObterCampeonatosComTimes();
+        Task<Campeonato> ObterCampeonatoPorId(Guid id);
         Task AdicionarTimeAoCampeonato(Guid campeonatoId, Guid timeId);
         Task RemoverTimeDoCampeonato(Guid campeonatoId, Guid timeId);
         Task ResponderConviteCampeonato(Guid ParticipacaoId, Guid OrganizadorTimeId, bool aceito);

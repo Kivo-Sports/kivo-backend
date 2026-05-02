@@ -13,49 +13,31 @@ namespace kivoBackend.Application.Services
     public class CampeonatoService : ServiceGenerics<Campeonato>, ICampeonatoService
     {
         private readonly IRepositoryGenerics<CampeonatoTime> _CampeonatoTimeRepository;
-        private readonly IRepositoryGenerics<Campeonato> _campeonatoRepository;
-        public CampeonatoService(IRepositoryGenerics<Campeonato> repositoryGenerics, IRepositoryGenerics<CampeonatoTime> CampeonatoTimeRepository, IRepositoryCampeonato RepositoryCampeonato) : base(repositoryGenerics)
+        private readonly IRepositoryGenerics<Campeonato> _repositoryGenerics;
+        private readonly IRepositoryCampeonato _repositoryCampeonato;
+        public CampeonatoService(IRepositoryGenerics<Campeonato> repositoryGenerics, IRepositoryGenerics<CampeonatoTime> CampeonatoTimeRepository, IRepositoryCampeonato repositoryCampeonato) : base(repositoryGenerics)
         {
             _CampeonatoTimeRepository = CampeonatoTimeRepository;
-            _campeonatoRepository = repositoryGenerics;
+            _repositoryGenerics = repositoryGenerics;
+            _repositoryCampeonato = repositoryCampeonato;
         }
 
-        public async Task<IEnumerable<Campeonato>> ObterTodosComTimes()
+        public async Task<IEnumerable<Campeonato>> ObterCampeonatosComTimes()
         {
-            var campeonatos = await _campeonatoRepository.ObterTodosComIncludes(c => c.CampeonatoTimes);
-            var agora = DateTime.Now;
-
-            foreach (var c in campeonatos)
-            {
-                var novoStatus = ReconciliarStatus(c, agora);
-                if (novoStatus != c.EnumStatusCampeonato)
-                {
-                    c.EnumStatusCampeonato = novoStatus;
-                    await _campeonatoRepository.Atualizar(c);
-                }
-            }
-
-            return campeonatos;
+            return await _repositoryCampeonato.ObterCampeonatosComTimes();
         }
 
-        private static EnumStatusCampeonato ReconciliarStatus(Campeonato c, DateTime agora)
+        public async Task<Campeonato> ObterCampeonatoPorId(Guid id)
         {
-            if (c.EnumStatusCampeonato == EnumStatusCampeonato.Cancelado ||
-                c.EnumStatusCampeonato == EnumStatusCampeonato.Rascunho)
-                return c.EnumStatusCampeonato;
-
-            if (c.DataFim <= agora)
-                return EnumStatusCampeonato.Finalizado;
-
-            if (c.DataInicio <= agora && c.EnumStatusCampeonato == EnumStatusCampeonato.InscricoesAbertas)
-                return EnumStatusCampeonato.EmAndamento;
-
-            return c.EnumStatusCampeonato;
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(id);
+            if(campeonato == null)
+                throw new Exception("Campeonato não encontrado");
+            return campeonato;
         }
 
         public async Task AbrirInscricoes(Guid campeonatoId)
         {
-            var campeonato = await _campeonatoRepository.ObterPorId(campeonatoId);
+            var campeonato = await _repositoryGenerics.ObterPorId(campeonatoId);
             if (campeonato == null)
                 throw new Exception("Campeonato não encontrado.");
 
@@ -63,7 +45,7 @@ namespace kivoBackend.Application.Services
                 throw new Exception("Inscrições só podem ser abertas a partir do status Rascunho.");
 
             campeonato.EnumStatusCampeonato = EnumStatusCampeonato.InscricoesAbertas;
-            await _campeonatoRepository.Atualizar(campeonato);
+            await _repositoryGenerics.Atualizar(campeonato);
         }
 
         public async Task AdicionarTimeAoCampeonato(Guid campeonatoId, Guid timeId)
@@ -82,10 +64,10 @@ namespace kivoBackend.Application.Services
 
         public async Task<IEnumerable<CampeonatoTime>> ObterConvitesPorOrganizador(Guid organizadorTimeId)
         {
-            var vinculos = await _CampeonatoTimeRepository.ObterTodosComIncludes(
-                x => x.Time,
-                x => x.Campeonato
-            );
+             var vinculos = await _CampeonatoTimeRepository.ObterComIncludes(
+                 x => x.Time,
+                 x => x.Campeonato
+             );
 
             return vinculos.Where(x =>
                 x.EnumStatusParticipacao == EnumStatusParticipacao.Pendente &&
@@ -96,8 +78,9 @@ namespace kivoBackend.Application.Services
 
         public async Task RemoverTimeDoCampeonato(Guid campeonatoId, Guid timeId)
         {
-            var lista = await _CampeonatoTimeRepository.ObterTodos();
-            var vinculo = lista.FirstOrDefault(x => x.CampeonatoId == campeonatoId && x.TimeId == timeId);
+            var vinculo = await _CampeonatoTimeRepository
+                .BuscarPrimeiro(x => x.CampeonatoId == campeonatoId && x.TimeId == timeId);
+
             if (vinculo != null)
             {
                 await _CampeonatoTimeRepository.Remover(vinculo.Id);
