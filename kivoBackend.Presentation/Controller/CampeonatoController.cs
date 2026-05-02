@@ -22,7 +22,7 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
-                var campeonatos = await _campeonatoService.ObterTodos();
+                var campeonatos = await _campeonatoService.ObterCampeonatosComTimes();
                 var retorno = campeonatos.Select(c => MapearParaDto(c));
                 return Ok(retorno);
             }
@@ -34,7 +34,7 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
-                var campeonato = await _campeonatoService.ObterPorId(id);
+                var campeonato = await _campeonatoService.ObterCampeonatoPorId(id);
                 if (campeonato == null) return NotFound("Campeonato não encontrado.");
                 return Ok(MapearParaDto(campeonato));
             }
@@ -76,7 +76,11 @@ namespace kivoBackend.Presentation.Controller
                 DataFim = c.DataFim,
                 Status = c.EnumStatusCampeonato.ToString(),
                 CriadoEm = c.CriadoEm,
-                TotalTimes = c.CampeonatoTimes?.Count ?? 0
+                TotalTimes = c.CampeonatoTimes?.Count(t => t.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0,
+                Times = c.CampeonatoTimes?
+                    .Where(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito)
+                    .Select(ct => ct.TimeId)
+                    .ToList() ?? new List<Guid>()
             };
         }
 

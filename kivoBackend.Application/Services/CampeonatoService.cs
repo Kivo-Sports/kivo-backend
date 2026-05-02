@@ -13,9 +13,39 @@ namespace kivoBackend.Application.Services
     public class CampeonatoService : ServiceGenerics<Campeonato>, ICampeonatoService
     {
         private readonly IRepositoryGenerics<CampeonatoTime> _CampeonatoTimeRepository;
-        public CampeonatoService(IRepositoryGenerics<Campeonato> repositoryGenerics, IRepositoryGenerics<CampeonatoTime> CampeonatoTimeRepository, IRepositoryCampeonato RepositoryCampeonato) : base(repositoryGenerics)
+        private readonly IRepositoryGenerics<Campeonato> _repositoryGenerics;
+        private readonly IRepositoryCampeonato _repositoryCampeonato;
+        public CampeonatoService(IRepositoryGenerics<Campeonato> repositoryGenerics, IRepositoryGenerics<CampeonatoTime> CampeonatoTimeRepository, IRepositoryCampeonato repositoryCampeonato) : base(repositoryGenerics)
         {
             _CampeonatoTimeRepository = CampeonatoTimeRepository;
+            _repositoryGenerics = repositoryGenerics;
+            _repositoryCampeonato = repositoryCampeonato;
+        }
+
+        public async Task<IEnumerable<Campeonato>> ObterCampeonatosComTimes()
+        {
+            return await _repositoryCampeonato.ObterCampeonatosComTimes();
+        }
+
+        public async Task<Campeonato> ObterCampeonatoPorId(Guid id)
+        {
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(id);
+            if(campeonato == null)
+                throw new Exception("Campeonato não encontrado");
+            return campeonato;
+        }
+
+        public async Task AbrirInscricoes(Guid campeonatoId)
+        {
+            var campeonato = await _repositoryGenerics.ObterPorId(campeonatoId);
+            if (campeonato == null)
+                throw new Exception("Campeonato não encontrado.");
+
+            if (campeonato.EnumStatusCampeonato != EnumStatusCampeonato.Rascunho)
+                throw new Exception("Inscrições só podem ser abertas a partir do status Rascunho.");
+
+            campeonato.EnumStatusCampeonato = EnumStatusCampeonato.InscricoesAbertas;
+            await _repositoryGenerics.Atualizar(campeonato);
         }
 
         public async Task AdicionarTimeAoCampeonato(Guid campeonatoId, Guid timeId)
@@ -34,10 +64,10 @@ namespace kivoBackend.Application.Services
 
         public async Task<IEnumerable<CampeonatoTime>> ObterConvitesPorOrganizador(Guid organizadorTimeId)
         {
-            var vinculos = await _CampeonatoTimeRepository.ObterTodosComIncludes(
-                x => x.Time,
-                x => x.Campeonato
-            );
+             var vinculos = await _CampeonatoTimeRepository.ObterComIncludes(
+                 x => x.Time,
+                 x => x.Campeonato
+             );
 
             return vinculos.Where(x =>
                 x.EnumStatusParticipacao == EnumStatusParticipacao.Pendente &&
@@ -48,8 +78,9 @@ namespace kivoBackend.Application.Services
 
         public async Task RemoverTimeDoCampeonato(Guid campeonatoId, Guid timeId)
         {
-            var lista = await _CampeonatoTimeRepository.ObterTodos();
-            var vinculo = lista.FirstOrDefault(x => x.CampeonatoId == campeonatoId && x.TimeId == timeId);
+            var vinculo = await _CampeonatoTimeRepository
+                .BuscarPrimeiro(x => x.CampeonatoId == campeonatoId && x.TimeId == timeId);
+
             if (vinculo != null)
             {
                 await _CampeonatoTimeRepository.Remover(vinculo.Id);

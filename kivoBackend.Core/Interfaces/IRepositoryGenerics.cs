@@ -15,6 +15,8 @@ namespace kivoBackend.Core.Interfaces
         Task<T> Adicionar(T entidade);
         Task Atualizar(T entidade);
         Task Remover(Guid id);
-        Task<IEnumerable<T>> ObterTodosComIncludes(params Expression<Func<T, object>>[] includes);
+        Task<IEnumerable<T>> ObterComIncludes(params Expression<Func<T, object>>[] includes);
+        Task<IEnumerable<T>> Buscar(Expression<Func<T, bool>> predicate);
+        Task<T?> BuscarPrimeiro(Expression<Func<T, bool>> predicate);
     }
 }

@@ -14,6 +14,7 @@ namespace kivoBackend.Application.DTO
         public DateTime DataFim { get; set; }
         public string Status { get; set; }
         public int TotalTimes { get; set; }
+        public List<Guid> Times { get; set; }
         public DateTime CriadoEm { get; set; }
     }
 }

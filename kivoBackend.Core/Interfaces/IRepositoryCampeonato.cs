@@ -9,5 +9,7 @@ namespace kivoBackend.Core.Interfaces
 {
     public interface IRepositoryCampeonato : IRepositoryGenerics<Campeonato>
     {
+        Task<Campeonato> ObterCampeonatoPorId(Guid id);
+        Task<IEnumerable<Campeonato>> ObterCampeonatosComTimes();
     }
 }
