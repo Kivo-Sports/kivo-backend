@@ -179,5 +179,27 @@ namespace kivoBackend.Presentation.Controller
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
+
+        [HttpGet("{campeonatoId}/convites")]
+        public async Task<IActionResult> ObterConvitesPorCampeonato(Guid campeonatoId)
+        {
+            try
+            {
+                var convites = await _campeonatoService.ObterConvitesPorCampeonato(campeonatoId);
+
+                var retorno = convites.Select(x => new
+                {
+                    ParticipacaoId = x.Id,
+                    TimeId = x.TimeId,
+                    NomeTime = x.Time?.Nome ?? "Time não carregado",
+                    StatusParticipacao = x.EnumStatusParticipacao.ToString(),
+                    ConvidadoEm = x.ConvidadoEm,
+                    RespondidoEm = x.RespondidoEm
+                });
+
+                return Ok(retorno);
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
     }
 }

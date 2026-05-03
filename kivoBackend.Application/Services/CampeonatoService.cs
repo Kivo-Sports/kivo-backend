@@ -76,6 +76,14 @@ namespace kivoBackend.Application.Services
             );
         }
 
+        public async Task<IEnumerable<CampeonatoTime>> ObterConvitesPorCampeonato(Guid campeonatoId)
+        {
+            var convites = await _CampeonatoTimeRepository.ObterComIncludes
+                (x => x.Time);
+
+            return convites.Where(x => x.CampeonatoId == campeonatoId);
+        }
+
         public async Task RemoverTimeDoCampeonato(Guid campeonatoId, Guid timeId)
         {
             var vinculo = await _CampeonatoTimeRepository
@@ -101,6 +109,11 @@ namespace kivoBackend.Application.Services
             {
                 throw new Exception("Esse convite não existe mais");
             }
+        }
+
+        public Task<IEnumerable<Campeonato>> ObterTodosComTimes()
+        {
+            throw new NotImplementedException();
         }
     }
 }
