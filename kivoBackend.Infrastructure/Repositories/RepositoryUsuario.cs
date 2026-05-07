@@ -26,7 +26,6 @@ namespace kivoBackend.Infrastructure.Repositories
                 .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Times)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
-                .Include(u => u.Ativo)
                 .FirstOrDefaultAsync(u => u.Cpf == cpf);
         }
 
@@ -38,7 +37,6 @@ namespace kivoBackend.Infrastructure.Repositories
                 .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Times)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
-                .Include(u => u.Ativo)
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
@@ -50,7 +48,6 @@ namespace kivoBackend.Infrastructure.Repositories
                 .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Times)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
-                .Include(u => u.Ativo)
                 .FirstOrDefaultAsync(u => u.Id == id);
         }
 
@@ -63,6 +60,13 @@ namespace kivoBackend.Infrastructure.Repositories
                 .Include(u => u.OrganizadorTime).ThenInclude(ot => ot.Times)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.Endereco)
                 .Include(u => u.OrganizadorCampeonato).ThenInclude(oc => oc.ContaBanco)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Usuario>> ObterAdministradores()
+        {
+            return await _context.Usuarios
+                .Where(u => u.EnumCargo == kivoBackend.Core.Enums.EnumCargo.Administrador)
                 .ToListAsync();
         }
     }

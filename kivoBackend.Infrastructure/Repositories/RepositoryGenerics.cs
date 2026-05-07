@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -53,6 +54,27 @@ namespace kivoBackend.Infrastructure.Repositories
         {
             _db.Update(entidade);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<IEnumerable<T>> ObterComIncludes(params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _db;
+
+            if (includes != null)
+            {
+                query = includes.Aggregate(query, (current, include) => current.Include(include));
+            }
+
+            return await query.ToListAsync();
+        }
+        public async Task<IEnumerable<T>> Buscar(Expression<Func<T, bool>> predicate)
+        {
+            return await _db.Where(predicate).ToListAsync();
+        }
+
+        public async Task<T?> BuscarPrimeiro(Expression<Func<T, bool>> predicate)
+        {
+            return await _db.FirstOrDefaultAsync(predicate);
         }
     }
 }

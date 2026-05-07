@@ -9,5 +9,6 @@ namespace kivoBackend.Application.DTO
     public class CriarTorcedorDto : UsuarioDTO
     {
         public EnderecoDto Endereco { get; set; }
+        public ContaBancoDTO? ContaBanco { get; set; }
     }
 }

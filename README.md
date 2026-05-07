@@ -2,7 +2,6 @@
 
 <img src="https://img.shields.io/badge/version-0.1.0-00C896?style=for-the-badge" />
 <img src="https://img.shields.io/badge/status-em%20desenvolvimento-FFB800?style=for-the-badge" />
-<img src="https://img.shields.io/badge/licença-MIT-blue?style=for-the-badge" />
 
 # ⚽ KIVO SPORTS — Backend
 
@@ -112,28 +111,103 @@ Acesse a documentação da API em [https://localhost:5001/swagger](https://local
 
 ## 🔑 Variáveis de Ambiente
 
-As configurações estão no arquivo `appsettings.json` e `appsettings.Development.json`:
+### Configuração com `.env`
 
-### Desenvolvimento (`appsettings.Development.json`)
+Para manter informações sensíveis fora do controle de versão, o projeto usa um arquivo `.env`:
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\MSSQLLocalDB;Database=KivoDb;Trusted_Connection=True;TrustServerCertificate=True;"
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information"
-    }
-  }
-}
+**Pré-requisito:**
+- Biblioteca `DotNetEnv` (já instalada)
+
+### Primeira Execução
+
+1. Copie o arquivo template:
+```bash
+cp kivoBackend.Presentation/.env.example kivoBackend.Presentation/.env
 ```
 
-**Variáveis importantes:**
-- `DefaultConnection` → String de conexão com o SQL Server
-- `AllowedHosts` → Hosts permitidos para requisições CORS
+2. Edite o arquivo `.env` com seus valores reais:
+```env
+# Database
+DB_CONNECTION_STRING=Server=localhost\SQLEXPRESS;Database=KivoDb;Trusted_Connection=True;TrustServerCertificate=True;
 
-> ⚠️ Nunca commite dados sensíveis nos arquivos `appsettings`. Use User Secrets ou variáveis de ambiente em produção.
+# JWT
+JWT_KEY=sua_chave_super_secreta_aqui
+JWT_ISSUER=kivoBackend
+JWT_AUDIENCE=kivoFrontEnd
+
+# Email (Gmail App Password)
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SENDER_EMAIL=seu_email@gmail.com
+SENDER_PASSWORD=xxxx xxxx xxxx xxxx
+SENDER_NAME=Kivo Sports
+ENABLE_SSL=true
+
+# Frontend CORS (separados por vírgula)
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# Environment
+ASPNETCORE_ENVIRONMENT=Development
+```
+
+### Variáveis Disponíveis
+
+| Variável | Descrição | Exemplo |
+|----------|-----------|---------|
+| `DB_CONNECTION_STRING` | Conexão SQL Server | `Server=localhost\SQLEXPRESS;Database=KivoDb;...` |
+| `JWT_KEY` | Chave secreta para assinar tokens | Mínimo 32 caracteres |
+| `JWT_ISSUER` | Emissor do token JWT | `kivoBackend` |
+| `JWT_AUDIENCE` | Audiência do token JWT | `kivoFrontEnd` |
+| `SMTP_SERVER` | Servidor SMTP | `smtp.gmail.com` |
+| `SMTP_PORT` | Porta SMTP | `587` |
+| `SENDER_EMAIL` | Email para enviar códigos e notificações | `seu_email@gmail.com` |
+| `SENDER_PASSWORD` | App Password (não a senha da conta) | `xxxx xxxx xxxx xxxx` |
+| `SENDER_NAME` | Nome do remetente de emails | `Kivo Sports` |
+| `ENABLE_SSL` | Usar SSL no SMTP | `true` |
+| `CORS_ORIGINS` | Origens permitidas (separadas por vírgula) | `http://localhost:3000,http://localhost:3001` |
+| `ASPNETCORE_ENVIRONMENT` | Ambiente de execução | `Development` ou `Production` |
+
+### 🔒 Segurança
+
+- ✅ `.env` está no `.gitignore` — **nunca será commitado**
+- ✅ Cada desenvolvedor tem seu próprio `.env` local
+- ✅ Em produção, configure variáveis de ambiente do servidor (Azure App Service, Docker, VPS, etc)
+- ✅ `.env.example` é compartilhado com a equipe (sem valores sensíveis)
+
+### 📧 Configurar Email (Gmail)
+
+1. Ative 2FA na sua conta Google
+2. Gere um **App Password** em [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+3. Use o App Password no `.env`:
+```env
+SENDER_PASSWORD=xxxx xxxx xxxx xxxx
+```
+
+### 🏭 Em Produção
+
+Ao fazer deploy (Azure, Heroku, VPS), configure as variáveis de ambiente no servidor:
+
+**Azure App Service:**
+```bash
+az webapp config appsettings set --resource-group MyGroup --name MyApp \
+  --settings ASPNETCORE_ENVIRONMENT=Production \
+  DB_CONNECTION_STRING="..." \
+  JWT_KEY="..." \
+  SENDER_PASSWORD="..."
+```
+
+**Docker:**
+```dockerfile
+ENV DB_CONNECTION_STRING="..."
+ENV JWT_KEY="..."
+```
+
+**Linux/VPS:**
+```bash
+export DB_CONNECTION_STRING="..."
+export JWT_KEY="..."
+dotnet run
+```
 
 ---
 

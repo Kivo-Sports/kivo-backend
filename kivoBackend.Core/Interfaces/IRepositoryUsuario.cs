@@ -13,5 +13,6 @@ namespace kivoBackend.Core.Interfaces
         Task<Usuario?> ObterUsuarioPorEmail(string email);
         Task<Usuario?> ObterUsuarioPorId(Guid id);
         Task<IEnumerable<Usuario>> ObterTodosUsuarios();
+        Task<IEnumerable<Usuario>> ObterAdministradores();
     }
 }

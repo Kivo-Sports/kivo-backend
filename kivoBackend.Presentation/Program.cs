@@ -1,20 +1,85 @@
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Application.Services;
 using kivoBackend.Core.Interfaces;
+using kivoBackend.Core.Entities;
+using kivoBackend.Core.Enums;
 using kivoBackend.Infrastructure.Data;
 using kivoBackend.Infrastructure.Repositories;
+using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
+// Carregar variÃ¡veis de ambiente do arquivo .env
+var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+if (File.Exists(envPath))
+{
+    Env.Load(envPath);
+}
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Adicionar variÃ¡veis de ambiente ao Configuration
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
+// Substituir placeholders de variÃ¡veis de ambiente no appsettings
+var config = builder.Configuration;
+var dbConnection = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
+    ?? "Server=localhost\\SQLEXPRESS;Database=KivoDb;Trusted_Connection=True;TrustServerCertificate=True;";
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? "KivoSports_Chave_Super_Secreta_2026_@!";
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "kivoBackend";
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "kivoFrontEnd";
+
+// Override da connection string
+builder.Configuration["ConnectionStrings:DefaultConnection"] = dbConnection;
+builder.Configuration["Jwt:Key"] = jwtKey;
+builder.Configuration["Jwt:Issuer"] = jwtIssuer;
+builder.Configuration["Jwt:Audience"] = jwtAudience;
+
+// Override das configuraÃ§Ãµes de Email
+var smtpServer = Environment.GetEnvironmentVariable("SMTP_SERVER") ?? "smtp.gmail.com";
+var smtpPort = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
+var senderEmail = Environment.GetEnvironmentVariable("SENDER_EMAIL") ?? "kivosportsuporte@gmail.com";
+var senderPassword = Environment.GetEnvironmentVariable("SENDER_PASSWORD") ?? "";
+var senderName = Environment.GetEnvironmentVariable("SENDER_NAME") ?? "Kivo Sports";
+var enableSSL = Environment.GetEnvironmentVariable("ENABLE_SSL") ?? "true";
+
+builder.Configuration["EmailSettings:SmtpServer"] = smtpServer;
+builder.Configuration["EmailSettings:SmtpPort"] = smtpPort;
+builder.Configuration["EmailSettings:SenderEmail"] = senderEmail;
+builder.Configuration["EmailSettings:SenderPassword"] = senderPassword;
+builder.Configuration["EmailSettings:SenderName"] = senderName;
+builder.Configuration["EmailSettings:EnableSSL"] = enableSSL;
+
+// Override do CORS
+var corsOrigins = Environment.GetEnvironmentVariable("CORS_ORIGINS") ?? "http://localhost:3000,http://localhost:3001";
+builder.Configuration["CORS_ORIGINS"] = corsOrigins;
+
+
+builder.Configuration["FIREBASE_BUCKET"] = Environment.GetEnvironmentVariable("FIREBASE_BUCKET");
+builder.Configuration["GOOGLE_APPLICATION_CREDENTIALS"] = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
 
 // Controllers
 builder.Services.AddControllers();
 
-// Swagger (Já com sua configuração de cadeado/Authorize)
+// CORS
+builder.Services.AddCors(options =>
+{
+    var origins = builder.Configuration["CORS_ORIGINS"]?.Split(',') ?? new[] { "http://localhost:3000", "http://localhost:3001" };
+    options.AddPolicy("AllowFrontend", corsBuilder =>
+    {
+        corsBuilder.WithOrigins(origins)
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -45,7 +110,14 @@ builder.Services.AddSwaggerGen(c =>
 
 // DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions =>
+        {
+            sqlOptions.CommandTimeout(60);
+            sqlOptions.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
+        }
+    )
 );
 
 // Identity
@@ -60,7 +132,7 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// --- CONFIGURAÇÃO DE AUTENTICAÇÃO JWT ---
+// --- CONFIGURAÃ‡ÃƒO DE AUTENTICAÃ‡ÃƒO JWT ---
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -87,13 +159,13 @@ builder.Services.AddAuthentication(options =>
             context.HandleResponse();
             context.Response.StatusCode = 401;
             context.Response.ContentType = "application/json";
-            return context.Response.WriteAsync("{\"message\": \"Você precisa estar logado para acessar este recurso.\"}");
+            return context.Response.WriteAsync("{\"message\": \"VocÃª precisa estar logado para acessar este recurso.\"}");
         },
         OnForbidden = context =>
         {
             context.Response.StatusCode = 403;
             context.Response.ContentType = "application/json";
-            return context.Response.WriteAsync("{\"message\": \"Acesso negado: seu perfil não tem permissão para esta ação.\"}");
+            return context.Response.WriteAsync("{\"message\": \"Acesso negado: seu perfil nï¿½o tem permissÃ£o para esta aï¿½ï¿½o.\"}");
         }
     };
 });
@@ -104,6 +176,14 @@ builder.Services.AddScoped(typeof(IServiceGenerics<>), typeof(ServiceGenerics<>)
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IRepositoryUsuario, RepositoryUsuario>();
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
+builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
+builder.Services.AddScoped<ITimeService, TimeService>();
+builder.Services.AddScoped<ICampeonatoService, CampeonatoService>();
+builder.Services.AddScoped<IRepositoryCampeonato, RepositoryCampeonato>();
+builder.Services.AddScoped<IRepositoryTime, RepositoryTime>();
+builder.Services.AddScoped<IStorageService, ImageStorageService>();
 
 var app = builder.Build();
 
@@ -114,24 +194,70 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Desabilitado para aceitar HTTP em desenvolvimento
+// app.UseHttpsRedirection();
+
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-// Inicialização de Roles
+// InicializaÃ§Ã£o de Roles e UsuÃ¡rio Admin
 using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+    var usuarioRepository = scope.ServiceProvider.GetRequiredService<IRepositoryGenerics<Usuario>>();
+
     var roles = new[] { "Administrador", "Torcedor", "OrganizadorTime", "OrganizadorCampeonato" };
 
+    // Criar roles
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
         {
             await roleManager.CreateAsync(new IdentityRole(role));
+        }
+    }
+
+    // Criar usuÃ¡rio admin padrÃ£o
+    var adminEmail = "admin@kivo.com";
+    var adminUser = await userManager.FindByEmailAsync(adminEmail);
+
+    if (adminUser == null)
+    {
+        // 1. Criar IdentityUser
+        var newAdmin = new IdentityUser
+        {
+            UserName = adminEmail,
+            Email = adminEmail,
+            EmailConfirmed = true
+        };
+
+        var result = await userManager.CreateAsync(newAdmin, "Admin@123456");
+
+        if (result.Succeeded)
+        {
+            // 2. Adicionar role
+            await userManager.AddToRoleAsync(newAdmin, "Administrador");
+
+            // 3. Criar usuÃ¡rio na tabela Kivo
+            var usuarioAdmin = new Usuario
+            {
+                Id = Guid.NewGuid(),
+                Nome = "Administrador",
+                Email = adminEmail,
+                Cpf = "00000000000",
+                Telefone = "",
+                DataNascimento = new DateTime(2000, 1, 1),
+                EnumCargo = EnumCargo.Administrador,
+                Ativo = true,
+                CriadoEm = DateTime.Now
+            };
+
+            await usuarioRepository.Adicionar(usuarioAdmin);
         }
     }
 }

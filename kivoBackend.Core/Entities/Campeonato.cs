@@ -20,11 +20,37 @@ namespace kivoBackend.Core.Entities
         public int PontosDerrota { get; set; }
         public int PontosEmpate { get; set; }
 
-        public EnumStatusCampeonato EnumStatusCampeonato { get; set; }
+        private EnumStatusCampeonato _statusBase;
+        public EnumStatusCampeonato EnumStatusCampeonato
+        {
+            get
+            {
+                var agora = DateTime.Now;
+
+                if (_statusBase == EnumStatusCampeonato.Rascunho || _statusBase == EnumStatusCampeonato.Cancelado)
+                {
+                    return _statusBase;
+                }
+
+                if (agora > DataFim)
+                    return EnumStatusCampeonato.Finalizado;
+
+                if (agora >= DataInicio)
+                    return EnumStatusCampeonato.EmAndamento;
+
+                return EnumStatusCampeonato.InscricoesAbertas;
+            }
+            set
+            {
+                _statusBase = value;
+            }
+        }
         public DateTime CriadoEm { get; set; }
 
         public OrganizadorCampeonato OrganizadorCampeonato { get; set; }
 
         public ICollection<CampeonatoTime> CampeonatoTimes { get; set; }
+
+        
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -14,5 +15,8 @@ namespace kivoBackend.Core.Interfaces
         Task<T> Adicionar(T entidade);
         Task Atualizar(T entidade);
         Task Remover(Guid id);
+        Task<IEnumerable<T>> ObterComIncludes(params Expression<Func<T, object>>[] includes);
+        Task<IEnumerable<T>> Buscar(Expression<Func<T, bool>> predicate);
+        Task<T?> BuscarPrimeiro(Expression<Func<T, bool>> predicate);
     }
 }

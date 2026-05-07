@@ -19,6 +19,6 @@ namespace kivoBackend.Core.Enums
 
         // ETAPA DE FINALIZAÇÃO
         Finalizado = 5,    // O campeão foi definido e o torneio acabou
-        Cancelado = 6
+        Cancelado = 6   // O campeonato foi cancelado por algum motivo
     }
 }

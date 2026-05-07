@@ -47,6 +47,22 @@ namespace kivoBackend.Presentation.Controller
             }
         }
 
+        [Authorize(Roles = "Administrador")]
+        [HttpGet("administradores")]
+        public async Task<IActionResult> GetAdministradores()
+        {
+            try
+            {
+                var admins = await _usuarioService.ObterAdministradores();
+                var retorno = admins.Select(u => MapearParaLista(u));
+                return Ok(retorno);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
+
         [HttpGet("cpf/{cpf}")]
         public async Task<IActionResult> ObterPorCpf(string cpf)
         {
@@ -63,23 +79,28 @@ namespace kivoBackend.Presentation.Controller
             {
                 var usuario = MapearBase(dto, EnumCargo.Torcedor);
 
+                var endereco = new Endereco
+                {
+                    Id = Guid.NewGuid(),
+                    Cep = dto.Endereco.Cep,
+                    Rua = dto.Endereco.Rua,
+                    Numero = dto.Endereco.Numero,
+                    Cidade = dto.Endereco.Cidade,
+                    Estado = dto.Endereco.Estado,
+                    Complemento = "",
+                    Pais = "Brasil"
+                };
+
                 usuario.Torcedor = new Torcedor
                 {
-                    Endereco = new Endereco
-                    {
-                        Cep = dto.Endereco.Cep,
-                        Rua = dto.Endereco.Rua,
-                        Numero = dto.Endereco.Numero,
-                        Cidade = dto.Endereco.Cidade,
-                        Estado = dto.Endereco.Estado,
-                        Complemento = "",
-                        Pais = "Brasil"
-                    }
+                    Id = Guid.NewGuid(),
+                    EnderecoId = endereco.Id,
+                    Endereco = endereco
                 };
 
                 var resultado = await _usuarioService.CriarUsuario(usuario, dto.Senha);
 
-                return CreatedAtAction(nameof(GetById), new { id = resultado.Id }, resultado);
+                return CreatedAtAction(nameof(GetById), new { id = resultado.Id }, MapearParaLista(resultado));
             }
             catch (Exception ex)
             {
@@ -94,22 +115,27 @@ namespace kivoBackend.Presentation.Controller
             {
                 var usuario = MapearBase(dto, EnumCargo.OrganizadorTime);
 
+                var endereco = new Endereco
+                {
+                    Id = Guid.NewGuid(),
+                    Cep = dto.Endereco.Cep,
+                    Rua = dto.Endereco.Rua,
+                    Numero = dto.Endereco.Numero,
+                    Cidade = dto.Endereco.Cidade,
+                    Estado = dto.Endereco.Estado,
+                    Complemento = "",
+                    Pais = "Brasil"
+                };
+
                 usuario.OrganizadorTime = new OrganizadorTime
                 {
-                    Endereco = new Endereco
-                    {
-                        Cep = dto.Endereco.Cep,
-                        Rua = dto.Endereco.Rua,
-                        Numero = dto.Endereco.Numero,
-                        Cidade = dto.Endereco.Cidade,
-                        Estado = dto.Endereco.Estado,
-                        Complemento = "",
-                        Pais = "Brasil"
-                    }
+                    Id = Guid.NewGuid(),
+                    EnderecoId = endereco.Id,
+                    Endereco = endereco
                 };
 
                 var novoUsuario = await _usuarioService.CriarUsuario(usuario, dto.Senha);
-                return CreatedAtAction(nameof(GetById), new { id = novoUsuario.Id }, novoUsuario);
+                return CreatedAtAction(nameof(GetById), new { id = novoUsuario.Id }, MapearParaLista(novoUsuario));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
@@ -121,29 +147,40 @@ namespace kivoBackend.Presentation.Controller
             {
                 var usuario = MapearBase(dto, EnumCargo.OrganizadorCampeonato);
 
-                usuario.OrganizadorCampeonato = new OrganizadorCampeonato
+                var endereco = new Endereco
                 {
-                    Endereco = new Endereco
-                    {
-                        Cep = dto.Endereco.Cep,
-                        Rua = dto.Endereco.Rua,
-                        Numero = dto.Endereco.Numero,
-                        Cidade = dto.Endereco.Cidade,
-                        Estado = dto.Endereco.Estado,
-                        Complemento = "",
-                        Pais = "Brasil"
-                    },
-                    ContaBanco = new ContaBanco
-                    {
-                        Banco = dto.ContaBanco.Banco,
-                        Agencia = dto.ContaBanco.Agencia,
-                        Conta = dto.ContaBanco.Conta,
-                        ChavePix = dto.ContaBanco.ChavePix
-                    }
+                    Id = Guid.NewGuid(),
+                    Cep = dto.Endereco.Cep,
+                    Rua = dto.Endereco.Rua,
+                    Numero = dto.Endereco.Numero,
+                    Cidade = dto.Endereco.Cidade,
+                    Estado = dto.Endereco.Estado,
+                    Complemento = "",
+                    Pais = "Brasil"
                 };
 
+                var contaBanco = new ContaBanco
+                {
+                    Id = Guid.NewGuid(),
+                    Banco = dto.ContaBanco.Banco,
+                    Agencia = dto.ContaBanco.Agencia,
+                    Conta = dto.ContaBanco.Conta,
+                    Tipo = dto.ContaBanco.Tipo,
+                    ChavePix = dto.ContaBanco.ChavePix
+                };
+
+                usuario.OrganizadorCampeonato = new OrganizadorCampeonato
+                {
+                    Id = Guid.NewGuid(),
+                    EnderecoId = endereco.Id,
+                    Endereco = endereco,
+                    ContaBanco = contaBanco
+                };
+
+                contaBanco.OrganizadorCampeonatoId = usuario.OrganizadorCampeonato.Id;
+
                 var novoUsuario = await _usuarioService.CriarUsuario(usuario, dto.Senha);
-                return CreatedAtAction(nameof(GetById), new { id = novoUsuario.Id }, novoUsuario);
+                return CreatedAtAction(nameof(GetById), new { id = novoUsuario.Id }, MapearParaLista(novoUsuario));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
@@ -156,7 +193,7 @@ namespace kivoBackend.Presentation.Controller
             {
                 var usuario = MapearBase(dto, EnumCargo.Administrador);
                 var novoUsuario = await _usuarioService.CriarUsuario(usuario, dto.Senha);
-                return CreatedAtAction(nameof(GetById), new { id = novoUsuario.Id }, novoUsuario);
+                return CreatedAtAction(nameof(GetById), new { id = novoUsuario.Id }, MapearParaLista(novoUsuario));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
@@ -206,6 +243,9 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                if (dto.ContaBanco == null)
+                    return BadRequest("Dados da conta bancária são obrigatórios.");
+
                 var usuario = MapearParaUpdate(dto);
                 usuario.OrganizadorCampeonato = new OrganizadorCampeonato
                 {
@@ -215,6 +255,7 @@ namespace kivoBackend.Presentation.Controller
                         Banco = dto.ContaBanco.Banco,
                         Agencia = dto.ContaBanco.Agencia,
                         Conta = dto.ContaBanco.Conta,
+                        Tipo = dto.ContaBanco.Tipo,
                         ChavePix = dto.ContaBanco.ChavePix
                     }
                 };
@@ -288,15 +329,18 @@ namespace kivoBackend.Presentation.Controller
                     break;
 
                 case EnumCargo.OrganizadorTime:
+                    dto.OrganizadorTimeId = u.OrganizadorTime?.Id;
                     if (u.OrganizadorTime?.Endereco != null)
                         dto.Endereco = MapearEnderecoParaDto(u.OrganizadorTime.Endereco);
-                    if(u.OrganizadorTime.Times != null)
+                    if(u.OrganizadorTime?.Times != null)
                     {
                         dto.TimesAdministrados = u.OrganizadorTime.Times.Select(t => t.Nome).ToList();
                     }
                     break;
 
                 case EnumCargo.OrganizadorCampeonato:
+                    dto.OrganizadorCampeonatoId = u.OrganizadorCampeonato?.Id;
+
                     if (u.OrganizadorCampeonato?.Endereco != null)
                         dto.Endereco = MapearEnderecoParaDto(u.OrganizadorCampeonato.Endereco);
 
@@ -308,6 +352,7 @@ namespace kivoBackend.Presentation.Controller
                             Banco = cb.Banco,
                             Agencia = cb.Agencia,
                             Conta = cb.Conta,
+                            Tipo = cb.Tipo,
                             ChavePix = cb.ChavePix
                         };
                     }
@@ -328,6 +373,41 @@ namespace kivoBackend.Presentation.Controller
             catch (KeyNotFoundException)
             {
                 return NotFound();
+            }
+        }
+
+        [HttpPost("check-email")]
+        public async Task<IActionResult> CheckEmail([FromBody] CheckEmailRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request?.Email))
+                    return BadRequest("Email é obrigatório.");
+
+                var exists = await _usuarioService.VerificarEmailExiste(request.Email.ToLower().Trim());
+                return Ok(new { exists });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("check-cpf")]
+        public async Task<IActionResult> CheckCpf([FromBody] CheckCpfRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request?.Cpf))
+                    return BadRequest("CPF é obrigatório.");
+
+                var cleanCpf = System.Text.RegularExpressions.Regex.Replace(request.Cpf, @"\D", "");
+                var exists = await _usuarioService.VerificarCpfExiste(cleanCpf);
+                return Ok(new { exists });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
             }
         }
 
