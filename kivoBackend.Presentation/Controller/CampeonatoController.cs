@@ -77,6 +77,9 @@ namespace kivoBackend.Presentation.Controller
                 DataFim = c.DataFim,
                 Status = c.EnumStatusCampeonato.ToString(),
                 CriadoEm = c.CriadoEm,
+                PontosVitoria = c.PontosVitoria,
+                PontosDerrota = c.PontosDerrota,
+                PontosEmpate = c.PontosEmpate,
                 TotalTimes = c.CampeonatoTimes?.Count(t => t.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0,
                 Times = c.CampeonatoTimes?
                     .Where(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito)
