@@ -29,7 +29,7 @@ builder.Configuration
 // Substituir placeholders de variáveis de ambiente no appsettings
 var config = builder.Configuration;
 var dbConnection = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
-    ?? "Server=localhost\\SQLEXPRESS;Database=KivoDb;Trusted_Connection=True;TrustServerCertificate=True;";
+    ?? "Server=(localdb)\\MSSQLLocalDB;Database=KivoDb;Trusted_Connection=True;TrustServerCertificate=True;";
 var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? "KivoSports_Chave_Super_Secreta_2026_@!";
 var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "kivoBackend";
 var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "kivoFrontEnd";

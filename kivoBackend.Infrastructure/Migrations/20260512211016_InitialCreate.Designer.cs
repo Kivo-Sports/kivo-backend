@@ -12,8 +12,8 @@ using kivoBackend.Infrastructure.Data;
 namespace kivoBackend.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260321005012_RemovendoColunaSenhaTbUsuario")]
-    partial class RemovendoColunaSenhaTbUsuario
+    [Migration("20260512211016_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -223,23 +223,6 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("kivoBackend.Core.Entities.Administrador", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("UsuarioId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UsuarioId")
-                        .IsUnique();
-
-                    b.ToTable("Administradores");
-                });
-
             modelBuilder.Entity("kivoBackend.Core.Entities.Campeonato", b =>
                 {
                     b.Property<Guid>("Id")
@@ -314,6 +297,35 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.ToTable("CampeonatoTimes");
                 });
 
+            modelBuilder.Entity("kivoBackend.Core.Entities.CodigoReativacao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Usado")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("CodigosReativacao");
+                });
+
             modelBuilder.Entity("kivoBackend.Core.Entities.ContaBanco", b =>
                 {
                     b.Property<Guid>("Id")
@@ -340,7 +352,6 @@ namespace kivoBackend.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Tipo")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
@@ -366,7 +377,6 @@ namespace kivoBackend.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Complemento")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Estado")
@@ -404,7 +414,8 @@ namespace kivoBackend.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EnderecoId");
+                    b.HasIndex("EnderecoId")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId")
                         .IsUnique();
@@ -426,7 +437,8 @@ namespace kivoBackend.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EnderecoId");
+                    b.HasIndex("EnderecoId")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId")
                         .IsUnique();
@@ -484,7 +496,6 @@ namespace kivoBackend.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("LogoUrl")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Nome")
@@ -515,7 +526,8 @@ namespace kivoBackend.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EnderecoId");
+                    b.HasIndex("EnderecoId")
+                        .IsUnique();
 
                     b.HasIndex("UsuarioId")
                         .IsUnique();
@@ -563,6 +575,44 @@ namespace kivoBackend.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.VerificationCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MaximoTentativas")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Tentativas")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Usado")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("VerificationCodes");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -616,17 +666,6 @@ namespace kivoBackend.Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("kivoBackend.Core.Entities.Administrador", b =>
-                {
-                    b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
-                        .WithOne("Administrador")
-                        .HasForeignKey("kivoBackend.Core.Entities.Administrador", "UsuarioId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Usuario");
-                });
-
             modelBuilder.Entity("kivoBackend.Core.Entities.Campeonato", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.OrganizadorCampeonato", "OrganizadorCampeonato")
@@ -657,6 +696,17 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Navigation("Time");
                 });
 
+            modelBuilder.Entity("kivoBackend.Core.Entities.CodigoReativacao", b =>
+                {
+                    b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("kivoBackend.Core.Entities.ContaBanco", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.OrganizadorCampeonato", "OrganizadorCampeonato")
@@ -671,9 +721,9 @@ namespace kivoBackend.Infrastructure.Migrations
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorCampeonato", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.Endereco", "Endereco")
-                        .WithMany()
-                        .HasForeignKey("EnderecoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .WithOne()
+                        .HasForeignKey("kivoBackend.Core.Entities.OrganizadorCampeonato", "EnderecoId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
@@ -690,9 +740,9 @@ namespace kivoBackend.Infrastructure.Migrations
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorTime", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.Endereco", "Endereco")
-                        .WithMany()
-                        .HasForeignKey("EnderecoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .WithOne()
+                        .HasForeignKey("kivoBackend.Core.Entities.OrganizadorTime", "EnderecoId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
@@ -731,9 +781,9 @@ namespace kivoBackend.Infrastructure.Migrations
             modelBuilder.Entity("kivoBackend.Core.Entities.Torcedor", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.Endereco", "Endereco")
-                        .WithMany()
-                        .HasForeignKey("EnderecoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .WithOne()
+                        .HasForeignKey("kivoBackend.Core.Entities.Torcedor", "EnderecoId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
@@ -743,6 +793,17 @@ namespace kivoBackend.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Endereco");
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.VerificationCode", b =>
+                {
+                    b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Usuario");
                 });
@@ -767,9 +828,6 @@ namespace kivoBackend.Infrastructure.Migrations
 
             modelBuilder.Entity("kivoBackend.Core.Entities.Usuario", b =>
                 {
-                    b.Navigation("Administrador")
-                        .IsRequired();
-
                     b.Navigation("OrganizadorCampeonato")
                         .IsRequired();
 

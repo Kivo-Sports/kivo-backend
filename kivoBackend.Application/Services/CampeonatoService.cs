@@ -1,4 +1,5 @@
-﻿using kivoBackend.Application.Interfaces;
+﻿using kivoBackend.Application.DTO;
+using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
 using kivoBackend.Core.Interfaces;
@@ -114,6 +115,49 @@ namespace kivoBackend.Application.Services
         public Task<IEnumerable<Campeonato>> ObterTodosComTimes()
         {
             throw new NotImplementedException();
+        }
+
+        public async Task<Campeonato> IniciarCampeonato(Guid campeonatoId)
+        {
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
+
+            if (campeonato == null)
+                throw new Exception("Campeonato não encontrado.");
+
+            int contagemTimesConfirmados = campeonato.CampeonatoTimes?
+                .Count(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0;
+
+            if (contagemTimesConfirmados < 8)
+            {
+                throw new Exception($"O campeonato precisa de pelo menos 8 times confirmados. Atuais: {contagemTimesConfirmados}");
+            }
+
+            campeonato.EnumStatusCampeonato = EnumStatusCampeonato.EmAndamento;
+            await _repositoryGenerics.Atualizar(campeonato);
+            return campeonato;
+        }
+
+        public async Task<Campeonato> EditarCampeonato(Guid campeonatoId, EditarCampeonatoDto dto)
+        {
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
+            if (campeonato == null)
+                throw new Exception("Campeonato não encontrado.");
+
+            if (campeonato.EnumStatusCampeonato == EnumStatusCampeonato.EmAndamento ||
+                     campeonato.EnumStatusCampeonato == EnumStatusCampeonato.Finalizado)
+            {
+                throw new Exception("Não é possível editar um campeonato que já iniciou ou finalizou.");
+            }
+
+            campeonato.Nome = dto.Nome;
+            campeonato.DataInicio = dto.DataInicio;
+            campeonato.DataFim = dto.DataFim;
+            campeonato.PontosVitoria = dto.PontosVitoria;
+            campeonato.PontosDerrota = dto.PontosDerrota;
+            campeonato.PontosEmpate = dto.PontosEmpate;
+
+            await _repositoryGenerics.Atualizar(campeonato);
+            return campeonato;
         }
     }
 }

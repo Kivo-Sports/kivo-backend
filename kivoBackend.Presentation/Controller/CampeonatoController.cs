@@ -65,6 +65,20 @@ namespace kivoBackend.Presentation.Controller
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
+        
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Put(Guid id, [FromBody] EditarCampeonatoDto dto)
+        {
+            try
+            {
+                var resultado = await _campeonatoService.EditarCampeonato(id, dto);
+                return Ok(MapearParaDto(resultado));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
 
         private ListarCampeonatoDto MapearParaDto(Campeonato c)
         {
@@ -95,6 +109,17 @@ namespace kivoBackend.Presentation.Controller
             {
                 await _campeonatoService.AbrirInscricoes(id);
                 return Ok("Inscrições abertas com sucesso.");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPatch("{id}/iniciar-campeonato")]
+        public async Task<IActionResult> IniciarCampeonato(Guid id)
+        {
+            try
+            {
+                await _campeonatoService.IniciarCampeonato(id);
+                return Ok("Campeonato iniciado com sucesso.");
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
