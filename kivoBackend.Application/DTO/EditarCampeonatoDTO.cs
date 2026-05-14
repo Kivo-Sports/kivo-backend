@@ -7,16 +7,15 @@ using System.Threading.Tasks;
 
 namespace kivoBackend.Application.DTO
 {
-    public class CriarCampeonatoDto
+    public class EditarCampeonatoDto
     {
-        public Guid OrganizadorCampeonatoId { get; set; }
         public string Nome { get; set; }
         public DateTime DataInicio { get; set; }
         public DateTime DataFim { get; set; }
-        public int? PontosVitoria { get; set; }
-        public int? PontosDerrota { get; set; }
-        public int? PontosEmpate { get; set; }
+        public int PontosVitoria { get; set; }
+        public int PontosDerrota { get; set; }
+        public int PontosEmpate { get; set; }
+        public EnumFormatoCampeonato FormatoCampeonato{ get; set; }
         public int? QuantidadeTimesClassificam { get; set; }
-        public EnumFormatoCampeonato FormatoCampeonato { get; set; }
     }
 }

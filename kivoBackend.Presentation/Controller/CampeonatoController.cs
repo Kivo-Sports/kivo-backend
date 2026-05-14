@@ -46,6 +46,11 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                if (dto.FormatoCampeonato == EnumFormatoCampeonato.Hibrido && !dto.QuantidadeTimesClassificam.HasValue)
+                {
+                    return BadRequest("Para campeonatos Híbridos, você deve informar quantos times classificam.");
+                }
+
                 var novoCampeonato = new Campeonato
                 {
                     Id = Guid.NewGuid(),
@@ -53,10 +58,12 @@ namespace kivoBackend.Presentation.Controller
                     Nome = dto.Nome,
                     DataInicio = dto.DataInicio,
                     DataFim = dto.DataFim,
-                    PontosVitoria = dto.PontosVitoria,
-                    PontosDerrota = dto.PontosDerrota,
-                    PontosEmpate = dto.PontosEmpate,
+                    PontosVitoria = dto.PontosVitoria ?? 0,
+                    PontosDerrota = dto.PontosDerrota ?? 0,
+                    PontosEmpate = dto.PontosEmpate ?? 0,
+                    FormatoCampeonato = dto.FormatoCampeonato,
                     EnumStatusCampeonato = EnumStatusCampeonato.Rascunho,
+                    QuantidadeTimesClassificam = dto.QuantidadeTimesClassificam ?? 0,
                     CriadoEm = DateTime.Now
                 };
 
@@ -64,6 +71,20 @@ namespace kivoBackend.Presentation.Controller
                 return CreatedAtAction(nameof(GetById), new { id = resultado.Id }, MapearParaDto(resultado));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+        
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Put(Guid id, [FromBody] EditarCampeonatoDto dto)
+        {
+            try
+            {
+                var resultado = await _campeonatoService.EditarCampeonato(id, dto);
+                return Ok(MapearParaDto(resultado));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         private ListarCampeonatoDto MapearParaDto(Campeonato c)
@@ -77,7 +98,12 @@ namespace kivoBackend.Presentation.Controller
                 DataFim = c.DataFim,
                 Status = c.EnumStatusCampeonato.ToString(),
                 CriadoEm = c.CriadoEm,
+                PontosVitoria = c.PontosVitoria,
+                PontosDerrota = c.PontosDerrota,
+                PontosEmpate = c.PontosEmpate,
+                FormatoCampeonato = c.FormatoCampeonato.ToString(),
                 TotalTimes = c.CampeonatoTimes?.Count(t => t.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0,
+                QuantidadeTimesClassificam = c.QuantidadeTimesClassificam ?? 0,
                 Times = c.CampeonatoTimes?
                     .Where(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito)
                     .Select(ct => ct.TimeId)
@@ -92,6 +118,17 @@ namespace kivoBackend.Presentation.Controller
             {
                 await _campeonatoService.AbrirInscricoes(id);
                 return Ok("Inscrições abertas com sucesso.");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPatch("{id}/iniciar-campeonato")]
+        public async Task<IActionResult> IniciarCampeonato(Guid id)
+        {
+            try
+            {
+                await _campeonatoService.IniciarCampeonato(id);
+                return Ok("Campeonato iniciado com sucesso.");
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }

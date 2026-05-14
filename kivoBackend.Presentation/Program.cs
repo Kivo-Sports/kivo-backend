@@ -1,16 +1,17 @@
+using DotNetEnv;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Application.Services;
-using kivoBackend.Core.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
+using kivoBackend.Core.Interfaces;
 using kivoBackend.Infrastructure.Data;
 using kivoBackend.Infrastructure.Repositories;
-using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Text.Json.Serialization;
 
 // Carregar variáveis de ambiente do arquivo .env
 var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
@@ -29,7 +30,7 @@ builder.Configuration
 // Substituir placeholders de variáveis de ambiente no appsettings
 var config = builder.Configuration;
 var dbConnection = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
-    ?? "Server=localhost\\SQLEXPRESS;Database=KivoDb;Trusted_Connection=True;TrustServerCertificate=True;";
+    ?? "Server=(localdb)\\MSSQLLocalDB;Database=KivoDb;Trusted_Connection=True;TrustServerCertificate=True;";
 var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? "KivoSports_Chave_Super_Secreta_2026_@!";
 var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "kivoBackend";
 var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "kivoFrontEnd";

@@ -238,6 +238,9 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<int>("EnumStatusCampeonato")
                         .HasColumnType("int");
 
+                    b.Property<int>("FormatoCampeonato")
+                        .HasColumnType("int");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -252,6 +255,9 @@ namespace kivoBackend.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("PontosVitoria")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("QuantidadeTimesClassificam")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -441,6 +447,57 @@ namespace kivoBackend.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("OrganizadoresTime");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.Partida", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CampeonatoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DataHora")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Fase")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Finalizado")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("GolsTimeCasa")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GolsTimeVisitante")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Local")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("NumeroJogoChave")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Rodada")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("TimeCasaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TimeVisitanteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampeonatoId");
+
+                    b.HasIndex("TimeCasaId");
+
+                    b.HasIndex("TimeVisitanteId");
+
+                    b.ToTable("Partida");
                 });
 
             modelBuilder.Entity("kivoBackend.Core.Entities.RecuperacaoSenha", b =>
@@ -753,6 +810,27 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("kivoBackend.Core.Entities.Partida", b =>
+                {
+                    b.HasOne("kivoBackend.Core.Entities.Campeonato", null)
+                        .WithMany("Partidas")
+                        .HasForeignKey("CampeonatoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("kivoBackend.Core.Entities.Time", "TimeCasa")
+                        .WithMany()
+                        .HasForeignKey("TimeCasaId");
+
+                    b.HasOne("kivoBackend.Core.Entities.Time", "TimeVisitante")
+                        .WithMany()
+                        .HasForeignKey("TimeVisitanteId");
+
+                    b.Navigation("TimeCasa");
+
+                    b.Navigation("TimeVisitante");
+                });
+
             modelBuilder.Entity("kivoBackend.Core.Entities.RecuperacaoSenha", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
@@ -808,6 +886,8 @@ namespace kivoBackend.Infrastructure.Migrations
             modelBuilder.Entity("kivoBackend.Core.Entities.Campeonato", b =>
                 {
                     b.Navigation("CampeonatoTimes");
+
+                    b.Navigation("Partidas");
                 });
 
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorCampeonato", b =>
