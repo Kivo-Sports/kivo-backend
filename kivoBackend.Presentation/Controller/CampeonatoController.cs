@@ -46,6 +46,11 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                if (dto.FormatoCampeonato == EnumFormatoCampeonato.Hibrido && !dto.QuantidadeTimesClassificam.HasValue)
+                {
+                    return BadRequest("Para campeonatos Híbridos, você deve informar quantos times classificam.");
+                }
+
                 var novoCampeonato = new Campeonato
                 {
                     Id = Guid.NewGuid(),
@@ -53,10 +58,12 @@ namespace kivoBackend.Presentation.Controller
                     Nome = dto.Nome,
                     DataInicio = dto.DataInicio,
                     DataFim = dto.DataFim,
-                    PontosVitoria = dto.PontosVitoria,
-                    PontosDerrota = dto.PontosDerrota,
-                    PontosEmpate = dto.PontosEmpate,
+                    PontosVitoria = dto.PontosVitoria ?? 0,
+                    PontosDerrota = dto.PontosDerrota ?? 0,
+                    PontosEmpate = dto.PontosEmpate ?? 0,
+                    FormatoCampeonato = dto.FormatoCampeonato,
                     EnumStatusCampeonato = EnumStatusCampeonato.Rascunho,
+                    QuantidadeTimesClassificam = dto.QuantidadeTimesClassificam ?? 0,
                     CriadoEm = DateTime.Now
                 };
 
@@ -94,7 +101,9 @@ namespace kivoBackend.Presentation.Controller
                 PontosVitoria = c.PontosVitoria,
                 PontosDerrota = c.PontosDerrota,
                 PontosEmpate = c.PontosEmpate,
+                FormatoCampeonato = c.FormatoCampeonato.ToString(),
                 TotalTimes = c.CampeonatoTimes?.Count(t => t.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0,
+                QuantidadeTimesClassificam = c.QuantidadeTimesClassificam ?? 0,
                 Times = c.CampeonatoTimes?
                     .Where(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito)
                     .Select(ct => ct.TimeId)

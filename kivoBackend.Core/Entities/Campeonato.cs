@@ -19,8 +19,10 @@ namespace kivoBackend.Core.Entities
         public int PontosVitoria { get; set; }
         public int PontosDerrota { get; set; }
         public int PontosEmpate { get; set; }
-
+        public int? QuantidadeTimesClassificam { get; set; }
+        public EnumFormatoCampeonato FormatoCampeonato { get; set; }
         private EnumStatusCampeonato _statusBase;
+        public ICollection<Partida> Partidas { get; set; }
         public EnumStatusCampeonato EnumStatusCampeonato
         {
             get

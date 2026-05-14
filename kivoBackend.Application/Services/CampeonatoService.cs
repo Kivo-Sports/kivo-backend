@@ -120,22 +120,24 @@ namespace kivoBackend.Application.Services
         public async Task<Campeonato> IniciarCampeonato(Guid campeonatoId)
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
+            int timesConfirmados = campeonato.CampeonatoTimes?.Count(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0;
 
-            if (campeonato == null)
-                throw new Exception("Campeonato não encontrado.");
-
-            int contagemTimesConfirmados = campeonato.CampeonatoTimes?
-                .Count(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0;
-
-            if (contagemTimesConfirmados < 8)
+            if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.MataMata)
             {
-                throw new Exception($"O campeonato precisa de pelo menos 8 times confirmados. Atuais: {contagemTimesConfirmados}");
+                if (!ePotenciaDeDois(timesConfirmados))
+                    throw new Exception("Mata-mata requer um número de times que seja potência de 2 (ex: 4, 8, 16).");
+            }
+            else if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.PontosCorridos)
+            {
+                if (timesConfirmados < 8)
+                    throw new Exception("Pontos corridos requer pelo menos 8 times.");
             }
 
             campeonato.EnumStatusCampeonato = EnumStatusCampeonato.EmAndamento;
             await _repositoryGenerics.Atualizar(campeonato);
             return campeonato;
         }
+        private bool ePotenciaDeDois(int n) => n > 0 && (n & (n - 1)) == 0;
 
         public async Task<Campeonato> EditarCampeonato(Guid campeonatoId, EditarCampeonatoDto dto)
         {
@@ -155,6 +157,8 @@ namespace kivoBackend.Application.Services
             campeonato.PontosVitoria = dto.PontosVitoria;
             campeonato.PontosDerrota = dto.PontosDerrota;
             campeonato.PontosEmpate = dto.PontosEmpate;
+            campeonato.FormatoCampeonato = dto.FormatoCampeonato;
+            campeonato.QuantidadeTimesClassificam = dto.QuantidadeTimesClassificam;
 
             await _repositoryGenerics.Atualizar(campeonato);
             return campeonato;

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using kivoBackend.Core.Enums;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,6 +21,8 @@ namespace kivoBackend.Application.DTO
         public int PontosVitoria { get; set; }
         public int PontosDerrota { get; set; }
         public int PontosEmpate { get; set; }
+        public int QuantidadeTimesClassificam { get; set; }
+        public string FormatoCampeonato { get; set; }
         public List<Guid> TimeIds { get; set; } = new();
     }
 }

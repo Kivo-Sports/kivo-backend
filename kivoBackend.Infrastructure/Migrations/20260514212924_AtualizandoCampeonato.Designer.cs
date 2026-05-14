@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using kivoBackend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using kivoBackend.Infrastructure.Data;
 namespace kivoBackend.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260514212924_AtualizandoCampeonato")]
+    partial class AtualizandoCampeonato
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -255,9 +258,6 @@ namespace kivoBackend.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("PontosVitoria")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("QuantidadeTimesClassificam")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
