@@ -12,6 +12,8 @@ namespace kivoBackend.Application.DTO
         public int NumeroJogoChave { get; set; }
         public string TimeCasa { get; set; }
         public string TimeVisitante { get; set; }
+        public string LogoCasa { get; set; }
+        public string LogoVisitante { get; set; }
         public int GolsCasa { get; set; }
         public int GolsVisitante { get; set; }
         public bool Finalizado { get; set; }

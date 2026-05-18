@@ -21,6 +21,7 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<Time> Times { get; set; }
         public DbSet<Campeonato> Campeonatos { get; set; }
         public DbSet<CampeonatoTime> CampeonatoTimes { get; set; }
+        public DbSet<Partida> Partidas { get; set; }
         public DbSet<RecuperacaoSenha> RecuperacoesSenha { get; set; }
         public DbSet<CodigoReativacao> CodigosReativacao { get; set; }
         public DbSet<VerificationCode> VerificationCodes { get; set; }
@@ -108,6 +109,24 @@ namespace kivoBackend.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(vc => vc.UsuarioId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // A tabela já existe no banco como "Partida" (singular), criada antes do DbSet.
+            // Mapeia explicitamente para não procurar "Partidas".
+            modelBuilder.Entity<Partida>()
+                .ToTable("Partida");
+
+            // Dois FKs para Time precisam ser configurados explicitamente para evitar ambiguidade
+            modelBuilder.Entity<Partida>()
+                .HasOne(p => p.TimeCasa)
+                .WithMany()
+                .HasForeignKey(p => p.TimeCasaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Partida>()
+                .HasOne(p => p.TimeVisitante)
+                .WithMany()
+                .HasForeignKey(p => p.TimeVisitanteId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

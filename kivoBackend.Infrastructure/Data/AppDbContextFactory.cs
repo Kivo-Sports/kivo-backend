@@ -10,7 +10,7 @@ namespace kivoBackend.Infrastructure.Data
             var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
 
             optionsBuilder.UseSqlServer(
-                "Server=(localdb)\\MSSQLLocalDB;Database=KivoDb;Trusted_Connection=True;TrustServerCertificate=True;");
+                Environment.GetEnvironmentVariable("DB_CONNECTION_STRING"));
 
             return new AppDbContext(optionsBuilder.Options);
         }

@@ -73,5 +73,40 @@ namespace kivoBackend.Presentation.Controller
             var chaves = await _partidaService.ObterChaveamentoMataMata(campeonatoId);
             return Ok(chaves);
         }
+
+        [HttpGet("jogos/{campeonatoId}")]
+        public async Task<IActionResult> GetJogos(Guid campeonatoId)
+        {
+            var jogos = await _partidaService.ObterJogosPontosCorridos(campeonatoId);
+            return Ok(jogos);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(Guid id)
+        {
+            try
+            {
+                var partida = await _partidaService.ObterDetalhePartida(id);
+                return Ok(partida);
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPatch("{id}/agendar")]
+        public async Task<IActionResult> Agendar(Guid id, [FromBody] AgendarPartidaDTO dto)
+        {
+            try
+            {
+                var partida = await _partidaService.ObterPorId(id);
+                if (partida == null) return NotFound();
+
+                partida.DataHora = dto.DataHora;
+                partida.Local = dto.Local ?? string.Empty;
+
+                await _partidaService.Atualizar(partida);
+                return Ok("Agendamento atualizado");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
     }
 }

@@ -17,5 +17,7 @@ namespace kivoBackend.Application.Interfaces
         Task<IEnumerable<ChaveamentoDTO>> ObterChaveamentoMataMata(Guid campeonatoId);
         Task<List<TabelaClassificacaoDTO>> ObterClassificacaoTabela(Guid campeonatoId);
         Task<List<CriterioDesempateDTO>> ObterClassificacaoProximaFase(Guid campeonatoId);
+        Task<List<ListarJogoDTO>> ObterJogosPontosCorridos(Guid campeonatoId);
+        Task<DetalhePartidaDTO> ObterDetalhePartida(Guid partidaId);
     }
 }

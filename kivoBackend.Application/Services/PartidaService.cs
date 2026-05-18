@@ -218,7 +218,12 @@ namespace kivoBackend.Application.Services
 
         public async Task<IEnumerable<ChaveamentoDTO>> ObterChaveamentoMataMata(Guid campeonatoId)
         {
-            var partidas = await _repositoryGenerics.Buscar(p => p.CampeonatoId == campeonatoId && p.Fase != EnumFaseMataMata.Nenhuma);
+            var todas = await _repositoryGenerics.ObterComIncludes(
+                p => p.TimeCasa,
+                p => p.TimeVisitante
+            );
+
+            var partidas = todas.Where(p => p.CampeonatoId == campeonatoId && p.Fase != EnumFaseMataMata.Nenhuma);
 
             return partidas
                 .GroupBy(p => p.Fase)
@@ -232,6 +237,8 @@ namespace kivoBackend.Application.Services
                         NumeroJogoChave = p.NumeroJogoChave,
                         TimeCasa = p.TimeCasa?.Nome ?? "A definir",
                         TimeVisitante = p.TimeVisitante?.Nome ?? "A definir",
+                        LogoCasa = p.TimeCasa?.LogoUrl,
+                        LogoVisitante = p.TimeVisitante?.LogoUrl,
                         GolsCasa = p.GolsTimeCasa,
                         GolsVisitante = p.GolsTimeVisitante,
                         Finalizado = p.Finalizado
@@ -244,12 +251,15 @@ namespace kivoBackend.Application.Services
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
             if (campeonato == null) throw new Exception("Campeonato não encontrado.");
 
-            var partidas = await _repositoryGenerics.ObterComIncludes(p =>
-                p.CampeonatoId == campeonatoId &&
-                p.Rodada != null &&
-                p.Finalizado,
+            var todasPartidas = await _repositoryGenerics.ObterComIncludes(
                 p => p.TimeCasa,
                 p => p.TimeVisitante
+            );
+
+            var partidas = todasPartidas.Where(p =>
+                p.CampeonatoId == campeonatoId &&
+                p.Rodada != null &&
+                p.Finalizado
             );
 
             var tabelaDict = new Dictionary<Guid, TabelaClassificacaoDTO>();
@@ -313,6 +323,59 @@ namespace kivoBackend.Application.Services
                     return t;
                 })
                 .ToList();
+        }
+
+        public async Task<List<ListarJogoDTO>> ObterJogosPontosCorridos(Guid campeonatoId)
+        {
+            var partidas = await _repositoryGenerics.ObterComIncludes(
+                p => p.TimeCasa,
+                p => p.TimeVisitante
+            );
+
+            return partidas
+                .Where(p => p.CampeonatoId == campeonatoId && p.Rodada != null)
+                .OrderBy(p => p.Rodada)
+                .Select(p => new ListarJogoDTO
+                {
+                    Id = p.Id,
+                    Rodada = p.Rodada ?? 0,
+                    NomeTimeCasa = p.TimeCasa?.Nome ?? "A definir",
+                    NomeTimeVisitante = p.TimeVisitante?.Nome ?? "A definir",
+                    LogoTimeCasa = p.TimeCasa?.LogoUrl,
+                    LogoTimeVisitante = p.TimeVisitante?.LogoUrl,
+                    GolsTimeCasa = p.GolsTimeCasa,
+                    GolsTimeVisitante = p.GolsTimeVisitante,
+                    Finalizado = p.Finalizado
+                })
+                .ToList();
+        }
+
+        public async Task<DetalhePartidaDTO> ObterDetalhePartida(Guid partidaId)
+        {
+            var todas = await _repositoryGenerics.ObterComIncludes(
+                p => p.TimeCasa,
+                p => p.TimeVisitante
+            );
+
+            var partida = todas.FirstOrDefault(p => p.Id == partidaId);
+            if (partida == null) throw new Exception("Partida não encontrada.");
+
+            return new DetalhePartidaDTO
+            {
+                Id = partida.Id,
+                CampeonatoId = partida.CampeonatoId,
+                Rodada = partida.Rodada,
+                Fase = partida.Fase.ToString(),
+                NomeTimeCasa = partida.TimeCasa?.Nome ?? "A definir",
+                LogoTimeCasa = partida.TimeCasa?.LogoUrl,
+                NomeTimeVisitante = partida.TimeVisitante?.Nome ?? "A definir",
+                LogoTimeVisitante = partida.TimeVisitante?.LogoUrl,
+                GolsTimeCasa = partida.GolsTimeCasa,
+                GolsTimeVisitante = partida.GolsTimeVisitante,
+                DataHora = partida.DataHora,
+                Local = partida.Local,
+                Finalizado = partida.Finalizado
+            };
         }
     }
 }
