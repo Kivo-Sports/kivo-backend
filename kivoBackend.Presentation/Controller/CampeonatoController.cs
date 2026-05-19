@@ -51,6 +51,17 @@ namespace kivoBackend.Presentation.Controller
                     return BadRequest("Para campeonatos Híbridos, você deve informar quantos times classificam.");
                 }
 
+                if (dto.FormatoCampeonato != EnumFormatoCampeonato.MataMata)
+                {
+                    if (!dto.PontosVitoria.HasValue || !dto.PontosDerrota.HasValue || !dto.PontosEmpate.HasValue)
+                    {
+                        return BadRequest("Para campeonatos de Pontos Corridos ou Híbridos, você deve informar os pontos para vitória, derrota e empate.");
+                    }
+                    {
+                        return BadRequest("Para campeonatos de Pontos Corridos ou Híbridos, você deve informar os pontos para vitória, derrota e empate.");
+                    }
+                }
+
                 var novoCampeonato = new Campeonato
                 {
                     Id = Guid.NewGuid(),
@@ -98,9 +109,9 @@ namespace kivoBackend.Presentation.Controller
                 DataFim = c.DataFim,
                 Status = c.EnumStatusCampeonato.ToString(),
                 CriadoEm = c.CriadoEm,
-                PontosVitoria = c.PontosVitoria,
-                PontosDerrota = c.PontosDerrota,
-                PontosEmpate = c.PontosEmpate,
+                PontosVitoria = c.PontosVitoria ?? 0,
+                PontosDerrota = c.PontosDerrota ?? 0,
+                PontosEmpate = c.PontosEmpate ?? 0,
                 FormatoCampeonato = c.FormatoCampeonato.ToString(),
                 TotalTimes = c.CampeonatoTimes?.Count(t => t.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0,
                 QuantidadeTimesClassificam = c.QuantidadeTimesClassificam ?? 0,

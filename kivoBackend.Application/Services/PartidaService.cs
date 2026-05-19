@@ -169,20 +169,20 @@ namespace kivoBackend.Application.Services
 
                 if (p.GolsTimeCasa > p.GolsTimeVisitante)
                 {
-                    casa.Pontos += campeonato.PontosVitoria;
+                    casa.Pontos += campeonato.PontosVitoria ?? 0;
                     casa.Vitorias++;
-                    fora.Pontos += campeonato.PontosDerrota;
+                    fora.Pontos += campeonato.PontosDerrota ?? 0;
                 }
                 else if (p.GolsTimeCasa < p.GolsTimeVisitante)
                 {
-                    fora.Pontos += campeonato.PontosVitoria;
+                    fora.Pontos += campeonato.PontosVitoria ?? 0;
                     fora.Vitorias++;
-                    casa.Pontos += campeonato.PontosDerrota;
+                    casa.Pontos += campeonato.PontosDerrota ?? 0;
                 }
                 else
                 {
-                    casa.Pontos += campeonato.PontosEmpate;
-                    fora.Pontos += campeonato.PontosEmpate;
+                    casa.Pontos += campeonato.PontosEmpate ?? 0;
+                    fora.Pontos += campeonato.PontosEmpate ?? 0;
                 }
             }
 
@@ -288,22 +288,22 @@ namespace kivoBackend.Application.Services
 
                 if (p.GolsTimeCasa > p.GolsTimeVisitante)
                 {
-                    casa.Pontos += campeonato.PontosVitoria;
+                    casa.Pontos += campeonato.PontosVitoria ?? 0;
                     casa.Vitorias++;
-                    fora.Pontos += campeonato.PontosDerrota;
+                    fora.Pontos += campeonato.PontosDerrota ?? 0;
                     fora.Derrotas++;
                 }
                 else if (p.GolsTimeCasa < p.GolsTimeVisitante)
                 {
-                    fora.Pontos += campeonato.PontosVitoria;
+                    fora.Pontos += campeonato.PontosVitoria ?? 0;
                     fora.Vitorias++;
-                    casa.Pontos += campeonato.PontosDerrota;
+                    casa.Pontos += campeonato.PontosDerrota ?? 0;
                     casa.Derrotas++;
                 }
                 else
                 {
-                    casa.Pontos += campeonato.PontosEmpate;
-                    fora.Pontos += campeonato.PontosEmpate;
+                    casa.Pontos += campeonato.PontosEmpate ?? 0;
+                    fora.Pontos += campeonato.PontosEmpate ?? 0;
                     casa.Empates++;
                     fora.Empates++;
                 }
