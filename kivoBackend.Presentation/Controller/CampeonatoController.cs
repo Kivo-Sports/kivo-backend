@@ -2,6 +2,7 @@
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace kivoBackend.Presentation.Controller
@@ -20,6 +21,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> GetAll()
         {
             try
@@ -32,6 +34,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<IActionResult> GetById(Guid id)
         {
             try
@@ -44,6 +47,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> Post([FromForm] CriarCampeonatoDto dto, IFormFile? logo)
         {
             try
@@ -93,6 +97,7 @@ namespace kivoBackend.Presentation.Controller
         }
         
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> Put(Guid id, [FromForm] EditarCampeonatoDto dto, IFormFile? logo)
         {
             try
@@ -141,6 +146,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/abrir-inscricoes")]
+        [Authorize]
         public async Task<IActionResult> AbrirInscricoes(Guid id)
         {
             try
@@ -152,6 +158,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/iniciar-campeonato")]
+        [Authorize]
         public async Task<IActionResult> IniciarCampeonato(Guid id)
         {
             try
@@ -163,6 +170,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/cancelar")]
+        [Authorize]
         public async Task<IActionResult> Cancelar(Guid id)
         {
             try
@@ -179,6 +187,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> Delete(Guid id)
         {
             try
@@ -199,6 +208,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost("convidar-time")]
+        [Authorize]
         public async Task<IActionResult> ConvidarTime([FromBody] ConvidarTimeDTO dto)
         {
             await _campeonatoService.AdicionarTimeAoCampeonato(dto.CampeonatoId, dto.TimeId);
@@ -213,6 +223,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpDelete("remover-time")]
+        [Authorize]
         public async Task<IActionResult> RemoverTime([FromBody] RemoverTimeCampeonatoDTO dto)
         {
             await _campeonatoService.RemoverTimeDoCampeonato(dto.CampeonatoId, dto.TimeId);
@@ -220,6 +231,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("convites-pendentes/{organizadorTimeId}")]
+        [Authorize]
         public async Task<IActionResult> ObterConvitesPendentes(Guid organizadorTimeId)
         {
             try
@@ -248,6 +260,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("{campeonatoId}/convites")]
+        [Authorize]
         public async Task<IActionResult> ObterConvitesPorCampeonato(Guid campeonatoId)
         {
             try

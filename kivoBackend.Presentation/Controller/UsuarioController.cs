@@ -18,7 +18,9 @@ namespace kivoBackend.Presentation.Controller
         {
             _usuarioService = usuarioService;
         }
+
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> GetAll()
         {
             try
@@ -34,6 +36,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<IActionResult> GetById(Guid id)
         {
             try
@@ -64,6 +67,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("cpf/{cpf}")]
+        [Authorize]
         public async Task<IActionResult> ObterPorCpf(string cpf)
         {
             var usuario = await _usuarioService.ObterUsuarioPorCpf(cpf);
@@ -211,6 +215,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPut("torcedor/{id}")]
+        [Authorize]
         public async Task<IActionResult> EditarTorcedor(Guid id, [FromBody] EditarUsuarioDTO dto)
         {
             try
@@ -225,6 +230,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPut("organizador-time/{id}")]
+        [Authorize]
         public async Task<IActionResult> EditarOrgTime(Guid id, [FromBody] EditarUsuarioDTO dto)
         {
             try
@@ -239,6 +245,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPut("organizador-campeonato/{id}")]
+        [Authorize]
         public async Task<IActionResult> EditarOrgCampeonato(Guid id, [FromBody] EditarOrganizadorCampeonatoDTO dto)
         {
             try
@@ -363,6 +370,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> Delete(Guid id)
         {
             try
@@ -377,6 +385,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost("check-email")]
+        [Authorize]
         public async Task<IActionResult> CheckEmail([FromBody] CheckEmailRequest request)
         {
             try
@@ -394,6 +403,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost("check-cpf")]
+        [Authorize]
         public async Task<IActionResult> CheckCpf([FromBody] CheckCpfRequest request)
         {
             try

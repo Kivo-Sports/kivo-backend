@@ -24,6 +24,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> GetAll()
         {
             try
@@ -38,6 +39,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("organizador")]
+        [Authorize]
         public async Task<IActionResult> GetAllOrganizador()
         {
             try
@@ -67,6 +69,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<IActionResult> GetById(Guid id)
         {
             try
@@ -101,6 +104,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> Post([FromForm] CriarTimeDto dto, IFormFile? logo)
         {
             try
@@ -137,6 +141,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> Put(Guid id, [FromForm] AtualizarTimeDto dto, IFormFile? logo)
         {
             try
@@ -161,6 +166,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/status")]
+        [Authorize]
         public async Task<IActionResult> ToggleStatus(Guid id)
         {
             try
@@ -176,6 +182,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> Delete(Guid id)
         {
             await _timeService.Remover(id);

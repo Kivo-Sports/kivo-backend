@@ -1,6 +1,7 @@
 ﻿using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace kivoBackend.Presentation.Controller
@@ -15,7 +16,9 @@ namespace kivoBackend.Presentation.Controller
         {
             _partidaService = partidaService;
         }
+
         [HttpPost("gerar-tabela/{campeonatoId}")]
+        [Authorize]
         public async Task<IActionResult> Gerar(Guid campeonatoId)
         {
             try
@@ -27,6 +30,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/atualizar-placar")]
+        [Authorize]
         public async Task<IActionResult> AtualizarPlacar(Guid id, [FromBody] AtualizarPlacarDTO dto)
         {
             try
@@ -61,6 +65,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("tabela/{campeonatoId}")]
+        [Authorize]
         public async Task<IActionResult> GetTabela(Guid campeonatoId)
         {
             var classificacao = await _partidaService.ObterClassificacaoTabela(campeonatoId);
@@ -68,6 +73,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("chaveamento/{campeonatoId}")]
+        [Authorize]
         public async Task<IActionResult> GetChaveamento(Guid campeonatoId)
         {
             var chaves = await _partidaService.ObterChaveamentoMataMata(campeonatoId);
@@ -75,6 +81,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("jogos/{campeonatoId}")]
+        [Authorize]
         public async Task<IActionResult> GetJogos(Guid campeonatoId)
         {
             var jogos = await _partidaService.ObterJogosPontosCorridos(campeonatoId);
@@ -82,6 +89,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<IActionResult> GetById(Guid id)
         {
             try
@@ -93,6 +101,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/agendar")]
+        [Authorize]
         public async Task<IActionResult> Agendar(Guid id, [FromBody] AgendarPartidaDTO dto)
         {
             try
