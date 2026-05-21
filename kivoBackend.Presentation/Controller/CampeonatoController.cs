@@ -11,10 +11,12 @@ namespace kivoBackend.Presentation.Controller
     public class CampeonatoController : ControllerBase
     {
         private readonly ICampeonatoService _campeonatoService;
+        private readonly IStorageService _storageService;
 
-        public CampeonatoController(ICampeonatoService campeonatoService)
+        public CampeonatoController(ICampeonatoService campeonatoService, IStorageService storageService)
         {
             _campeonatoService = campeonatoService;
+            _storageService = storageService;
         }
 
         [HttpGet]
@@ -42,7 +44,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post([FromBody] CriarCampeonatoDto dto)
+        public async Task<IActionResult> Post([FromForm] CriarCampeonatoDto dto, IFormFile? logo)
         {
             try
             {
@@ -57,9 +59,14 @@ namespace kivoBackend.Presentation.Controller
                     {
                         return BadRequest("Para campeonatos de Pontos Corridos ou Híbridos, você deve informar os pontos para vitória, derrota e empate.");
                     }
-                    {
-                        return BadRequest("Para campeonatos de Pontos Corridos ou Híbridos, você deve informar os pontos para vitória, derrota e empate.");
-                    }
+                }
+
+                string? urlImage = dto.LogoUrl;
+
+                if (logo != null && logo.Length > 0)
+                {
+                    using var stream = logo.OpenReadStream();
+                    urlImage = await _storageService.UploadFileAsync(stream, logo.FileName, logo.ContentType);
                 }
 
                 var novoCampeonato = new Campeonato
@@ -72,6 +79,7 @@ namespace kivoBackend.Presentation.Controller
                     PontosVitoria = dto.PontosVitoria ?? 0,
                     PontosDerrota = dto.PontosDerrota ?? 0,
                     PontosEmpate = dto.PontosEmpate ?? 0,
+                    LogoUrl = urlImage,
                     FormatoCampeonato = dto.FormatoCampeonato,
                     EnumStatusCampeonato = EnumStatusCampeonato.Rascunho,
                     QuantidadeTimesClassificam = dto.QuantidadeTimesClassificam ?? 0,
@@ -85,10 +93,19 @@ namespace kivoBackend.Presentation.Controller
         }
         
         [HttpPut("{id}")]
-        public async Task<IActionResult> Put(Guid id, [FromBody] EditarCampeonatoDto dto)
+        public async Task<IActionResult> Put(Guid id, [FromForm] EditarCampeonatoDto dto, IFormFile? logo)
         {
             try
             {
+                var campeonato = await _campeonatoService.ObterCampeonatoPorId(id);
+                if (campeonato == null) return NotFound("Campeonato não encontrado.");
+
+                if (logo != null && logo.Length > 0)
+                {
+                    using var stream = logo.OpenReadStream();
+                    dto.LogoUrl = await _storageService.UploadFileAsync(stream, logo.FileName, logo.ContentType);
+                }
+
                 var resultado = await _campeonatoService.EditarCampeonato(id, dto);
                 return Ok(MapearParaDto(resultado));
             }
@@ -112,6 +129,7 @@ namespace kivoBackend.Presentation.Controller
                 PontosVitoria = c.PontosVitoria ?? 0,
                 PontosDerrota = c.PontosDerrota ?? 0,
                 PontosEmpate = c.PontosEmpate ?? 0,
+                LogoUrl = c.LogoUrl,
                 FormatoCampeonato = c.FormatoCampeonato.ToString(),
                 TotalTimes = c.CampeonatoTimes?.Count(t => t.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0,
                 QuantidadeTimesClassificam = c.QuantidadeTimesClassificam ?? 0,
@@ -217,6 +235,7 @@ namespace kivoBackend.Presentation.Controller
                     ConvidadoEm = x.ConvidadoEm,
                     DataInicio = x.Campeonato?.DataInicio ?? DateTime.MinValue,
                     DataFim = x.Campeonato?.DataFim ?? DateTime.MinValue,
+                    LogoUrl = x.Campeonato?.LogoUrl ?? "",
                     PontosVitoria = x.Campeonato?.PontosVitoria ?? 0,
                     PontosDerrota = x.Campeonato?.PontosDerrota ?? 0,
                     PontosEmpate = x.Campeonato?.PontosEmpate ?? 0,

@@ -12,6 +12,7 @@ namespace kivoBackend.Application.DTO
         public Guid OrganizadorCampeonatoId { get; set; }
         public string Nome { get; set; }
         public DateTime DataInicio { get; set; }
+        public string? LogoUrl { get; set; }
         public DateTime DataFim { get; set; }
         public int? PontosVitoria { get; set; }
         public int? PontosDerrota { get; set; }
