@@ -16,6 +16,7 @@ namespace kivoBackend.Application.DTO
         public string LogoTimeVisitante { get; set; }
         public int GolsTimeCasa { get; set; }
         public int GolsTimeVisitante { get; set; }
+        public DateTime? DataHora { get; set; }
         public bool Finalizado { get; set; }
     }
 }

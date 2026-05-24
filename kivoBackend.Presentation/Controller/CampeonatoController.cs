@@ -126,6 +126,7 @@ namespace kivoBackend.Presentation.Controller
             {
                 Id = c.Id,
                 OrganizadorCampeonatoId = c.OrganizadorCampeonatoId,
+                OrganizadorNome = c.OrganizadorCampeonato?.Usuario?.Nome,
                 Nome = c.Nome,
                 DataInicio = c.DataInicio,
                 DataFim = c.DataFim,

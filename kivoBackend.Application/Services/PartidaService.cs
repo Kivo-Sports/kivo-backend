@@ -241,6 +241,7 @@ namespace kivoBackend.Application.Services
                         LogoVisitante = p.TimeVisitante?.LogoUrl,
                         GolsCasa = p.GolsTimeCasa,
                         GolsVisitante = p.GolsTimeVisitante,
+                        DataHora = p.DataHora,
                         Finalizado = p.Finalizado
                     }).ToList()
                 });
@@ -345,6 +346,7 @@ namespace kivoBackend.Application.Services
                     LogoTimeVisitante = p.TimeVisitante?.LogoUrl,
                     GolsTimeCasa = p.GolsTimeCasa,
                     GolsTimeVisitante = p.GolsTimeVisitante,
+                    DataHora = p.DataHora,
                     Finalizado = p.Finalizado
                 })
                 .ToList();

@@ -24,6 +24,8 @@ namespace kivoBackend.Infrastructure.Repositories
             return await _context.Campeonatos
                 .Include(c => c.CampeonatoTimes)
                 .ThenInclude(ct => ct.Time)
+                .Include(c => c.OrganizadorCampeonato)
+                .ThenInclude(o => o.Usuario)
                 .ToListAsync();
         }
 
@@ -32,6 +34,8 @@ namespace kivoBackend.Infrastructure.Repositories
             return await _context.Campeonatos
                 .Include(c => c.CampeonatoTimes)
                 .ThenInclude(ct => ct.Time)
+                .Include(c => c.OrganizadorCampeonato)
+                .ThenInclude(o => o.Usuario)
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
     }

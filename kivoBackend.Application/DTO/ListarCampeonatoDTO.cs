@@ -11,6 +11,7 @@ namespace kivoBackend.Application.DTO
     {
         public Guid Id { get; set; }
         public Guid OrganizadorCampeonatoId { get; set; }
+        public string? OrganizadorNome { get; set; }
         public string Nome { get; set; }
         public DateTime DataInicio { get; set; }
         public DateTime DataFim { get; set; }
