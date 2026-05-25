@@ -29,28 +29,10 @@ builder.Configuration
 
 // Substituir placeholders de variáveis de ambiente no appsettings
 var config = builder.Configuration;
-var isProducao = builder.Environment.IsProduction();
-
-// Valor padrão usado APENAS em desenvolvimento. Em produção é obrigatório definir JWT_KEY no .env.
-const string jwtKeyDevFallback = "KivoSports_Chave_Super_Secreta_2026_@!";
-
-var dbConnection = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") ?? config.GetConnectionString("DefaultConnection");
-var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? jwtKeyDevFallback;
+var dbConnection = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") ?? config.GetConnectionString("DefaultConnection");   
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? "KivoSports_Chave_Super_Secreta_2026_@!";
 var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "kivoBackend";
 var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "kivoFrontEnd";
-
-// Em produção, exige segredos reais vindos do .env (não usa os fallbacks do código)
-if (isProducao)
-{
-    if (string.IsNullOrWhiteSpace(dbConnection))
-        throw new InvalidOperationException("DB_CONNECTION_STRING não definida. Configure-a no .env do servidor.");
-
-    if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey == jwtKeyDevFallback)
-        throw new InvalidOperationException("JWT_KEY ausente ou usando o valor padrão de desenvolvimento. Defina uma chave forte (32+ caracteres) no .env do servidor.");
-
-    if (jwtKey.Length < 32)
-        throw new InvalidOperationException("JWT_KEY muito curta. Use ao menos 32 caracteres no .env do servidor.");
-}
 
 // Override da connection string
 builder.Configuration["ConnectionStrings:DefaultConnection"] = dbConnection;
@@ -206,24 +188,15 @@ builder.Services.AddScoped<IStorageService, ImageStorageService>();
 
 var app = builder.Build();
 
-// Swagger — habilitado em dev; em produção controle via ENABLE_SWAGGER=true no .env
-var enableSwagger = (Environment.GetEnvironmentVariable("ENABLE_SWAGGER")
-                     ?? (app.Environment.IsDevelopment() ? "true" : "false"))
-                     .Equals("true", StringComparison.OrdinalIgnoreCase);
-if (enableSwagger)
+// Swagger
+if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// Redirecionamento HTTPS — desligado por padrão (acesso via VPN/HTTP).
-// Quando for usar HTTPS, defina USE_HTTPS_REDIRECT=true no .env.
-var useHttpsRedirect = (Environment.GetEnvironmentVariable("USE_HTTPS_REDIRECT") ?? "false")
-                       .Equals("true", StringComparison.OrdinalIgnoreCase);
-if (useHttpsRedirect)
-{
-    app.UseHttpsRedirection();
-}
+// Desabilitado para aceitar HTTP em desenvolvimento
+// app.UseHttpsRedirection();
 
 app.UseCors("AllowFrontend");
 
@@ -250,53 +223,42 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    // Criar usuário admin padrão (configurável via .env)
-    // - ADMIN_EMAIL / ADMIN_PASSWORD definem as credenciais.
-    // - Em produção, sem ADMIN_PASSWORD definido, o admin NÃO é criado (evita senha-padrão conhecida).
-    // - SEED_ADMIN=false desliga totalmente a criação automática.
-    var seedAdmin = (Environment.GetEnvironmentVariable("SEED_ADMIN") ?? "true")
-        .Equals("true", StringComparison.OrdinalIgnoreCase);
-    var adminEmail = Environment.GetEnvironmentVariable("ADMIN_EMAIL") ?? "admin@kivo.com";
-    var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD")
-        ?? (app.Environment.IsDevelopment() ? "Admin@123456" : null);
+    // Criar usuário admin padrão
+    var adminEmail = "admin@kivo.com";
+    var adminUser = await userManager.FindByEmailAsync(adminEmail);
 
-    if (seedAdmin && !string.IsNullOrWhiteSpace(adminPassword))
+    if (adminUser == null)
     {
-        var adminUser = await userManager.FindByEmailAsync(adminEmail);
-
-        if (adminUser == null)
+        // 1. Criar IdentityUser
+        var newAdmin = new IdentityUser
         {
-            // 1. Criar IdentityUser
-            var newAdmin = new IdentityUser
+            UserName = adminEmail,
+            Email = adminEmail,
+            EmailConfirmed = true
+        };
+
+        var result = await userManager.CreateAsync(newAdmin, "Admin@123456");
+
+        if (result.Succeeded)
+        {
+            // 2. Adicionar role
+            await userManager.AddToRoleAsync(newAdmin, "Administrador");
+
+            // 3. Criar usuário na tabela Kivo
+            var usuarioAdmin = new Usuario
             {
-                UserName = adminEmail,
+                Id = Guid.NewGuid(),
+                Nome = "Administrador",
                 Email = adminEmail,
-                EmailConfirmed = true
+                Cpf = "00000000000",
+                Telefone = "",
+                DataNascimento = new DateTime(2000, 1, 1),
+                EnumCargo = EnumCargo.Administrador,
+                Ativo = true,
+                CriadoEm = DateTime.Now
             };
 
-            var result = await userManager.CreateAsync(newAdmin, adminPassword);
-
-            if (result.Succeeded)
-            {
-                // 2. Adicionar role
-                await userManager.AddToRoleAsync(newAdmin, "Administrador");
-
-                // 3. Criar usuário na tabela Kivo
-                var usuarioAdmin = new Usuario
-                {
-                    Id = Guid.NewGuid(),
-                    Nome = "Administrador",
-                    Email = adminEmail,
-                    Cpf = "00000000000",
-                    Telefone = "",
-                    DataNascimento = new DateTime(2000, 1, 1),
-                    EnumCargo = EnumCargo.Administrador,
-                    Ativo = true,
-                    CriadoEm = DateTime.Now
-                };
-
-                await usuarioRepository.Adicionar(usuarioAdmin);
-            }
+            await usuarioRepository.Adicionar(usuarioAdmin);
         }
     }
 }
