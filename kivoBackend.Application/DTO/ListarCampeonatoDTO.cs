@@ -25,6 +25,9 @@ namespace kivoBackend.Application.DTO
         public int PontosEmpate { get; set; }
         public int QuantidadeTimesClassificam { get; set; }
         public string FormatoCampeonato { get; set; }
+        public Guid? VencedorTimeId { get; set; }
+        public string? VencedorTimeNome { get; set; }
+        public string? VencedorTimeLogo { get; set; }
         public List<Guid> TimeIds { get; set; } = new();
     }
 }

@@ -138,6 +138,9 @@ namespace kivoBackend.Presentation.Controller
                 LogoUrl = c.LogoUrl,
                 FormatoCampeonato = c.FormatoCampeonato.ToString(),
                 TotalTimes = c.CampeonatoTimes?.Count(t => t.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0,
+                VencedorTimeId = c.TimeVencedorId,
+                VencedorTimeNome = c.TimeVencedor?.Nome,
+                VencedorTimeLogo = c.TimeVencedor?.LogoUrl,
                 QuantidadeTimesClassificam = c.QuantidadeTimesClassificam ?? 0,
                 Times = c.CampeonatoTimes?
                     .Where(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito)
@@ -176,15 +179,14 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
-                var campeonato = await _campeonatoService.ObterPorId(id);
-                if (campeonato == null)
-                    return NotFound("Campeonato não encontrado.");
+                await _campeonatoService.CancelarCampeonato(id);
 
-                campeonato.EnumStatusCampeonato = EnumStatusCampeonato.Cancelado;
-                await _campeonatoService.Atualizar(campeonato);
-                return Ok("Campeonato cancelado com sucesso.");
+                return Ok("Campeonato e suas partidas pendentes foram cancelados com sucesso.");
             }
-            catch (Exception ex) { return BadRequest(ex.Message); }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpDelete("{id}")]
@@ -193,19 +195,18 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
-                var campeonato = await _campeonatoService.ObterPorId(id);
-                if(campeonato == null)
-                    return NotFound("Campeonato não encontrado.");
+                var campeonato = await _campeonatoService.ObterCampeonatoPorId(id);
+                if (campeonato == null) return NotFound("Campeonato não encontrado.");
 
-                 campeonato.EnumStatusCampeonato = EnumStatusCampeonato.Cancelado;
-                await _campeonatoService.Atualizar(campeonato);
+                if (campeonato.EnumStatusCampeonato != EnumStatusCampeonato.Rascunho)
+                {
+                    return BadRequest("Não é possível deletar um campeonato que já saiu do rascunho. Utilize a opção de Cancelar.");
+                }
 
-                return Ok("Campeonato Cancelado com sucesso");
+                await _campeonatoService.Remover(id);
+                return Ok("Campeonato excluído com sucesso.");
             }
-            catch (Exception ex)
-            {
-                return NotFound(ex.Message);
-            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
         [HttpPost("convidar-time")]

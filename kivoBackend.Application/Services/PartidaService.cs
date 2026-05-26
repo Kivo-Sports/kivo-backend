@@ -57,13 +57,23 @@ namespace kivoBackend.Application.Services
 
         public async Task GerarPontosCorridos(Guid campeonatoId, List<Guid> times)
         {
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
             if (times.Count % 2 != 0) times.Add(Guid.Empty);
 
             int numTimes = times.Count;
             int numRodadas = numTimes - 1;
 
+            DateTime dataLimiteFaseDeGrupos = campeonato.FormatoCampeonato == EnumFormatoCampeonato.Hibrido
+                ? campeonato.DataInicio.AddTicks((campeonato.DataFim.Ticks - campeonato.DataInicio.Ticks) / 2)
+                : campeonato.DataFim;
+
+            double intervaloEmDias = (dataLimiteFaseDeGrupos - campeonato.DataInicio).TotalDays / Math.Max(numRodadas, 1);
+            if(intervaloEmDias < 1) intervaloEmDias = 1;
+
             for (int r = 0; r < numRodadas; r++)
             {
+                DateTime dataRodada = campeonato.DataInicio.AddDays(r * intervaloEmDias);
+
                 for (int j = 0; j < numTimes / 2; j++)
                 {
                     var casa = times[j];
@@ -76,6 +86,7 @@ namespace kivoBackend.Application.Services
                             CampeonatoId = campeonatoId,
                             TimeCasaId = casa,
                             TimeVisitanteId = fora,
+                            DataHora = dataRodada.Date.AddHours(13 + j),
                             Rodada = r + 1
                         });
                     }
@@ -88,6 +99,7 @@ namespace kivoBackend.Application.Services
 
         public async Task GerarMataMataInicial(Guid campeonatoId, List<Guid> times)
         {
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
             var random = new Random();
             var timesSorteados = times.OrderBy(x => random.Next()).ToList();
 
@@ -99,6 +111,10 @@ namespace kivoBackend.Application.Services
             else if (qtdTimes <= 8) faseInicial = EnumFaseMataMata.Quartas;
             else faseInicial = EnumFaseMataMata.Oitavas;
 
+            DateTime dataInicio = DateTime.Now > campeonato.DataInicio ? DateTime.Now : campeonato.DataInicio;
+            int totalFasesRestantes = ObterQtdFasesMataMata(faseInicial);
+            double diasPorFase = (campeonato.DataFim - dataInicio).TotalDays / Math.Max(totalFasesRestantes, 1);
+
             for (int i = 0; i < qtdTimes; i += 2)
             {
                 await _repositoryGenerics.Adicionar(new Partida
@@ -107,17 +123,24 @@ namespace kivoBackend.Application.Services
                     TimeCasaId = timesSorteados[i],
                     TimeVisitanteId = timesSorteados[i + 1],
                     Fase = faseInicial,
+                    DataHora = dataInicio.AddDays(diasPorFase /2).Date.AddHours(14 + (i % 4)),
                     NumeroJogoChave = (i / 2) + 1
                 });
             }
         }
         public async Task AtualizarPlacarMataMata(Partida partidaFinalizada)
         {
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(partidaFinalizada.CampeonatoId);
             Guid vencedorId = partidaFinalizada.GolsTimeCasa > partidaFinalizada.GolsTimeVisitante
                 ? partidaFinalizada.TimeCasaId.Value
                 : partidaFinalizada.TimeVisitanteId.Value;
 
-            if (partidaFinalizada.Fase == EnumFaseMataMata.Final) return;
+            if (partidaFinalizada.Fase == EnumFaseMataMata.Final)
+            {
+                campeonato.TimeVencedorId = vencedorId;
+                await _repositoryCampeonato.Atualizar(campeonato);
+                return;
+            }
 
             int numeroJogoProximaFase = (partidaFinalizada.NumeroJogoChave + 1) / 2;
             EnumFaseMataMata proximaFase = (EnumFaseMataMata)((int)partidaFinalizada.Fase + 1);
@@ -134,16 +157,36 @@ namespace kivoBackend.Application.Services
                     ? jogoParceiro.TimeCasaId.Value
                     : jogoParceiro.TimeVisitanteId.Value;
 
-                await _repositoryGenerics.Adicionar(new Partida
+                DateTime dataProximaPartida;
+                if(proximaFase == EnumFaseMataMata.Final)
                 {
-                    CampeonatoId = partidaFinalizada.CampeonatoId,
-                    TimeCasaId = vencedorId,
-                    TimeVisitanteId = vencedorParceiroId,
-                    Fase = proximaFase,
-                    NumeroJogoChave = numeroJogoProximaFase
-                });
+                    dataProximaPartida = campeonato.DataFim.Date.AddHours(16);
+                }
+                else
+                {
+                    int fasesRestantes = ObterQtdFasesMataMata(proximaFase);
+                    double diasRestantes = (campeonato.DataFim - DateTime.Now).TotalDays;
+                    double diasAteProximaFase = diasRestantes / Math.Max(fasesRestantes, 1);
+                    dataProximaPartida = DateTime.Now.AddDays(diasAteProximaFase).Date.AddHours(15);
+                }
+
+                    await _repositoryGenerics.Adicionar(new Partida
+                    {
+                        CampeonatoId = partidaFinalizada.CampeonatoId,
+                        TimeCasaId = vencedorId,
+                        TimeVisitanteId = vencedorParceiroId,
+                        Fase = proximaFase,
+                        DataHora = dataProximaPartida,
+                        NumeroJogoChave = numeroJogoProximaFase
+                    });
             }
         }
+
+        private int ObterQtdFasesMataMata(EnumFaseMataMata fase)
+        {
+            return EnumFaseMataMata.Final - fase + 1;
+        }
+
         public async Task<List<CriterioDesempateDTO>> ObterClassificacaoProximaFase(Guid campeonatoId)
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
@@ -213,6 +256,18 @@ namespace kivoBackend.Application.Services
                     .ToList();
 
                 await GerarMataMataInicial(campeonatoId, classificados);
+            }
+            else if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.PontosCorridos)
+            {
+                var classificacao = await ObterClassificacaoTabela(campeonatoId);
+                var campeao = classificacao.FirstOrDefault();
+
+                if (campeao != null)
+                {
+                    campeonato.TimeVencedorId = campeao.TimeId;
+
+                    await _repositoryCampeonato.Atualizar(campeonato);
+                }
             }
         }
 

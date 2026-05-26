@@ -38,6 +38,7 @@ namespace kivoBackend.Presentation.Controller
                 var partida = await _partidaService.ObterPorId(id);
                 if (partida == null) return NotFound();
                 if (partida.Finalizado) return BadRequest("Esta partida já foi encerrada e não pode ser editada.");
+                if (partida.DataHora > DateTime.Now) return BadRequest("Não é possível atualizar o placar de uma partida que ainda não ocorreu.");
 
                 partida.GolsTimeCasa = dto.GolsTimeCasa;
                 partida.GolsTimeVisitante = dto.GolsTimeVisitante;

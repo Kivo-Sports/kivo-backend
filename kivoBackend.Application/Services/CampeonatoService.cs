@@ -163,5 +163,32 @@ namespace kivoBackend.Application.Services
             await _repositoryGenerics.Atualizar(campeonato);
             return campeonato;
         }
+
+        public async Task CancelarCampeonato(Guid campeonatoId)
+        {
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
+            if (campeonato == null) throw new Exception("Campeonato não encontrado.");
+
+            if (campeonato.EnumStatusCampeonato == EnumStatusCampeonato.Finalizado)
+                throw new Exception("Não é possível cancelar um campeonato que já foi finalizado.");
+
+            if (campeonato.EnumStatusCampeonato == EnumStatusCampeonato.Cancelado)
+                throw new Exception("Este campeonato já está cancelado.");
+
+            campeonato.EnumStatusCampeonato = EnumStatusCampeonato.Cancelado;
+            await _repositoryGenerics.Atualizar(campeonato);
+
+            if (campeonato.Partidas != null && campeonato.Partidas.Any())
+            {
+                var partidasParaRemover = campeonato.Partidas.Where(p => !p.Finalizado).ToList();
+
+                foreach (var partida in partidasParaRemover)
+                {
+                    campeonato.Partidas.Remove(partida);
+                }
+
+                await _repositoryGenerics.Atualizar(campeonato);
+            }
+        }
     }
 }

@@ -21,5 +21,6 @@ namespace kivoBackend.Application.Interfaces
         Task<IEnumerable<Campeonato>> ObterTodosComTimes();
         Task AbrirInscricoes(Guid campeonatoId);
         Task<Campeonato> IniciarCampeonato(Guid campeonatoId);
+        Task CancelarCampeonato(Guid campeonatoId);
     }
 }
