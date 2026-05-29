@@ -86,7 +86,7 @@ namespace kivoBackend.Application.Services
                             CampeonatoId = campeonatoId,
                             TimeCasaId = casa,
                             TimeVisitanteId = fora,
-                            DataHora = dataRodada.Date.AddHours(13 + j),
+                            DataHora = AjustarParaHorarioComercialEsportivo(dataRodada, j),
                             Rodada = r + 1
                         });
                     }
@@ -123,7 +123,7 @@ namespace kivoBackend.Application.Services
                     TimeCasaId = timesSorteados[i],
                     TimeVisitanteId = timesSorteados[i + 1],
                     Fase = faseInicial,
-                    DataHora = dataInicio.AddDays(diasPorFase /2).Date.AddHours(14 + (i % 4)),
+                    DataHora = AjustarParaHorarioComercialEsportivo(dataInicio.AddDays(diasPorFase / 2), i / 2),
                     NumeroJogoChave = (i / 2) + 1
                 });
             }
@@ -131,6 +131,10 @@ namespace kivoBackend.Application.Services
         public async Task AtualizarPlacarMataMata(Partida partidaFinalizada)
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(partidaFinalizada.CampeonatoId);
+
+            if (partidaFinalizada.GolsTimeCasa == partidaFinalizada.GolsTimeVisitante)
+                throw new Exception("Partida mata-mata não pode terminar empatada. Registre pênaltis ou prorrogação.");
+
             Guid vencedorId = partidaFinalizada.GolsTimeCasa > partidaFinalizada.GolsTimeVisitante
                 ? partidaFinalizada.TimeCasaId.Value
                 : partidaFinalizada.TimeVisitanteId.Value;
@@ -158,16 +162,24 @@ namespace kivoBackend.Application.Services
                     : jogoParceiro.TimeVisitanteId.Value;
 
                 DateTime dataProximaPartida;
-                if(proximaFase == EnumFaseMataMata.Final)
+                if (proximaFase == EnumFaseMataMata.Final)
                 {
-                    dataProximaPartida = campeonato.DataFim.Date.AddHours(16);
+                    DateTime dataFinal = campeonato.DataFim.Date;
+
+                    if (dataFinal.DayOfWeek != DayOfWeek.Saturday)
+                    {
+                        int diasAteSabado = ((int)DayOfWeek.Saturday - (int)dataFinal.DayOfWeek + 7) % 7;
+                        dataFinal = dataFinal.AddDays(diasAteSabado);
+                    }
+
+                    dataProximaPartida = dataFinal.AddHours(10);
                 }
                 else
                 {
                     int fasesRestantes = ObterQtdFasesMataMata(proximaFase);
                     double diasRestantes = (campeonato.DataFim - DateTime.Now).TotalDays;
                     double diasAteProximaFase = diasRestantes / Math.Max(fasesRestantes, 1);
-                    dataProximaPartida = DateTime.Now.AddDays(diasAteProximaFase).Date.AddHours(15);
+                    dataProximaPartida = AjustarParaHorarioComercialEsportivo(DateTime.Now.AddDays(diasAteProximaFase), partidaFinalizada.NumeroJogoChave);
                 }
 
                     await _repositoryGenerics.Adicionar(new Partida
@@ -239,34 +251,37 @@ namespace kivoBackend.Application.Services
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
 
-            if (campeonato.FormatoCampeonato != EnumFormatoCampeonato.Hibrido) return;
+            if (campeonato.FormatoCampeonato != EnumFormatoCampeonato.Hibrido &&
+                campeonato.FormatoCampeonato != EnumFormatoCampeonato.PontosCorridos) return;
 
             var totalPartidasPC = await _repositoryGenerics.Buscar(p => p.CampeonatoId == campeonatoId && p.Rodada != null);
-
+            
             if (totalPartidasPC.All(p => p.Finalizado))
             {
-                var classificacao = await ObterClassificacaoProximaFase(campeonatoId);
-                int qtdCorte = campeonato.QuantidadeTimesClassificam ?? 0;
-
-                if (qtdCorte == 0) throw new Exception("Configuração de classificados inválida para campeonato Híbrido.");
-
-                var classificados = classificacao
-                    .Take(qtdCorte)
-                    .Select(x => x.TimeId)
-                    .ToList();
-
-                await GerarMataMataInicial(campeonatoId, classificados);
-            }
-            else if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.PontosCorridos)
-            {
-                var classificacao = await ObterClassificacaoTabela(campeonatoId);
-                var campeao = classificacao.FirstOrDefault();
-
-                if (campeao != null)
+                if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.Hibrido)
                 {
-                    campeonato.TimeVencedorId = campeao.TimeId;
+                    var classificacao = await ObterClassificacaoProximaFase(campeonatoId);
+                    int qtdCorte = campeonato.QuantidadeTimesClassificam ?? 0;
 
-                    await _repositoryCampeonato.Atualizar(campeonato);
+                    if (qtdCorte == 0) throw new Exception("Configuração de classificados inválida para campeonato Híbrido.");
+
+                    var classificados = classificacao
+                        .Take(qtdCorte)
+                        .Select(x => x.TimeId)
+                        .ToList();
+
+                    await GerarMataMataInicial(campeonatoId, classificados);
+                }
+                else if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.PontosCorridos)
+                {
+                    var classificacao = await ObterClassificacaoTabela(campeonatoId);
+                    var campeao = classificacao.FirstOrDefault();
+
+                    if (campeao != null)
+                    {
+                        campeonato.TimeVencedorId = campeao.TimeId;
+                        await _repositoryCampeonato.Atualizar(campeonato);
+                    }
                 }
             }
         }
@@ -433,6 +448,37 @@ namespace kivoBackend.Application.Services
                 Local = partida.Local,
                 Finalizado = partida.Finalizado
             };
+        }
+        private DateTime AjustarParaHorarioComercialEsportivo(DateTime dataOriginal, int indiceJogo)
+        {
+            DateTime dataBase = dataOriginal.Date;
+
+            if (dataBase.DayOfWeek != DayOfWeek.Saturday)
+            {
+                int diasAteSabado = ((int)DayOfWeek.Saturday - (int)dataBase.DayOfWeek + 7) % 7;
+                dataBase = dataBase.AddDays(diasAteSabado == 0 ? 7 : diasAteSabado);
+            }
+
+            DateTime sabado = dataBase;
+            DateTime domingo = sabado.AddDays(1);
+
+            var slots = new (DateTime dia, int hora)[]
+            {
+                (sabado, 9),
+                (sabado, 11),
+                (sabado, 14),
+                (domingo, 9),
+                (domingo, 11),
+            };
+
+            int totalSlots = slots.Length;
+            int slotIndex = indiceJogo % totalSlots;
+            int semanasExtras = indiceJogo / totalSlots;
+
+            var (diaJogo, hora) = slots[slotIndex];
+            diaJogo = diaJogo.AddDays(semanasExtras * 7);
+
+            return diaJogo.AddHours(hora);
         }
     }
 }
