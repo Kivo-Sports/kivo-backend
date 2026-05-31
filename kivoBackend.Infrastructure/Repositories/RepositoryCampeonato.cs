@@ -26,6 +26,7 @@ namespace kivoBackend.Infrastructure.Repositories
                 .ThenInclude(ct => ct.Time)
                 .Include(c => c.OrganizadorCampeonato)
                 .ThenInclude(o => o.Usuario)
+                .Include(c => c.TimeVencedor)
                 .ToListAsync();
         }
 
@@ -36,6 +37,7 @@ namespace kivoBackend.Infrastructure.Repositories
                 .ThenInclude(ct => ct.Time)
                 .Include(c => c.OrganizadorCampeonato)
                 .ThenInclude(o => o.Usuario)
+                .Include(c => c.TimeVencedor)
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
     }
