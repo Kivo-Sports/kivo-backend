@@ -33,7 +33,7 @@ namespace kivoBackend.Application.Services
         public async Task<Campeonato> ObterCampeonatoPorId(Guid id)
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(id);
-            if(campeonato == null)
+            if (campeonato == null)
                 throw new Exception("Campeonato não encontrado");
             return campeonato;
         }
@@ -78,10 +78,10 @@ namespace kivoBackend.Application.Services
 
         public async Task<IEnumerable<CampeonatoTime>> ObterConvitesPorOrganizador(Guid organizadorTimeId)
         {
-             var vinculos = await _CampeonatoTimeRepository.ObterComIncludes(
-                 x => x.Time,
-                 x => x.Campeonato
-             );
+            var vinculos = await _CampeonatoTimeRepository.ObterComIncludes(
+                x => x.Time,
+                x => x.Campeonato
+            );
 
             return vinculos.Where(x =>
                 x.EnumStatusParticipacao == EnumStatusParticipacao.Pendente &&
@@ -134,7 +134,10 @@ namespace kivoBackend.Application.Services
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
             int timesConfirmados = campeonato.CampeonatoTimes?.Count(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0;
-
+            if (timesConfirmados == 0)
+            {
+                throw new Exception("Não é possível iniciar um campeonato sem times confirmados.");
+            }
             if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.MataMata)
             {
                 if (!ePotenciaDeDois(timesConfirmados))
