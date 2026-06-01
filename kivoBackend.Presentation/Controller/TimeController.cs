@@ -99,7 +99,10 @@ namespace kivoBackend.Presentation.Controller
                 LogoUrl = t.LogoUrl,
                 Ativo = t.Ativo,
                 CriadoEm = t.CriadoEm,
-                OrganizadorTimeId = t.OrganizadorTimeId
+                OrganizadorTimeId = t.OrganizadorTimeId,
+                EsporteId = t.EsporteId,
+                EsporteNome = t.Esporte?.Nome,
+                EsporteIcone = t.Esporte?.Icone
             };
         }
 
@@ -122,10 +125,16 @@ namespace kivoBackend.Presentation.Controller
                     urlImage = await _storageService.UploadFileAsync(stream, logo.FileName, logo.ContentType);
                 }
 
+                if (dto.EsporteId == Guid.Empty)
+                {
+                    return BadRequest(new { message = "Selecione um esporte para o time." });
+                }
+
                 var novoTime = new Time
                 {
                     Id = Guid.NewGuid(),
                     OrganizadorTimeId = dto.OrganizadorTimeId,
+                    EsporteId = dto.EsporteId,
                     Nome = dto.Nome,
                     Cidade = dto.Cidade,
                     Estado = dto.Estado,
@@ -158,6 +167,8 @@ namespace kivoBackend.Presentation.Controller
                 time.Nome = dto.Nome;
                 time.Cidade = dto.Cidade;
                 time.Estado = dto.Estado;
+                if (dto.EsporteId != Guid.Empty)
+                    time.EsporteId = dto.EsporteId;
 
                 await _timeService.Atualizar(time);
                 return Ok(MapearParaDto(time));

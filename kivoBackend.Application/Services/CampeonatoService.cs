@@ -15,11 +15,13 @@ namespace kivoBackend.Application.Services
     {
         private readonly IRepositoryGenerics<CampeonatoTime> _CampeonatoTimeRepository;
         private readonly IRepositoryGenerics<Campeonato> _repositoryGenerics;
+        private readonly IRepositoryGenerics<Time> _timeRepository;
         private readonly IRepositoryCampeonato _repositoryCampeonato;
-        public CampeonatoService(IRepositoryGenerics<Campeonato> repositoryGenerics, IRepositoryGenerics<CampeonatoTime> CampeonatoTimeRepository, IRepositoryCampeonato repositoryCampeonato) : base(repositoryGenerics)
+        public CampeonatoService(IRepositoryGenerics<Campeonato> repositoryGenerics, IRepositoryGenerics<CampeonatoTime> CampeonatoTimeRepository, IRepositoryGenerics<Time> timeRepository, IRepositoryCampeonato repositoryCampeonato) : base(repositoryGenerics)
         {
             _CampeonatoTimeRepository = CampeonatoTimeRepository;
             _repositoryGenerics = repositoryGenerics;
+            _timeRepository = timeRepository;
             _repositoryCampeonato = repositoryCampeonato;
         }
 
@@ -51,6 +53,17 @@ namespace kivoBackend.Application.Services
 
         public async Task AdicionarTimeAoCampeonato(Guid campeonatoId, Guid timeId)
         {
+            var campeonato = await _repositoryGenerics.ObterPorId(campeonatoId);
+            if (campeonato == null)
+                throw new Exception("Campeonato não encontrado.");
+
+            var time = await _timeRepository.ObterPorId(timeId);
+            if (time == null)
+                throw new Exception("Time não encontrado.");
+
+            if (time.EsporteId != campeonato.EsporteId)
+                throw new Exception("Só é possível convidar times do mesmo esporte do campeonato.");
+
             var novoConvite = new CampeonatoTime
             {
                 Id = Guid.NewGuid(),
@@ -151,6 +164,8 @@ namespace kivoBackend.Application.Services
                 throw new Exception("Não é possível editar um campeonato que já iniciou ou finalizou.");
             }
 
+            if (dto.EsporteId != Guid.Empty)
+                campeonato.EsporteId = dto.EsporteId;
             campeonato.Nome = dto.Nome;
             campeonato.DataInicio = dto.DataInicio;
             campeonato.DataFim = dto.DataFim;

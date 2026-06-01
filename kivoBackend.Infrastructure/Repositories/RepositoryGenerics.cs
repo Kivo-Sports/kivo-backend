@@ -28,12 +28,12 @@ namespace kivoBackend.Infrastructure.Repositories
             return entidade;
         }
 
-        public async Task<IEnumerable<T>> ObterTodos()
+        public virtual async Task<IEnumerable<T>> ObterTodos()
         {
             return await _db.ToListAsync();
         }
 
-        public async Task<T?> ObterPorId(Guid id)
+        public virtual async Task<T?> ObterPorId(Guid id)
         {
             return await _db.FindAsync(id);
         }

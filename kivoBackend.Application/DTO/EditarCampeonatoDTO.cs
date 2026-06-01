@@ -9,6 +9,7 @@ namespace kivoBackend.Application.DTO
 {
     public class EditarCampeonatoDto
     {
+        public Guid EsporteId { get; set; }
         public string Nome { get; set; }
         public DateTime DataInicio { get; set; }
         public DateTime DataFim { get; set; }

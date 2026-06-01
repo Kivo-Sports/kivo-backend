@@ -20,6 +20,7 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<ContaBanco> ContasBanco { get; set; }
         public DbSet<Time> Times { get; set; }
         public DbSet<Campeonato> Campeonatos { get; set; }
+        public DbSet<Esporte> Esportes { get; set; }
         public DbSet<CampeonatoTime> CampeonatoTimes { get; set; }
         public DbSet<Partida> Partidas { get; set; }
         public DbSet<RecuperacaoSenha> RecuperacoesSenha { get; set; }
@@ -79,6 +80,20 @@ namespace kivoBackend.Infrastructure.Data
                 .WithOne(oc => oc.ContaBanco)
                 .HasForeignKey<ContaBanco>(cb => cb.OrganizadorCampeonatoId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Relacionamento Time -> Esporte (modalidade do time)
+            modelBuilder.Entity<Time>()
+                .HasOne(t => t.Esporte)
+                .WithMany()
+                .HasForeignKey(t => t.EsporteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relacionamento Campeonato -> Esporte (modalidade do campeonato)
+            modelBuilder.Entity<Campeonato>()
+                .HasOne(c => c.Esporte)
+                .WithMany()
+                .HasForeignKey(c => c.EsporteId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // Configuração da Tabela de Associação (N:N) Campeonato <-> Time
             modelBuilder.Entity<CampeonatoTime>()

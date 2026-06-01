@@ -73,10 +73,16 @@ namespace kivoBackend.Presentation.Controller
                     urlImage = await _storageService.UploadFileAsync(stream, logo.FileName, logo.ContentType);
                 }
 
+                if (dto.EsporteId == Guid.Empty)
+                {
+                    return BadRequest("Selecione um esporte para o campeonato.");
+                }
+
                 var novoCampeonato = new Campeonato
                 {
                     Id = Guid.NewGuid(),
                     OrganizadorCampeonatoId = dto.OrganizadorCampeonatoId,
+                    EsporteId = dto.EsporteId,
                     Nome = dto.Nome,
                     DataInicio = dto.DataInicio,
                     DataFim = dto.DataFim,
@@ -127,6 +133,9 @@ namespace kivoBackend.Presentation.Controller
                 Id = c.Id,
                 OrganizadorCampeonatoId = c.OrganizadorCampeonatoId,
                 OrganizadorNome = c.OrganizadorCampeonato?.Usuario?.Nome,
+                EsporteId = c.EsporteId,
+                EsporteNome = c.Esporte?.Nome,
+                EsporteIcone = c.Esporte?.Icone,
                 Nome = c.Nome,
                 DataInicio = c.DataInicio,
                 DataFim = c.DataFim,
