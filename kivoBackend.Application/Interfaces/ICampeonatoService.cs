@@ -13,7 +13,10 @@ namespace kivoBackend.Application.Interfaces
         Task<IEnumerable<Campeonato>> ObterCampeonatosComTimes();
         Task<Campeonato> ObterCampeonatoPorId(Guid id);
         Task AdicionarTimeAoCampeonato(Guid campeonatoId, Guid timeId);
-        Task<Campeonato> EditarCampeonato(Guid campeonatoId, EditarCampeonatoDto editarCampeonatoDto);
+        Task<Campeonato> EditarCampeonato(Guid campeonatoId, EditarCampeonatoDto editarCampeonatoDto, bool ehAdmin = false);
+        Task DeletarCampeonatoAdmin(Guid campeonatoId);
+        Task DescancelarCampeonato(Guid campeonatoId);
+        Task ReatribuirCampeonato(Guid campeonatoId, Guid novoOrganizadorCampeonatoId);
         Task RemoverTimeDoCampeonato(Guid campeonatoId, Guid timeId);
         Task ResponderConviteCampeonato(Guid ParticipacaoId, Guid OrganizadorTimeId, bool aceito);
         Task<IEnumerable<CampeonatoTime>> ObterConvitesPorOrganizador(Guid organizadorTimeId);

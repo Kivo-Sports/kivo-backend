@@ -117,7 +117,8 @@ namespace kivoBackend.Presentation.Controller
                     dto.LogoUrl = await _storageService.UploadFileAsync(stream, logo.FileName, logo.ContentType);
                 }
 
-                var resultado = await _campeonatoService.EditarCampeonato(id, dto);
+                var ehAdmin = User.IsInRole("Administrador");
+                var resultado = await _campeonatoService.EditarCampeonato(id, dto, ehAdmin);
                 return Ok(MapearParaDto(resultado));
             }
             catch (Exception ex)
@@ -207,6 +208,13 @@ namespace kivoBackend.Presentation.Controller
                 var campeonato = await _campeonatoService.ObterCampeonatoPorId(id);
                 if (campeonato == null) return NotFound("Campeonato não encontrado.");
 
+                // Admin pode excluir em qualquer etapa (remove partidas e vínculos em cascata).
+                if (User.IsInRole("Administrador"))
+                {
+                    await _campeonatoService.DeletarCampeonatoAdmin(id);
+                    return Ok("Campeonato excluído com sucesso.");
+                }
+
                 if (campeonato.EnumStatusCampeonato != EnumStatusCampeonato.Rascunho)
                 {
                     return BadRequest("Não é possível deletar um campeonato que já saiu do rascunho. Utilize a opção de Cancelar.");
@@ -214,6 +222,30 @@ namespace kivoBackend.Presentation.Controller
 
                 await _campeonatoService.Remover(id);
                 return Ok("Campeonato excluído com sucesso.");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPatch("{id}/descancelar")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> Descancelar(Guid id)
+        {
+            try
+            {
+                await _campeonatoService.DescancelarCampeonato(id);
+                return Ok("Campeonato reativado com sucesso.");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPatch("{id}/reatribuir")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> Reatribuir(Guid id, [FromBody] ReatribuirCampeonatoDTO dto)
+        {
+            try
+            {
+                await _campeonatoService.ReatribuirCampeonato(id, dto.NovoOrganizadorCampeonatoId);
+                return Ok("Campeonato reatribuído com sucesso.");
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }

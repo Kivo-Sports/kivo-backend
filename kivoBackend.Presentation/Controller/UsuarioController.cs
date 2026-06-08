@@ -3,6 +3,7 @@ using kivoBackend.Application.Interfaces;
 using kivoBackend.Application.Services;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
+using kivoBackend.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,10 +14,46 @@ namespace kivoBackend.Presentation.Controller
     public class UsuarioController : ControllerBase
     {
         private readonly IUsuarioService _usuarioService;
-        private readonly IServiceGenerics<Usuario> _serviceGenerics;
-        public UsuarioController(IUsuarioService usuarioService)
+        private readonly IRepositoryGenerics<OrganizadorCampeonato> _organizadorCampeonatoRepository;
+        private readonly IRepositoryGenerics<OrganizadorTime> _organizadorTimeRepository;
+        public UsuarioController(
+            IUsuarioService usuarioService,
+            IRepositoryGenerics<OrganizadorCampeonato> organizadorCampeonatoRepository,
+            IRepositoryGenerics<OrganizadorTime> organizadorTimeRepository)
         {
             _usuarioService = usuarioService;
+            _organizadorCampeonatoRepository = organizadorCampeonatoRepository;
+            _organizadorTimeRepository = organizadorTimeRepository;
+        }
+
+        [Authorize(Roles = "Administrador")]
+        [HttpGet("organizadores-campeonato")]
+        public async Task<IActionResult> GetOrganizadoresCampeonato()
+        {
+            try
+            {
+                var organizadores = await _organizadorCampeonatoRepository.ObterComIncludes(o => o.Usuario);
+                var retorno = organizadores
+                    .Where(o => o.Usuario != null)
+                    .Select(o => new { o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
+                return Ok(retorno);
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [Authorize(Roles = "Administrador")]
+        [HttpGet("organizadores-time")]
+        public async Task<IActionResult> GetOrganizadoresTime()
+        {
+            try
+            {
+                var organizadores = await _organizadorTimeRepository.ObterComIncludes(o => o.Usuario);
+                var retorno = organizadores
+                    .Where(o => o.Usuario != null)
+                    .Select(o => new { o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
+                return Ok(retorno);
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
         [HttpGet]

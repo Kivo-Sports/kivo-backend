@@ -118,5 +118,55 @@ namespace kivoBackend.Presentation.Controller
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
+
+        // ---- Endpoints administrativos ----
+
+        [HttpPost("admin")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> CriarManual([FromBody] CriarPartidaManualDTO dto)
+        {
+            try
+            {
+                var partida = await _partidaService.CriarPartidaManual(dto);
+                return Ok(new { partida.Id });
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPut("{id}/admin")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> EditarAdmin(Guid id, [FromBody] EditarPartidaAdminDTO dto)
+        {
+            try
+            {
+                await _partidaService.EditarPartidaAdmin(id, dto);
+                return Ok("Jogo atualizado com sucesso.");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpDelete("{id}/admin")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> DeletarAdmin(Guid id)
+        {
+            try
+            {
+                await _partidaService.Remover(id);
+                return Ok("Jogo excluído com sucesso.");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPatch("{id}/admin-placar")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> AtualizarPlacarAdmin(Guid id, [FromBody] AtualizarPlacarDTO dto)
+        {
+            try
+            {
+                await _partidaService.AtualizarPlacarAdmin(id, dto);
+                return Ok("Placar atualizado com sucesso.");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
     }
 }

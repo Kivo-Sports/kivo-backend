@@ -1,6 +1,8 @@
 ﻿using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
+using kivoBackend.Core.Enums;
+using kivoBackend.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -15,12 +17,14 @@ namespace kivoBackend.Presentation.Controller
         private readonly ITimeService _timeService;
         private readonly IUsuarioService _usuarioService;
         private readonly IStorageService _storageService;
+        private readonly IRepositoryGenerics<CampeonatoTime> _campeonatoTimeRepository;
 
-        public TimeController(ITimeService timeService, IUsuarioService usuarioService, IStorageService storageService)
+        public TimeController(ITimeService timeService, IUsuarioService usuarioService, IStorageService storageService, IRepositoryGenerics<CampeonatoTime> campeonatoTimeRepository)
         {
             _timeService = timeService;
             _usuarioService = usuarioService;
             _storageService = storageService;
+            _campeonatoTimeRepository = campeonatoTimeRepository;
         }
 
         [HttpGet]
@@ -185,8 +189,24 @@ namespace kivoBackend.Presentation.Controller
                 var time = await _timeService.ObterPorId(id);
                 if (time == null) return NotFound("Time não encontrado.");
 
+                // Ao DESATIVAR, bloquear se o time participa de campeonato com
+                // inscrições abertas ou em andamento (evita quebrar campeonatos ativos).
+                if (time.Ativo)
+                {
+                    var vinculos = await _campeonatoTimeRepository.ObterComIncludes(ct => ct.Campeonato);
+                    var emCampeonatoAtivo = vinculos.Any(ct =>
+                        ct.TimeId == id &&
+                        ct.Campeonato != null &&
+                        (ct.Campeonato.EnumStatusCampeonato == EnumStatusCampeonato.InscricoesAbertas ||
+                         ct.Campeonato.EnumStatusCampeonato == EnumStatusCampeonato.EmAndamento));
+
+                    if (emCampeonatoAtivo)
+                        return BadRequest("Não é possível desativar este time: ele participa de um campeonato com inscrições abertas ou em andamento.");
+                }
+
                 time.Ativo = !time.Ativo;
                 await _timeService.Atualizar(time);
+
                 return Ok(MapearParaDto(time));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
@@ -198,6 +218,22 @@ namespace kivoBackend.Presentation.Controller
         {
             await _timeService.Remover(id);
             return NoContent();
+        }
+
+        [HttpPatch("{id}/reatribuir")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> Reatribuir(Guid id, [FromBody] ReatribuirTimeDTO dto)
+        {
+            try
+            {
+                var time = await _timeService.ObterPorId(id);
+                if (time == null) return NotFound("Time não encontrado.");
+
+                time.OrganizadorTimeId = dto.NovoOrganizadorTimeId;
+                await _timeService.Atualizar(time);
+                return Ok(MapearParaDto(time));
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
     }
 }

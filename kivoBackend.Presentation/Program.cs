@@ -185,6 +185,7 @@ builder.Services.AddScoped<IPartidaService, PartidaService>();
 builder.Services.AddScoped<IRepositoryCampeonato, RepositoryCampeonato>();
 builder.Services.AddScoped<IRepositoryTime, RepositoryTime>();
 builder.Services.AddScoped<IStorageService, ImageStorageService>();
+builder.Services.AddScoped<IFavoritoService, FavoritoService>();
 
 var app = builder.Build();
 

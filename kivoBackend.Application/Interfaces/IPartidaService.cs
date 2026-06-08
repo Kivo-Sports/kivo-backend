@@ -19,5 +19,8 @@ namespace kivoBackend.Application.Interfaces
         Task<List<CriterioDesempateDTO>> ObterClassificacaoProximaFase(Guid campeonatoId);
         Task<List<ListarJogoDTO>> ObterJogosPontosCorridos(Guid campeonatoId);
         Task<DetalhePartidaDTO> ObterDetalhePartida(Guid partidaId);
+        Task<Partida> CriarPartidaManual(CriarPartidaManualDTO dto);
+        Task EditarPartidaAdmin(Guid partidaId, EditarPartidaAdminDTO dto);
+        Task AtualizarPlacarAdmin(Guid partidaId, AtualizarPlacarDTO dto);
     }
 }
