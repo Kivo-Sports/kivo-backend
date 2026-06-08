@@ -9,6 +9,27 @@ namespace kivoBackend.Infrastructure.Data
         {
             var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
 
+            // Ensure EF tooling can use the same connection used at runtime.
+            var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                var envPath = Path.Combine(Directory.GetCurrentDirectory(), "kivoBackend.Presentation", ".env");
+                if (File.Exists(envPath))
+                {
+                    foreach (var line in File.ReadLines(envPath))
+                    {
+                        if (line.StartsWith("DB_CONNECTION_STRING=", StringComparison.Ordinal))
+                        {
+                            connectionString = line.Substring("DB_CONNECTION_STRING=".Length).Trim();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            connectionString ??= "Server=localhost,1433;Database=KivoDb;User Id=sa;Password=Ask137519;TrustServerCertificate=True;";
+
             optionsBuilder.UseSqlServer(
                 Environment.GetEnvironmentVariable("DB_CONNECTION_STRING"));
 
