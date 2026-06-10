@@ -11,7 +11,8 @@ namespace kivoBackend.Application.Services
 {
     public class TimeService : ServiceGenerics<Time>, ITimeService
     {
-        public TimeService(IRepositoryGenerics<Time> repositoryGenerics, IRepositoryTime timeService) : base(repositoryGenerics)
+        // Passa o IRepositoryTime para a base para que ObterTodos/ObterPorId tragam o Esporte (Include).
+        public TimeService(IRepositoryTime timeRepository) : base(timeRepository)
         {
         }
     }

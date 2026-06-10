@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using kivoBackend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using kivoBackend.Infrastructure.Data;
 namespace kivoBackend.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260601020709_AddEsporte")]
+    partial class AddEsporte
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -439,32 +442,6 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Esportes");
-                });
-
-            modelBuilder.Entity("kivoBackend.Core.Entities.Favorito", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("ItemId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Tipo")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("UsuarioId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UsuarioId", "Tipo", "ItemId")
-                        .IsUnique();
-
-                    b.ToTable("Favoritos");
                 });
 
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorCampeonato", b =>

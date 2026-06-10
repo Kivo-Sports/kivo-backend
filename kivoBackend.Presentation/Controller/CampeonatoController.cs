@@ -2,6 +2,7 @@
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace kivoBackend.Presentation.Controller
@@ -11,13 +12,16 @@ namespace kivoBackend.Presentation.Controller
     public class CampeonatoController : ControllerBase
     {
         private readonly ICampeonatoService _campeonatoService;
+        private readonly IStorageService _storageService;
 
-        public CampeonatoController(ICampeonatoService campeonatoService)
+        public CampeonatoController(ICampeonatoService campeonatoService, IStorageService storageService)
         {
             _campeonatoService = campeonatoService;
+            _storageService = storageService;
         }
 
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> GetAll()
         {
             try
@@ -30,6 +34,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<IActionResult> GetById(Guid id)
         {
             try
@@ -42,7 +47,8 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post([FromBody] CriarCampeonatoDto dto)
+        [Authorize]
+        public async Task<IActionResult> Post([FromForm] CriarCampeonatoDto dto, IFormFile? logo)
         {
             try
             {
@@ -51,16 +57,39 @@ namespace kivoBackend.Presentation.Controller
                     return BadRequest("Para campeonatos Híbridos, você deve informar quantos times classificam.");
                 }
 
+                if (dto.FormatoCampeonato != EnumFormatoCampeonato.MataMata)
+                {
+                    if (!dto.PontosVitoria.HasValue || !dto.PontosDerrota.HasValue || !dto.PontosEmpate.HasValue)
+                    {
+                        return BadRequest("Para campeonatos de Pontos Corridos ou Híbridos, você deve informar os pontos para vitória, derrota e empate.");
+                    }
+                }
+
+                string? urlImage = dto.LogoUrl;
+
+                if (logo != null && logo.Length > 0)
+                {
+                    using var stream = logo.OpenReadStream();
+                    urlImage = await _storageService.UploadFileAsync(stream, logo.FileName, logo.ContentType);
+                }
+
+                if (dto.EsporteId == Guid.Empty)
+                {
+                    return BadRequest("Selecione um esporte para o campeonato.");
+                }
+
                 var novoCampeonato = new Campeonato
                 {
                     Id = Guid.NewGuid(),
                     OrganizadorCampeonatoId = dto.OrganizadorCampeonatoId,
+                    EsporteId = dto.EsporteId,
                     Nome = dto.Nome,
                     DataInicio = dto.DataInicio,
                     DataFim = dto.DataFim,
                     PontosVitoria = dto.PontosVitoria ?? 0,
                     PontosDerrota = dto.PontosDerrota ?? 0,
                     PontosEmpate = dto.PontosEmpate ?? 0,
+                    LogoUrl = urlImage,
                     FormatoCampeonato = dto.FormatoCampeonato,
                     EnumStatusCampeonato = EnumStatusCampeonato.Rascunho,
                     QuantidadeTimesClassificam = dto.QuantidadeTimesClassificam ?? 0,
@@ -74,11 +103,22 @@ namespace kivoBackend.Presentation.Controller
         }
         
         [HttpPut("{id}")]
-        public async Task<IActionResult> Put(Guid id, [FromBody] EditarCampeonatoDto dto)
+        [Authorize]
+        public async Task<IActionResult> Put(Guid id, [FromForm] EditarCampeonatoDto dto, IFormFile? logo)
         {
             try
             {
-                var resultado = await _campeonatoService.EditarCampeonato(id, dto);
+                var campeonato = await _campeonatoService.ObterCampeonatoPorId(id);
+                if (campeonato == null) return NotFound("Campeonato não encontrado.");
+
+                if (logo != null && logo.Length > 0)
+                {
+                    using var stream = logo.OpenReadStream();
+                    dto.LogoUrl = await _storageService.UploadFileAsync(stream, logo.FileName, logo.ContentType);
+                }
+
+                var ehAdmin = User.IsInRole("Administrador");
+                var resultado = await _campeonatoService.EditarCampeonato(id, dto, ehAdmin);
                 return Ok(MapearParaDto(resultado));
             }
             catch (Exception ex)
@@ -93,16 +133,24 @@ namespace kivoBackend.Presentation.Controller
             {
                 Id = c.Id,
                 OrganizadorCampeonatoId = c.OrganizadorCampeonatoId,
+                OrganizadorNome = c.OrganizadorCampeonato?.Usuario?.Nome,
+                EsporteId = c.EsporteId,
+                EsporteNome = c.Esporte?.Nome,
+                EsporteIcone = c.Esporte?.Icone,
                 Nome = c.Nome,
                 DataInicio = c.DataInicio,
                 DataFim = c.DataFim,
                 Status = c.EnumStatusCampeonato.ToString(),
                 CriadoEm = c.CriadoEm,
-                PontosVitoria = c.PontosVitoria,
-                PontosDerrota = c.PontosDerrota,
-                PontosEmpate = c.PontosEmpate,
+                PontosVitoria = c.PontosVitoria ?? 0,
+                PontosDerrota = c.PontosDerrota ?? 0,
+                PontosEmpate = c.PontosEmpate ?? 0,
+                LogoUrl = c.LogoUrl,
                 FormatoCampeonato = c.FormatoCampeonato.ToString(),
                 TotalTimes = c.CampeonatoTimes?.Count(t => t.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0,
+                VencedorTimeId = c.TimeVencedorId,
+                VencedorTimeNome = c.TimeVencedor?.Nome,
+                VencedorTimeLogo = c.TimeVencedor?.LogoUrl,
                 QuantidadeTimesClassificam = c.QuantidadeTimesClassificam ?? 0,
                 Times = c.CampeonatoTimes?
                     .Where(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito)
@@ -112,6 +160,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/abrir-inscricoes")]
+        [Authorize]
         public async Task<IActionResult> AbrirInscricoes(Guid id)
         {
             try
@@ -123,6 +172,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/iniciar-campeonato")]
+        [Authorize]
         public async Task<IActionResult> IniciarCampeonato(Guid id)
         {
             try
@@ -134,42 +184,74 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/cancelar")]
+        [Authorize]
         public async Task<IActionResult> Cancelar(Guid id)
         {
             try
             {
-                var campeonato = await _campeonatoService.ObterPorId(id);
-                if (campeonato == null)
-                    return NotFound("Campeonato não encontrado.");
+                await _campeonatoService.CancelarCampeonato(id);
 
-                campeonato.EnumStatusCampeonato = EnumStatusCampeonato.Cancelado;
-                await _campeonatoService.Atualizar(campeonato);
-                return Ok("Campeonato cancelado com sucesso.");
+                return Ok("Campeonato e suas partidas pendentes foram cancelados com sucesso.");
             }
-            catch (Exception ex) { return BadRequest(ex.Message); }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> Delete(Guid id)
         {
             try
             {
-                var campeonato = await _campeonatoService.ObterPorId(id);
-                if(campeonato == null)
-                    return NotFound("Campeonato não encontrado.");
+                var campeonato = await _campeonatoService.ObterCampeonatoPorId(id);
+                if (campeonato == null) return NotFound("Campeonato não encontrado.");
 
-                 campeonato.EnumStatusCampeonato = EnumStatusCampeonato.Cancelado;
-                await _campeonatoService.Atualizar(campeonato);
+                // Admin pode excluir em qualquer etapa (remove partidas e vínculos em cascata).
+                if (User.IsInRole("Administrador"))
+                {
+                    await _campeonatoService.DeletarCampeonatoAdmin(id);
+                    return Ok("Campeonato excluído com sucesso.");
+                }
 
-                return Ok("Campeonato Cancelado com sucesso");
+                if (campeonato.EnumStatusCampeonato != EnumStatusCampeonato.Rascunho)
+                {
+                    return BadRequest("Não é possível deletar um campeonato que já saiu do rascunho. Utilize a opção de Cancelar.");
+                }
+
+                await _campeonatoService.Remover(id);
+                return Ok("Campeonato excluído com sucesso.");
             }
-            catch (Exception ex)
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPatch("{id}/descancelar")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> Descancelar(Guid id)
+        {
+            try
             {
-                return NotFound(ex.Message);
+                await _campeonatoService.DescancelarCampeonato(id);
+                return Ok("Campeonato reativado com sucesso.");
             }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [HttpPatch("{id}/reatribuir")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> Reatribuir(Guid id, [FromBody] ReatribuirCampeonatoDTO dto)
+        {
+            try
+            {
+                await _campeonatoService.ReatribuirCampeonato(id, dto.NovoOrganizadorCampeonatoId);
+                return Ok("Campeonato reatribuído com sucesso.");
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
         [HttpPost("convidar-time")]
+        [Authorize]
         public async Task<IActionResult> ConvidarTime([FromBody] ConvidarTimeDTO dto)
         {
             await _campeonatoService.AdicionarTimeAoCampeonato(dto.CampeonatoId, dto.TimeId);
@@ -184,6 +266,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpDelete("remover-time")]
+        [Authorize]
         public async Task<IActionResult> RemoverTime([FromBody] RemoverTimeCampeonatoDTO dto)
         {
             await _campeonatoService.RemoverTimeDoCampeonato(dto.CampeonatoId, dto.TimeId);
@@ -191,6 +274,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("convites-pendentes/{organizadorTimeId}")]
+        [Authorize]
         public async Task<IActionResult> ObterConvitesPendentes(Guid organizadorTimeId)
         {
             try
@@ -206,6 +290,7 @@ namespace kivoBackend.Presentation.Controller
                     ConvidadoEm = x.ConvidadoEm,
                     DataInicio = x.Campeonato?.DataInicio ?? DateTime.MinValue,
                     DataFim = x.Campeonato?.DataFim ?? DateTime.MinValue,
+                    LogoUrl = x.Campeonato?.LogoUrl ?? "",
                     PontosVitoria = x.Campeonato?.PontosVitoria ?? 0,
                     PontosDerrota = x.Campeonato?.PontosDerrota ?? 0,
                     PontosEmpate = x.Campeonato?.PontosEmpate ?? 0,
@@ -218,6 +303,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("{campeonatoId}/convites")]
+        [Authorize]
         public async Task<IActionResult> ObterConvitesPorCampeonato(Guid campeonatoId)
         {
             try

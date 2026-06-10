@@ -20,10 +20,13 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<ContaBanco> ContasBanco { get; set; }
         public DbSet<Time> Times { get; set; }
         public DbSet<Campeonato> Campeonatos { get; set; }
+        public DbSet<Esporte> Esportes { get; set; }
         public DbSet<CampeonatoTime> CampeonatoTimes { get; set; }
+        public DbSet<Partida> Partidas { get; set; }
         public DbSet<RecuperacaoSenha> RecuperacoesSenha { get; set; }
         public DbSet<CodigoReativacao> CodigosReativacao { get; set; }
         public DbSet<VerificationCode> VerificationCodes { get; set; }
+        public DbSet<Favorito> Favoritos { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -79,6 +82,20 @@ namespace kivoBackend.Infrastructure.Data
                 .HasForeignKey<ContaBanco>(cb => cb.OrganizadorCampeonatoId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Relacionamento Time -> Esporte (modalidade do time)
+            modelBuilder.Entity<Time>()
+                .HasOne(t => t.Esporte)
+                .WithMany()
+                .HasForeignKey(t => t.EsporteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relacionamento Campeonato -> Esporte (modalidade do campeonato)
+            modelBuilder.Entity<Campeonato>()
+                .HasOne(c => c.Esporte)
+                .WithMany()
+                .HasForeignKey(c => c.EsporteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Configuração da Tabela de Associação (N:N) Campeonato <-> Time
             modelBuilder.Entity<CampeonatoTime>()
                 .HasKey(ct => ct.Id);
@@ -108,6 +125,29 @@ namespace kivoBackend.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(vc => vc.UsuarioId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // A tabela já existe no banco como "Partida" (singular), criada antes do DbSet.
+            // Mapeia explicitamente para não procurar "Partidas".
+            modelBuilder.Entity<Partida>()
+                .ToTable("Partida");
+
+            // Dois FKs para Time precisam ser configurados explicitamente para evitar ambiguidade
+            modelBuilder.Entity<Partida>()
+                .HasOne(p => p.TimeCasa)
+                .WithMany()
+                .HasForeignKey(p => p.TimeCasaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Partida>()
+                .HasOne(p => p.TimeVisitante)
+                .WithMany()
+                .HasForeignKey(p => p.TimeVisitanteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Favorito: impede duplicidade do mesmo item para o mesmo usuário.
+            modelBuilder.Entity<Favorito>()
+                .HasIndex(f => new { f.UsuarioId, f.Tipo, f.ItemId })
+                .IsUnique();
         }
     }
 }

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using kivoBackend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using kivoBackend.Infrastructure.Data;
 namespace kivoBackend.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260521213622_AdicionandoLogoCampeonato")]
+    partial class AdicionandoLogoCampeonato
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -238,9 +241,6 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<int>("EnumStatusCampeonato")
                         .HasColumnType("int");
 
-                    b.Property<Guid>("EsporteId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<int>("FormatoCampeonato")
                         .HasColumnType("int");
 
@@ -266,16 +266,9 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<int?>("QuantidadeTimesClassificam")
                         .HasColumnType("int");
 
-                    b.Property<Guid?>("TimeVencedorId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("EsporteId");
-
                     b.HasIndex("OrganizadorCampeonatoId");
-
-                    b.HasIndex("TimeVencedorId");
 
                     b.ToTable("Campeonatos");
                 });
@@ -414,57 +407,6 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Enderecos");
-                });
-
-            modelBuilder.Entity("kivoBackend.Core.Entities.Esporte", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("Ativo")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Icone")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Esportes");
-                });
-
-            modelBuilder.Entity("kivoBackend.Core.Entities.Favorito", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("ItemId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Tipo")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("UsuarioId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UsuarioId", "Tipo", "ItemId")
-                        .IsUnique();
-
-                    b.ToTable("Favoritos");
                 });
 
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorCampeonato", b =>
@@ -609,9 +551,6 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("EsporteId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("Estado")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -627,8 +566,6 @@ namespace kivoBackend.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("EsporteId");
 
                     b.HasIndex("OrganizadorTimeId");
 
@@ -791,27 +728,13 @@ namespace kivoBackend.Infrastructure.Migrations
 
             modelBuilder.Entity("kivoBackend.Core.Entities.Campeonato", b =>
                 {
-                    b.HasOne("kivoBackend.Core.Entities.Esporte", "Esporte")
-                        .WithMany()
-                        .HasForeignKey("EsporteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("kivoBackend.Core.Entities.OrganizadorCampeonato", "OrganizadorCampeonato")
                         .WithMany("Campeonatos")
                         .HasForeignKey("OrganizadorCampeonatoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("kivoBackend.Core.Entities.Time", "TimeVencedor")
-                        .WithMany()
-                        .HasForeignKey("TimeVencedorId");
-
-                    b.Navigation("Esporte");
-
                     b.Navigation("OrganizadorCampeonato");
-
-                    b.Navigation("TimeVencedor");
                 });
 
             modelBuilder.Entity("kivoBackend.Core.Entities.CampeonatoTime", b =>
@@ -929,19 +852,11 @@ namespace kivoBackend.Infrastructure.Migrations
 
             modelBuilder.Entity("kivoBackend.Core.Entities.Time", b =>
                 {
-                    b.HasOne("kivoBackend.Core.Entities.Esporte", "Esporte")
-                        .WithMany()
-                        .HasForeignKey("EsporteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("kivoBackend.Core.Entities.OrganizadorTime", "OrganizadorTime")
                         .WithMany("Times")
                         .HasForeignKey("OrganizadorTimeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Esporte");
 
                     b.Navigation("OrganizadorTime");
                 });

@@ -28,12 +28,12 @@ namespace kivoBackend.Application.Services
             await _repository.Atualizar(entidade);
         }
 
-        public async Task<T?> ObterPorId(Guid id)
+        public virtual async Task<T?> ObterPorId(Guid id)
         {
             return await _repository.ObterPorId(id);
         }
 
-        public async Task<IEnumerable<T>> ObterTodos()
+        public virtual async Task<IEnumerable<T>> ObterTodos()
         {
             return await _repository.ObterTodos();
         }

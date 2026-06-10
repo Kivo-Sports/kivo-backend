@@ -11,15 +11,19 @@ namespace kivoBackend.Core.Entities
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid OrganizadorCampeonatoId { get; set; }
+        public Guid EsporteId { get; set; }
 
         public string Nome { get; set; }
+        public string? LogoUrl { get; set; }
         public DateTime DataInicio { get; set; }
         public DateTime DataFim { get; set; }
 
-        public int PontosVitoria { get; set; }
-        public int PontosDerrota { get; set; }
-        public int PontosEmpate { get; set; }
+        public int? PontosVitoria { get; set; }
+        public int? PontosDerrota { get; set; }
+        public int? PontosEmpate { get; set; }
         public int? QuantidadeTimesClassificam { get; set; }
+        public Guid? TimeVencedorId { get; set; }
+        public Time? TimeVencedor { get; set; }
         public EnumFormatoCampeonato FormatoCampeonato { get; set; }
         private EnumStatusCampeonato _statusBase;
         public ICollection<Partida> Partidas { get; set; }
@@ -50,6 +54,7 @@ namespace kivoBackend.Core.Entities
         public DateTime CriadoEm { get; set; }
 
         public OrganizadorCampeonato OrganizadorCampeonato { get; set; }
+        public Esporte Esporte { get; set; }
 
         public ICollection<CampeonatoTime> CampeonatoTimes { get; set; }
 

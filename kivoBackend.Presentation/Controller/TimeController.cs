@@ -1,6 +1,8 @@
 ﻿using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
+using kivoBackend.Core.Enums;
+using kivoBackend.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -15,15 +17,18 @@ namespace kivoBackend.Presentation.Controller
         private readonly ITimeService _timeService;
         private readonly IUsuarioService _usuarioService;
         private readonly IStorageService _storageService;
+        private readonly IRepositoryGenerics<CampeonatoTime> _campeonatoTimeRepository;
 
-        public TimeController(ITimeService timeService, IUsuarioService usuarioService, IStorageService storageService)
+        public TimeController(ITimeService timeService, IUsuarioService usuarioService, IStorageService storageService, IRepositoryGenerics<CampeonatoTime> campeonatoTimeRepository)
         {
             _timeService = timeService;
             _usuarioService = usuarioService;
             _storageService = storageService;
+            _campeonatoTimeRepository = campeonatoTimeRepository;
         }
 
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> GetAll()
         {
             try
@@ -38,6 +43,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("organizador")]
+        [Authorize]
         public async Task<IActionResult> GetAllOrganizador()
         {
             try
@@ -67,6 +73,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<IActionResult> GetById(Guid id)
         {
             try
@@ -96,11 +103,15 @@ namespace kivoBackend.Presentation.Controller
                 LogoUrl = t.LogoUrl,
                 Ativo = t.Ativo,
                 CriadoEm = t.CriadoEm,
-                OrganizadorTimeId = t.OrganizadorTimeId
+                OrganizadorTimeId = t.OrganizadorTimeId,
+                EsporteId = t.EsporteId,
+                EsporteNome = t.Esporte?.Nome,
+                EsporteIcone = t.Esporte?.Icone
             };
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> Post([FromForm] CriarTimeDto dto, IFormFile? logo)
         {
             try
@@ -118,10 +129,16 @@ namespace kivoBackend.Presentation.Controller
                     urlImage = await _storageService.UploadFileAsync(stream, logo.FileName, logo.ContentType);
                 }
 
+                if (dto.EsporteId == Guid.Empty)
+                {
+                    return BadRequest(new { message = "Selecione um esporte para o time." });
+                }
+
                 var novoTime = new Time
                 {
                     Id = Guid.NewGuid(),
                     OrganizadorTimeId = dto.OrganizadorTimeId,
+                    EsporteId = dto.EsporteId,
                     Nome = dto.Nome,
                     Cidade = dto.Cidade,
                     Estado = dto.Estado,
@@ -137,6 +154,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> Put(Guid id, [FromForm] AtualizarTimeDto dto, IFormFile? logo)
         {
             try
@@ -153,6 +171,8 @@ namespace kivoBackend.Presentation.Controller
                 time.Nome = dto.Nome;
                 time.Cidade = dto.Cidade;
                 time.Estado = dto.Estado;
+                if (dto.EsporteId != Guid.Empty)
+                    time.EsporteId = dto.EsporteId;
 
                 await _timeService.Atualizar(time);
                 return Ok(MapearParaDto(time));
@@ -161,6 +181,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/status")]
+        [Authorize]
         public async Task<IActionResult> ToggleStatus(Guid id)
         {
             try
@@ -168,18 +189,51 @@ namespace kivoBackend.Presentation.Controller
                 var time = await _timeService.ObterPorId(id);
                 if (time == null) return NotFound("Time não encontrado.");
 
+                // Ao DESATIVAR, bloquear se o time participa de campeonato com
+                // inscrições abertas ou em andamento (evita quebrar campeonatos ativos).
+                if (time.Ativo)
+                {
+                    var vinculos = await _campeonatoTimeRepository.ObterComIncludes(ct => ct.Campeonato);
+                    var emCampeonatoAtivo = vinculos.Any(ct =>
+                        ct.TimeId == id &&
+                        ct.Campeonato != null &&
+                        (ct.Campeonato.EnumStatusCampeonato == EnumStatusCampeonato.InscricoesAbertas ||
+                         ct.Campeonato.EnumStatusCampeonato == EnumStatusCampeonato.EmAndamento));
+
+                    if (emCampeonatoAtivo)
+                        return BadRequest("Não é possível desativar este time: ele participa de um campeonato com inscrições abertas ou em andamento.");
+                }
+
                 time.Ativo = !time.Ativo;
                 await _timeService.Atualizar(time);
+
                 return Ok(MapearParaDto(time));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> Delete(Guid id)
         {
             await _timeService.Remover(id);
             return NoContent();
+        }
+
+        [HttpPatch("{id}/reatribuir")]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> Reatribuir(Guid id, [FromBody] ReatribuirTimeDTO dto)
+        {
+            try
+            {
+                var time = await _timeService.ObterPorId(id);
+                if (time == null) return NotFound("Time não encontrado.");
+
+                time.OrganizadorTimeId = dto.NovoOrganizadorTimeId;
+                await _timeService.Atualizar(time);
+                return Ok(MapearParaDto(time));
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
     }
 }

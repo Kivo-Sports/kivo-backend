@@ -16,5 +16,8 @@ namespace kivoBackend.Application.DTO
         public bool Ativo { get; set; }
         public DateTime CriadoEm { get; set; }
         public Guid OrganizadorTimeId { get; set; }
+        public Guid EsporteId { get; set; }
+        public string? EsporteNome { get; set; }
+        public string? EsporteIcone { get; set; }
     }
 }

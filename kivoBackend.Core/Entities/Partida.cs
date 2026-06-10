@@ -22,7 +22,7 @@ namespace kivoBackend.Core.Entities
         public int GolsTimeVisitante { get; set; } = 0;
 
         public DateTime? DataHora { get; set; }
-        public string Local { get; set; }
+        public string Local { get; set; } = string.Empty;
         public bool Finalizado { get; set; } = false;
 
         public int? Rodada { get; set; }
