@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using kivoBackend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using kivoBackend.Infrastructure.Data;
 namespace kivoBackend.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260610163608_arrumandomigration")]
+    partial class arrumandomigration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -467,41 +470,6 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.ToTable("Favoritos");
                 });
 
-            modelBuilder.Entity("kivoBackend.Core.Entities.IngressoLote", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("Ativo")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("NomeLote")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("PartidaId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Preco")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("QuantidadeDisponivel")
-                        .HasColumnType("int");
-
-                    b.Property<int>("QuantidadeTotal")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PartidaId");
-
-                    b.ToTable("IngressoLotes");
-                });
-
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorCampeonato", b =>
                 {
                     b.Property<Guid>("Id")
@@ -888,17 +856,6 @@ namespace kivoBackend.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("OrganizadorCampeonato");
-                });
-
-            modelBuilder.Entity("kivoBackend.Core.Entities.IngressoLote", b =>
-                {
-                    b.HasOne("kivoBackend.Core.Entities.Partida", "Partida")
-                        .WithMany()
-                        .HasForeignKey("PartidaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Partida");
                 });
 
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorCampeonato", b =>
