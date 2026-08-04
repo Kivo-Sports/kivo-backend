@@ -27,6 +27,8 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<CodigoReativacao> CodigosReativacao { get; set; }
         public DbSet<VerificationCode> VerificationCodes { get; set; }
         public DbSet<Favorito> Favoritos { get; set; }
+        public DbSet<IngressoLote> IngressoLotes { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
