@@ -2,28 +2,35 @@
 using kivoBackend.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
-namespace kivoBackend.Presentation.Controller
+namespace kivoBackend.Presentation.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class IngressoController : ControllerBase
     {
-        private readonly IIngressoLoteService _ingressoLoteService;
+        private readonly IIngressoService _ingressoService;
 
-        public IngressoController(IIngressoLoteService ingressoLoteService)
+        public IngressoController(IIngressoService ingressoService)
         {
-            _ingressoLoteService = ingressoLoteService;
+            _ingressoService = ingressoService;
         }
 
-        [HttpPost("lote")]
-        [Authorize]
-        public async Task<IActionResult> CriarLote([FromBody] CriarIngressoLoteDTO dto)
+        [HttpPost("comprar")]
+        public async Task<IActionResult> Comprar([FromBody] RealizarCompraDTO dto)
         {
             try
             {
-                var loteCriado = await _ingressoLoteService.CriarLote(dto);
-                return Ok(loteCriado);
+                var usuarioIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!Guid.TryParse(usuarioIdStr, out Guid usuarioId))
+                    return Unauthorized(new { message = "Usuário não autenticado corretamente." });
+
+                var resultado = await _ingressoService.ComprarIngressosAsync(usuarioId, dto);
+                return Ok(resultado);
             }
             catch (Exception ex)
             {
@@ -31,23 +38,32 @@ namespace kivoBackend.Presentation.Controller
             }
         }
 
-        [HttpGet("partida/{partidaId}/lotes")]
-        public async Task<IActionResult> ObterLotesPorPartida(Guid partidaId)
+        [HttpGet("meus-ingressos")]
+        public async Task<IActionResult> ObterMeusIngressos()
         {
             try
             {
-                var lotes = await _ingressoLoteService.ObterLotesPorPartida(partidaId);
-                var retorno = lotes.Select(l => new ListarIngressoLoteDTO
-                {
-                    Id = l.Id,
-                    PartidaId = l.PartidaId,
-                    NomeLote = l.NomeLote,
-                    Preco = l.Preco,
-                    QuantidadeTotal = l.QuantidadeTotal,
-                    QuantidadeDisponivel = l.QuantidadeDisponivel,
-                    Ativo = l.Ativo
-                });
-                return Ok(retorno);
+                var usuarioIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!Guid.TryParse(usuarioIdStr, out Guid usuarioId))
+                    return Unauthorized(new { message = "Usuário não autenticado." });
+
+                var ingressos = await _ingressoService.ObterMeusIngressosAsync(usuarioId);
+                return Ok(ingressos);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("validar-portaria/{codigo}")]
+        [Authorize(Roles = "Administrador,OrganizadorCampeonato")]
+        public async Task<IActionResult> ValidarPortaria(string codigo)
+        {
+            try
+            {
+                var sucesso = await _ingressoService.ValidarIngressosNaPortariaAsync(codigo);
+                return Ok(new { message = "Ingresso validado com sucesso! Entrada liberada." });
             }
             catch (Exception ex)
             {

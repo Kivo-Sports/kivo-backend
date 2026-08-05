@@ -28,6 +28,7 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<VerificationCode> VerificationCodes { get; set; }
         public DbSet<Favorito> Favoritos { get; set; }
         public DbSet<IngressoLote> IngressoLotes { get; set; }
+        public DbSet<Ingresso> Ingressos { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -150,6 +151,28 @@ namespace kivoBackend.Infrastructure.Data
             modelBuilder.Entity<Favorito>()
                 .HasIndex(f => new { f.UsuarioId, f.Tipo, f.ItemId })
                 .IsUnique();
+
+            // Mapeamento do Ingresso e prevenção de Cascade Delete múltiplos
+            modelBuilder.Entity<Ingresso>()
+                .HasOne(i => i.Usuario)
+                .WithMany()
+                .HasForeignKey(i => i.UsuarioId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Ingresso>()
+                .HasOne(i => i.IngressoLote)
+                .WithMany()
+                .HasForeignKey(i => i.IngressoLoteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // (Aproveitamos para definir a precisão decimal e tirar os avisos/warnings do terminal)
+            modelBuilder.Entity<Ingresso>()
+                .Property(i => i.PrecoPago)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<IngressoLote>()
+                .Property(il => il.Preco)
+                .HasPrecision(18, 2);
         }
     }
 }
