@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\kivoBackend.Core\kivoBackend.Core.csproj" />
+    <ProjectReference Include="..\kivoBackend.Infrastructure\kivoBackend.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
