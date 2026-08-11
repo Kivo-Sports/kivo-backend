@@ -28,10 +28,9 @@ namespace kivoBackend.Infrastructure.Data
                 }
             }
 
-            connectionString ??= "Server=localhost,1433;Database=KivoDb;User Id=sa;Password=Ask137519;TrustServerCertificate=True;";
+            connectionString ??= "Server=localhost,1433;Database=KivoDb;User Id=sa;Password=Kivo@Sports2026!;TrustServerCertificate=True;";
 
-            optionsBuilder.UseSqlServer(
-                Environment.GetEnvironmentVariable("DB_CONNECTION_STRING"));
+            optionsBuilder.UseSqlServer(connectionString);
 
             return new AppDbContext(optionsBuilder.Options);
         }

@@ -1,8 +1,7 @@
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/azure-sql-edge:latest # nativo arm64 (Apple Silicon), sem emulação
     container_name: kivo-sqlserver
-    platform: linux/amd64 # necessário no Apple Silicon (arm64) — roda via emulação
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?defina MSSQL_SA_PASSWORD no .env}"
@@ -13,11 +12,8 @@ services:
       - kivo-sqlserver-data:/var/opt/mssql
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1",
-        ]
+      # azure-sql-edge não inclui sqlcmd; checamos apenas se a porta está aceitando conexões.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10

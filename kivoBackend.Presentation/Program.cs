@@ -108,18 +108,6 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.WithOrigins("http://localhost:3000") 
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
-});
-
-// restante do código
-
 // DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
@@ -199,8 +187,6 @@ builder.Services.AddScoped<IRepositoryTime, RepositoryTime>();
 builder.Services.AddScoped<IStorageService, ImageStorageService>();
 
 var app = builder.Build();
-
-app.UseCors("AllowFrontend"); 
 
 // Swagger
 if (app.Environment.IsDevelopment())
