@@ -26,6 +26,9 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<RecuperacaoSenha> RecuperacoesSenha { get; set; }
         public DbSet<CodigoReativacao> CodigosReativacao { get; set; }
         public DbSet<VerificationCode> VerificationCodes { get; set; }
+        public DbSet<Favorito> Favoritos { get; set; }
+        public DbSet<IngressoLote> IngressoLotes { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -142,6 +145,11 @@ namespace kivoBackend.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(p => p.TimeVisitanteId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Favorito: impede duplicidade do mesmo item para o mesmo usuário.
+            modelBuilder.Entity<Favorito>()
+                .HasIndex(f => new { f.UsuarioId, f.Tipo, f.ItemId })
+                .IsUnique();
         }
     }
 }

@@ -182,9 +182,11 @@ builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
 builder.Services.AddScoped<ITimeService, TimeService>();
 builder.Services.AddScoped<ICampeonatoService, CampeonatoService>();
 builder.Services.AddScoped<IPartidaService, PartidaService>();
+builder.Services.AddScoped<IIngressoLoteService, IngressoLoteService>();
 builder.Services.AddScoped<IRepositoryCampeonato, RepositoryCampeonato>();
 builder.Services.AddScoped<IRepositoryTime, RepositoryTime>();
 builder.Services.AddScoped<IStorageService, ImageStorageService>();
+builder.Services.AddScoped<IFavoritoService, FavoritoService>();
 
 var app = builder.Build();
 

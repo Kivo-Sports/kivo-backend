@@ -449,6 +449,148 @@ namespace kivoBackend.Application.Services
                 Finalizado = partida.Finalizado
             };
         }
+        public async Task<Partida> CriarPartidaManual(CriarPartidaManualDTO dto)
+        {
+            var partida = new Partida
+            {
+                Id = Guid.NewGuid(),
+                CampeonatoId = dto.CampeonatoId,
+                TimeCasaId = dto.TimeCasaId,
+                TimeVisitanteId = dto.TimeVisitanteId,
+                GolsTimeCasa = dto.GolsTimeCasa,
+                GolsTimeVisitante = dto.GolsTimeVisitante,
+                DataHora = dto.DataHora,
+                Local = dto.Local ?? string.Empty,
+                Finalizado = dto.Finalizado,
+                Rodada = dto.Rodada,
+                Fase = dto.Fase,
+                NumeroJogoChave = dto.NumeroJogoChave
+            };
+
+            return await _repositoryGenerics.Adicionar(partida);
+        }
+
+        public async Task EditarPartidaAdmin(Guid partidaId, EditarPartidaAdminDTO dto)
+        {
+            var partida = await _repositoryGenerics.ObterPorId(partidaId);
+            if (partida == null) throw new Exception("Partida não encontrada.");
+
+            partida.TimeCasaId = dto.TimeCasaId;
+            partida.TimeVisitanteId = dto.TimeVisitanteId;
+            partida.DataHora = dto.DataHora;
+            partida.Local = dto.Local ?? string.Empty;
+            partida.Rodada = dto.Rodada;
+            partida.Fase = dto.Fase;
+            partida.NumeroJogoChave = dto.NumeroJogoChave;
+
+            await _repositoryGenerics.Atualizar(partida);
+        }
+
+        public async Task AtualizarPlacarAdmin(Guid partidaId, AtualizarPlacarDTO dto)
+        {
+            var partida = await _repositoryGenerics.ObterPorId(partidaId);
+            if (partida == null) throw new Exception("Partida não encontrada.");
+
+            if (partida.Fase != EnumFaseMataMata.Nenhuma)
+                await EditarPlacarMataMataAdmin(partida, dto);
+            else
+                await EditarPlacarPontosCorridosAdmin(partida, dto);
+        }
+
+        private async Task EditarPlacarMataMataAdmin(Partida partida, AtualizarPlacarDTO dto)
+        {
+            if (dto.GolsTimeCasa == dto.GolsTimeVisitante)
+                throw new Exception("Partida mata-mata não pode terminar empatada. Registre pênaltis ou prorrogação.");
+
+            if (partida.TimeCasaId == null || partida.TimeVisitanteId == null)
+                throw new Exception("Defina os dois times antes de registrar o placar desta partida.");
+
+            // Final: apenas grava o placar e define o campeão.
+            if (partida.Fase == EnumFaseMataMata.Final)
+            {
+                partida.GolsTimeCasa = dto.GolsTimeCasa;
+                partida.GolsTimeVisitante = dto.GolsTimeVisitante;
+                partida.Finalizado = true;
+                await _repositoryGenerics.Atualizar(partida);
+
+                var camp = await _repositoryCampeonato.ObterCampeonatoPorId(partida.CampeonatoId);
+                camp.TimeVencedorId = dto.GolsTimeCasa > dto.GolsTimeVisitante ? partida.TimeCasaId : partida.TimeVisitanteId;
+                await _repositoryCampeonato.Atualizar(camp);
+                return;
+            }
+
+            // Localiza o jogo dependente (próxima fase) que consome o vencedor desta partida.
+            int numeroJogoProximaFase = (partida.NumeroJogoChave + 1) / 2;
+            EnumFaseMataMata proximaFase = (EnumFaseMataMata)((int)partida.Fase + 1);
+
+            var dependente = await _repositoryGenerics.BuscarPrimeiro(p =>
+                p.CampeonatoId == partida.CampeonatoId &&
+                p.Fase == proximaFase &&
+                p.NumeroJogoChave == numeroJogoProximaFase);
+
+            if (dependente != null && dependente.Finalizado)
+                throw new Exception("A próxima fase já ocorreu; não é possível alterar este placar.");
+
+            Guid? vencedorAntigo = partida.Finalizado
+                ? (partida.GolsTimeCasa > partida.GolsTimeVisitante ? partida.TimeCasaId : partida.TimeVisitanteId)
+                : null;
+
+            partida.GolsTimeCasa = dto.GolsTimeCasa;
+            partida.GolsTimeVisitante = dto.GolsTimeVisitante;
+            partida.Finalizado = true;
+            await _repositoryGenerics.Atualizar(partida);
+
+            Guid vencedorNovo = (dto.GolsTimeCasa > dto.GolsTimeVisitante ? partida.TimeCasaId : partida.TimeVisitanteId).Value;
+
+            if (dependente != null)
+            {
+                // Substitui o vencedor antigo pelo novo no slot correto do jogo seguinte.
+                if (vencedorAntigo != null && dependente.TimeCasaId == vencedorAntigo)
+                    dependente.TimeCasaId = vencedorNovo;
+                else if (vencedorAntigo != null && dependente.TimeVisitanteId == vencedorAntigo)
+                    dependente.TimeVisitanteId = vencedorNovo;
+                else if (dependente.TimeCasaId == null)
+                    dependente.TimeCasaId = vencedorNovo;
+                else
+                    dependente.TimeVisitanteId = vencedorNovo;
+
+                await _repositoryGenerics.Atualizar(dependente);
+            }
+            else
+            {
+                // Ainda não existe o jogo seguinte: usa a lógica padrão para criá-lo
+                // quando o jogo irmão também estiver finalizado.
+                await AtualizarPlacarMataMata(partida);
+            }
+        }
+
+        private async Task EditarPlacarPontosCorridosAdmin(Partida partida, AtualizarPlacarDTO dto)
+        {
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(partida.CampeonatoId);
+
+            // Em campeonatos híbridos, alterar a fase de grupos pode mudar quem se classifica.
+            if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.Hibrido)
+            {
+                var jogosMataMata = (await _repositoryGenerics.Buscar(p =>
+                    p.CampeonatoId == partida.CampeonatoId && p.Fase != EnumFaseMataMata.Nenhuma)).ToList();
+
+                if (jogosMataMata.Any(j => j.Finalizado))
+                    throw new Exception("A fase de mata-mata já teve jogos finalizados; não é possível alterar a fase de grupos.");
+
+                // Remove o mata-mata ainda não finalizado para que seja regerado pela nova classificação.
+                foreach (var jogo in jogosMataMata)
+                    await _repositoryGenerics.Remover(jogo.Id);
+            }
+
+            partida.GolsTimeCasa = dto.GolsTimeCasa;
+            partida.GolsTimeVisitante = dto.GolsTimeVisitante;
+            partida.Finalizado = true;
+            await _repositoryGenerics.Atualizar(partida);
+
+            // Recalcula campeão (pontos corridos) ou regera o mata-mata (híbrido) quando a fase terminar.
+            await VerificarFimFasePontosCorridos(partida.CampeonatoId);
+        }
+
         private DateTime AjustarParaHorarioComercialEsportivo(DateTime dataOriginal, int indiceJogo)
         {
             DateTime dataBase = dataOriginal.Date;
