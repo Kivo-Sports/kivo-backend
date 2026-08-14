@@ -13,55 +13,80 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json.Serialization;
 
-// Carregar variáveis de ambiente do arquivo .env
-var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
-if (File.Exists(envPath))
+// 1. Carregar variáveis de ambiente procurando da pasta atual e subindo se necessário
+try
 {
-    Env.Load(envPath);
+    Env.TraversePath().Load();
+}
+catch
+{
+    var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+    if (File.Exists(envPath))
+    {
+        Env.Load(envPath);
+    }
 }
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Adicionar variáveis de ambiente ao Configuration
+// 2. Adicionar appsettings e variáveis de ambiente ao Configuration
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
 
-// Substituir placeholders de variáveis de ambiente no appsettings
 var config = builder.Configuration;
-var dbConnection = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") ?? config.GetConnectionString("DefaultConnection");   
-var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? "KivoSports_Chave_Super_Secreta_2026_@!";
-var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "kivoBackend";
-var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "kivoFrontEnd";
 
-// Override da connection string
-builder.Configuration["ConnectionStrings:DefaultConnection"] = dbConnection;
-builder.Configuration["Jwt:Key"] = jwtKey;
-builder.Configuration["Jwt:Issuer"] = jwtIssuer;
-builder.Configuration["Jwt:Audience"] = jwtAudience;
+// 3. Overrides condicionais (não sobrescreve se a variável for vazia)
+var dbConnection = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+if (!string.IsNullOrWhiteSpace(dbConnection))
+    builder.Configuration["ConnectionStrings:DefaultConnection"] = dbConnection;
 
-// Override das configurações de Email
-var smtpServer = Environment.GetEnvironmentVariable("SMTP_SERVER") ?? "smtp.gmail.com";
-var smtpPort = Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
-var senderEmail = Environment.GetEnvironmentVariable("SENDER_EMAIL") ?? "kivosportsuporte@gmail.com";
-var senderPassword = Environment.GetEnvironmentVariable("SENDER_PASSWORD") ?? "";
-var senderName = Environment.GetEnvironmentVariable("SENDER_NAME") ?? "Kivo Sports";
-var enableSSL = Environment.GetEnvironmentVariable("ENABLE_SSL") ?? "true";
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY");
+if (!string.IsNullOrWhiteSpace(jwtKey))
+    builder.Configuration["Jwt:Key"] = jwtKey;
 
-builder.Configuration["EmailSettings:SmtpServer"] = smtpServer;
-builder.Configuration["EmailSettings:SmtpPort"] = smtpPort;
-builder.Configuration["EmailSettings:SenderEmail"] = senderEmail;
-builder.Configuration["EmailSettings:SenderPassword"] = senderPassword;
-builder.Configuration["EmailSettings:SenderName"] = senderName;
-builder.Configuration["EmailSettings:EnableSSL"] = enableSSL;
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER");
+if (!string.IsNullOrWhiteSpace(jwtIssuer))
+    builder.Configuration["Jwt:Issuer"] = jwtIssuer;
 
-// Override do CORS
-var corsOrigins = Environment.GetEnvironmentVariable("CORS_ORIGINS") ?? "http://localhost:3000,http://localhost:3001";
-builder.Configuration["CORS_ORIGINS"] = corsOrigins;
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+if (!string.IsNullOrWhiteSpace(jwtAudience))
+    builder.Configuration["Jwt:Audience"] = jwtAudience;
 
+// Overrides de Email
+var smtpServer = Environment.GetEnvironmentVariable("SMTP_SERVER");
+if (!string.IsNullOrWhiteSpace(smtpServer)) builder.Configuration["EmailSettings:SmtpServer"] = smtpServer;
+
+var smtpPort = Environment.GetEnvironmentVariable("SMTP_PORT");
+if (!string.IsNullOrWhiteSpace(smtpPort)) builder.Configuration["EmailSettings:SmtpPort"] = smtpPort;
+
+var senderEmail = Environment.GetEnvironmentVariable("SENDER_EMAIL");
+if (!string.IsNullOrWhiteSpace(senderEmail)) builder.Configuration["EmailSettings:SenderEmail"] = senderEmail;
+
+var senderPassword = Environment.GetEnvironmentVariable("SENDER_PASSWORD");
+if (!string.IsNullOrWhiteSpace(senderPassword)) builder.Configuration["EmailSettings:SenderPassword"] = senderPassword;
+
+var senderName = Environment.GetEnvironmentVariable("SENDER_NAME");
+if (!string.IsNullOrWhiteSpace(senderName)) builder.Configuration["EmailSettings:SenderName"] = senderName;
+
+var enableSSL = Environment.GetEnvironmentVariable("ENABLE_SSL");
+if (!string.IsNullOrWhiteSpace(enableSSL)) builder.Configuration["EmailSettings:EnableSSL"] = enableSSL;
+
+// Override de CORS e Firebase
+var corsOrigins = Environment.GetEnvironmentVariable("CORS_ORIGINS");
+if (!string.IsNullOrWhiteSpace(corsOrigins)) builder.Configuration["CORS_ORIGINS"] = corsOrigins;
 
 builder.Configuration["FIREBASE_BUCKET"] = Environment.GetEnvironmentVariable("FIREBASE_BUCKET");
 builder.Configuration["GOOGLE_APPLICATION_CREDENTIALS"] = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
+
+// Override do ASAAS (Mantém o valor do appsettings.json caso o .env falhe)
+var asaasApiKey = Environment.GetEnvironmentVariable("ASAAS_API_KEY");
+if (!string.IsNullOrWhiteSpace(asaasApiKey))
+    builder.Configuration["Asaas:ApiKey"] = asaasApiKey.Trim().Trim('"');
+
+var asaasBaseUrl = Environment.GetEnvironmentVariable("ASAAS_BASE_URL");
+if (!string.IsNullOrWhiteSpace(asaasBaseUrl))
+    builder.Configuration["Asaas:BaseUrl"] = asaasBaseUrl.Trim().Trim('"');
 
 // Controllers
 builder.Services.AddControllers();
@@ -151,7 +176,6 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
     };
 
-    // Mensagens personalizadas para 401 e 403
     options.Events = new JwtBearerEvents
     {
         OnChallenge = context =>
@@ -165,12 +189,12 @@ builder.Services.AddAuthentication(options =>
         {
             context.Response.StatusCode = 403;
             context.Response.ContentType = "application/json";
-            return context.Response.WriteAsync("{\"message\": \"Acesso negado: seu perfil n�o tem permissão para esta a��o.\"}");
+            return context.Response.WriteAsync("{\"message\": \"Acesso negado: seu perfil não tem permissão para esta ação.\"}");
         }
     };
 });
 
-// Generic Repository / Service
+// Generic Repository / Service / Dependency Injection
 builder.Services.AddScoped(typeof(IRepositoryGenerics<>), typeof(RepositoryGenerics<>));
 builder.Services.AddScoped(typeof(IServiceGenerics<>), typeof(ServiceGenerics<>));
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
@@ -189,6 +213,9 @@ builder.Services.AddScoped<IRepositoryTime, RepositoryTime>();
 builder.Services.AddScoped<IStorageService, ImageStorageService>();
 builder.Services.AddScoped<IFavoritoService, FavoritoService>();
 
+// Registra HttpClient com AsaasService
+builder.Services.AddHttpClient<IAsaasService, AsaasService>();
+
 var app = builder.Build();
 
 // Swagger
@@ -197,9 +224,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-// Desabilitado para aceitar HTTP em desenvolvimento
-// app.UseHttpsRedirection();
 
 app.UseCors("AllowFrontend");
 
@@ -217,7 +241,6 @@ using (var scope = app.Services.CreateScope())
 
     var roles = new[] { "Administrador", "Torcedor", "OrganizadorTime", "OrganizadorCampeonato" };
 
-    // Criar roles
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
@@ -226,13 +249,11 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    // Criar usuário admin padrão
     var adminEmail = "admin@kivo.com";
     var adminUser = await userManager.FindByEmailAsync(adminEmail);
 
     if (adminUser == null)
     {
-        // 1. Criar IdentityUser
         var newAdmin = new IdentityUser
         {
             UserName = adminEmail,
@@ -244,10 +265,8 @@ using (var scope = app.Services.CreateScope())
 
         if (result.Succeeded)
         {
-            // 2. Adicionar role
             await userManager.AddToRoleAsync(newAdmin, "Administrador");
 
-            // 3. Criar usuário na tabela Kivo
             var usuarioAdmin = new Usuario
             {
                 Id = Guid.NewGuid(),

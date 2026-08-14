@@ -70,5 +70,19 @@ namespace kivoBackend.Presentation.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpPost("pagar/{ingressoId}")]
+        public async Task<IActionResult> ConfirmarPagamento(Guid ingressoId)
+        {
+            try
+            {
+                var sucesso = await _ingressoService.ConfirmarPagamentoAsync(ingressoId);
+                return Ok(new { message = "Pagamento confirmado com sucesso! Seu QR Code de entrada foi liberado." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

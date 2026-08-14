@@ -19,5 +19,6 @@ namespace kivoBackend.Application.DTO
         public EnumStatusIngresso Status { get; set; }
         public string CodigoValidacao { get; set; } = string.Empty;
         public string QrCodeBase64 { get; set; } = string.Empty;
+        public string PixCopiaCola { get; set; } = string.Empty;
     }
 }
