@@ -20,17 +20,17 @@ namespace kivoBackend.Application.Services
         {
             _httpClient = httpClient;
 
-            var baseUrl = configuration["Asaas:BaseUrl"];
-            if (string.IsNullOrWhiteSpace(baseUrl))
-                baseUrl = Environment.GetEnvironmentVariable("ASAAS_BASE_URL") ?? "https://sandbox.asaas.com/api/v3";
+            var apiKey = Environment.GetEnvironmentVariable("ASAAS_API_KEY")
+                         ?? configuration["Asaas:ApiKey"]
+                         ?? string.Empty;
 
-            var apiKey = configuration["Asaas:ApiKey"];
-            if (string.IsNullOrWhiteSpace(apiKey))
-                apiKey = Environment.GetEnvironmentVariable("ASAAS_API_KEY") ?? string.Empty;
+            var baseUrl = Environment.GetEnvironmentVariable("ASAAS_BASE_URL")
+                          ?? configuration["Asaas:BaseUrl"]
+                          ?? "https://sandbox.asaas.com/api/v3";
 
             _asaasApiKey = apiKey.Trim().Trim('"');
 
-            if (string.IsNullOrWhiteSpace(_asaasApiKey))
+            if (string.IsNullOrWhiteSpace(_asaasApiKey) || _asaasApiKey.Contains("SUA_CHAVE_AQUI"))
             {
                 throw new Exception("Configuração ausente: A chave ASAAS_API_KEY não foi encontrada no .env nem no appsettings.json.");
             }

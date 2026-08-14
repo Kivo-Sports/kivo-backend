@@ -10,21 +10,44 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.IO;
 using System.Text;
 using System.Text.Json.Serialization;
 
-// 1. Carregar variáveis de ambiente procurando da pasta atual e subindo se necessário
-try
+// 1. Leitura direta e sem falhas do arquivo .env
+var dirAtual = new DirectoryInfo(Directory.GetCurrentDirectory());
+string caminhoEnv = null;
+
+while (dirAtual != null)
 {
-    Env.TraversePath().Load();
-}
-catch
-{
-    var envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
-    if (File.Exists(envPath))
+    var testeEnv = Path.Combine(dirAtual.FullName, ".env");
+    if (File.Exists(testeEnv))
     {
-        Env.Load(envPath);
+        caminhoEnv = testeEnv;
+        break;
     }
+    dirAtual = dirAtual.Parent;
+}
+
+if (!string.IsNullOrEmpty(caminhoEnv))
+{
+    foreach (var linha in File.ReadAllLines(caminhoEnv))
+    {
+        var trimLinha = linha.Trim();
+        if (string.IsNullOrWhiteSpace(trimLinha) || trimLinha.StartsWith("#")) continue;
+
+        var partes = trimLinha.Split('=', 2);
+        if (partes.Length == 2)
+        {
+            var chave = partes[0].Trim();
+            var valor = partes[1].Trim().Trim('\'').Trim('"');
+            Environment.SetEnvironmentVariable(chave, valor);
+        }
+    }
+    Console.WriteLine($"=================================================");
+    Console.WriteLine($"[.ENV CARREGADO COM SUCESSO DE]: {caminhoEnv}");
+    Console.WriteLine($"[ASAAS KEY CONFIGURADA]: {!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASAAS_API_KEY"))}");
+    Console.WriteLine($"=================================================");
 }
 
 var builder = WebApplication.CreateBuilder(args);
