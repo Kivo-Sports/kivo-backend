@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using kivoBackend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using kivoBackend.Infrastructure.Data;
 namespace kivoBackend.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260805224520_CompraIngressos")]
+    partial class CompraIngressos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -473,9 +476,6 @@ namespace kivoBackend.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AsaasPaymentId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("CodigoValidacao")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -483,7 +483,7 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<DateTime>("DataCompra")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime?>("DataUso")
+                    b.Property<DateTime>("DataUso")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("IngressoLoteId")
