@@ -4,6 +4,7 @@ using kivoBackend.Application.Services;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
 using kivoBackend.Core.Interfaces;
+using kivoBackend.Presentation.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,14 +17,17 @@ namespace kivoBackend.Presentation.Controller
         private readonly IUsuarioService _usuarioService;
         private readonly IRepositoryGenerics<OrganizadorCampeonato> _organizadorCampeonatoRepository;
         private readonly IRepositoryGenerics<OrganizadorTime> _organizadorTimeRepository;
+        private readonly ICurrentUserService _currentUser;
         public UsuarioController(
             IUsuarioService usuarioService,
             IRepositoryGenerics<OrganizadorCampeonato> organizadorCampeonatoRepository,
-            IRepositoryGenerics<OrganizadorTime> organizadorTimeRepository)
+            IRepositoryGenerics<OrganizadorTime> organizadorTimeRepository,
+            ICurrentUserService currentUser)
         {
             _usuarioService = usuarioService;
             _organizadorCampeonatoRepository = organizadorCampeonatoRepository;
             _organizadorTimeRepository = organizadorTimeRepository;
+            _currentUser = currentUser;
         }
 
         [Authorize(Roles = "Administrador")]
@@ -257,6 +261,9 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                var acesso = ValidarAcessoAoUsuario(id);
+                if (acesso != null) return acesso;
+
                 var usuario = MapearParaUpdate(dto);
                 usuario.Torcedor = new Torcedor { Endereco = MapearEndereco(dto.Endereco) };
 
@@ -272,6 +279,9 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                var acesso = ValidarAcessoAoUsuario(id);
+                if (acesso != null) return acesso;
+
                 var usuario = MapearParaUpdate(dto);
                 usuario.OrganizadorTime = new OrganizadorTime { Endereco = MapearEndereco(dto.Endereco) };
 
@@ -287,6 +297,9 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                var acesso = ValidarAcessoAoUsuario(id);
+                if (acesso != null) return acesso;
+
                 if (dto.ContaBanco == null)
                     return BadRequest("Dados da conta bancária são obrigatórios.");
 
@@ -412,6 +425,9 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                var acesso = ValidarAcessoAoUsuario(id);
+                if (acesso != null) return acesso;
+
                 await _usuarioService.RemoverUsuario(id);
                 return NoContent();
             }
@@ -459,6 +475,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/reativar")]
+        [Authorize(Roles = "Administrador")]
         public async Task<IActionResult> Reativar(Guid id)
         {
             try
@@ -470,6 +487,17 @@ namespace kivoBackend.Presentation.Controller
             {
                 return BadRequest(ex.Message);
             }
+        }
+
+        private IActionResult? ValidarAcessoAoUsuario(Guid targetUserId)
+        {
+            if (!_currentUser.UserId.HasValue)
+                return Unauthorized(new { message = "Usuário não identificado." });
+
+            if (_currentUser.IsAdmin || _currentUser.UserId.Value == targetUserId)
+                return null;
+
+            return Forbid();
         }
     }
 }

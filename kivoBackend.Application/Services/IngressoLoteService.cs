@@ -12,19 +12,28 @@ namespace kivoBackend.Application.Services
     {
         private readonly IRepositoryGenerics<IngressoLote> _repositoryIngressoLote;
         private readonly IRepositoryGenerics<Partida> _repositoryPartida;
+        private readonly IRepositoryCampeonato _repositoryCampeonato;
 
         public IngressoLoteService(
             IRepositoryGenerics<IngressoLote> repositoryIngressoLote,
-            IRepositoryGenerics<Partida> repositoryPartida) : base(repositoryIngressoLote)
+            IRepositoryGenerics<Partida> repositoryPartida,
+            IRepositoryCampeonato repositoryCampeonato) : base(repositoryIngressoLote)
         {
             _repositoryIngressoLote = repositoryIngressoLote;
             _repositoryPartida = repositoryPartida;
+            _repositoryCampeonato = repositoryCampeonato;
         }
 
-        public async Task<IngressoLote> CriarLote(CriarIngressoLoteDTO dto)
+        public async Task<IngressoLote> CriarLote(CriarIngressoLoteDTO dto, Guid? organizadorCampeonatoId, bool ehAdmin)
         {
             var partida = await _repositoryPartida.ObterPorId(dto.PartidaId);
             if (partida == null) throw new Exception("Partida não encontrada.");
+
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(partida.CampeonatoId);
+            if (campeonato == null) throw new Exception("Campeonato da partida não encontrado.");
+            if (!ehAdmin && organizadorCampeonatoId != campeonato.OrganizadorCampeonatoId)
+                throw new UnauthorizedAccessException("Você não tem permissão para criar lote nesta partida.");
+
             if (dto.QuantidadeTotal <= 0) throw new Exception("Quantidade total deve ser maior que zero.");
             if (dto.Preco <= 0) throw new Exception("Preço deve ser maior que zero.");
 

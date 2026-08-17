@@ -6,6 +6,7 @@ using kivoBackend.Core.Enums;
 using kivoBackend.Core.Interfaces;
 using kivoBackend.Infrastructure.Data;
 using kivoBackend.Infrastructure.Repositories;
+using kivoBackend.Presentation.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -187,6 +188,8 @@ builder.Services.AddScoped<IRepositoryCampeonato, RepositoryCampeonato>();
 builder.Services.AddScoped<IRepositoryTime, RepositoryTime>();
 builder.Services.AddScoped<IStorageService, ImageStorageService>();
 builder.Services.AddScoped<IFavoritoService, FavoritoService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 var app = builder.Build();
 

@@ -1,5 +1,6 @@
 ﻿using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
+using kivoBackend.Presentation.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,20 +11,32 @@ namespace kivoBackend.Presentation.Controller
     public class IngressoController : ControllerBase
     {
         private readonly IIngressoLoteService _ingressoLoteService;
+        private readonly IUsuarioService _usuarioService;
+        private readonly ICurrentUserService _currentUser;
 
-        public IngressoController(IIngressoLoteService ingressoLoteService)
+        public IngressoController(IIngressoLoteService ingressoLoteService, IUsuarioService usuarioService, ICurrentUserService currentUser)
         {
             _ingressoLoteService = ingressoLoteService;
+            _usuarioService = usuarioService;
+            _currentUser = currentUser;
         }
 
         [HttpPost("lote")]
-        [Authorize]
+        [Authorize(Roles = "Administrador,OrganizadorCampeonato")]
         public async Task<IActionResult> CriarLote([FromBody] CriarIngressoLoteDTO dto)
         {
             try
             {
-                var loteCriado = await _ingressoLoteService.CriarLote(dto);
+                var organizadorCampeonatoId = await ObterOrganizadorCampeonatoIdAtual();
+                if (!_currentUser.IsAdmin && organizadorCampeonatoId == null)
+                    return Forbid();
+
+                var loteCriado = await _ingressoLoteService.CriarLote(dto, organizadorCampeonatoId, _currentUser.IsAdmin);
                 return Ok(loteCriado);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
             }
             catch (Exception ex)
             {
@@ -53,6 +66,15 @@ namespace kivoBackend.Presentation.Controller
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        private async Task<Guid?> ObterOrganizadorCampeonatoIdAtual()
+        {
+            if (!_currentUser.UserId.HasValue)
+                return null;
+
+            var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
+            return usuario.OrganizadorCampeonato?.Id;
         }
     }
 }

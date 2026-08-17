@@ -10,7 +10,7 @@ namespace kivoBackend.Application.Interfaces
 {
     public interface IIngressoLoteService
     {
-        public Task<IngressoLote> CriarLote(CriarIngressoLoteDTO dto);
+        public Task<IngressoLote> CriarLote(CriarIngressoLoteDTO dto, Guid? organizadorCampeonatoId, bool ehAdmin);
         Task<IEnumerable<IngressoLote>> ObterLotesPorPartida(Guid partidaId);
     }
 }

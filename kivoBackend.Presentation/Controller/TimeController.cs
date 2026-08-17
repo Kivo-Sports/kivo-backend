@@ -3,6 +3,7 @@ using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
 using kivoBackend.Core.Interfaces;
+using kivoBackend.Presentation.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -18,13 +19,15 @@ namespace kivoBackend.Presentation.Controller
         private readonly IUsuarioService _usuarioService;
         private readonly IStorageService _storageService;
         private readonly IRepositoryGenerics<CampeonatoTime> _campeonatoTimeRepository;
+        private readonly ICurrentUserService _currentUser;
 
-        public TimeController(ITimeService timeService, IUsuarioService usuarioService, IStorageService storageService, IRepositoryGenerics<CampeonatoTime> campeonatoTimeRepository)
+        public TimeController(ITimeService timeService, IUsuarioService usuarioService, IStorageService storageService, IRepositoryGenerics<CampeonatoTime> campeonatoTimeRepository, ICurrentUserService currentUser)
         {
             _timeService = timeService;
             _usuarioService = usuarioService;
             _storageService = storageService;
             _campeonatoTimeRepository = campeonatoTimeRepository;
+            _currentUser = currentUser;
         }
 
         [HttpGet]
@@ -134,10 +137,13 @@ namespace kivoBackend.Presentation.Controller
                     return BadRequest(new { message = "Selecione um esporte para o time." });
                 }
 
+                var organizadorTimeId = await ObterOrganizadorTimeIdParaCriacao(dto.OrganizadorTimeId);
+                if (organizadorTimeId == null) return Forbid();
+
                 var novoTime = new Time
                 {
                     Id = Guid.NewGuid(),
-                    OrganizadorTimeId = dto.OrganizadorTimeId,
+                    OrganizadorTimeId = organizadorTimeId.Value,
                     EsporteId = dto.EsporteId,
                     Nome = dto.Nome,
                     Cidade = dto.Cidade,
@@ -161,6 +167,8 @@ namespace kivoBackend.Presentation.Controller
             {
                 var time = await _timeService.ObterPorId(id);
                 if (time == null) return NotFound("Time não encontrado.");
+
+                if (!await PodeAlterarTime(time)) return Forbid();
 
                 if(logo != null && logo.Length > 0)
                 {
@@ -189,6 +197,8 @@ namespace kivoBackend.Presentation.Controller
                 var time = await _timeService.ObterPorId(id);
                 if (time == null) return NotFound("Time não encontrado.");
 
+                if (!await PodeAlterarTime(time)) return Forbid();
+
                 // Ao DESATIVAR, bloquear se o time participa de campeonato com
                 // inscrições abertas ou em andamento (evita quebrar campeonatos ativos).
                 if (time.Ativo)
@@ -216,8 +226,17 @@ namespace kivoBackend.Presentation.Controller
         [Authorize]
         public async Task<IActionResult> Delete(Guid id)
         {
-            await _timeService.Remover(id);
-            return NoContent();
+            try
+            {
+                var time = await _timeService.ObterPorId(id);
+                if (time == null) return NotFound("Time não encontrado.");
+
+                if (!await PodeAlterarTime(time)) return Forbid();
+
+                await _timeService.Remover(id);
+                return NoContent();
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
         [HttpPatch("{id}/reatribuir")]
@@ -234,6 +253,30 @@ namespace kivoBackend.Presentation.Controller
                 return Ok(MapearParaDto(time));
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        private async Task<Guid?> ObterOrganizadorTimeIdParaCriacao(Guid organizadorTimeIdDoDto)
+        {
+            if (_currentUser.IsAdmin)
+                return organizadorTimeIdDoDto == Guid.Empty ? null : organizadorTimeIdDoDto;
+
+            if (!_currentUser.UserId.HasValue)
+                return null;
+
+            var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
+            return usuario.OrganizadorTime?.Id;
+        }
+
+        private async Task<bool> PodeAlterarTime(Time time)
+        {
+            if (_currentUser.IsAdmin)
+                return true;
+
+            if (!_currentUser.UserId.HasValue)
+                return false;
+
+            var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
+            return usuario.OrganizadorTime?.Id == time.OrganizadorTimeId;
         }
     }
 }

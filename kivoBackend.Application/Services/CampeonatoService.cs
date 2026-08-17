@@ -113,18 +113,18 @@ namespace kivoBackend.Application.Services
 
         public async Task ResponderConviteCampeonato(Guid ParticipacaoId, Guid OrganizadorTimeId, bool aceito)
         {
-            var participacao = await _CampeonatoTimeRepository.ObterPorId(ParticipacaoId);
-            if (participacao != null)
-            {
-                participacao.EnumStatusParticipacao = aceito ? EnumStatusParticipacao.Aceito : EnumStatusParticipacao.Recusado;
-                participacao.RespondidoEm = DateTime.Now;
-                participacao.RespondidoPorOrganizadorTimeId = OrganizadorTimeId;
-                await _CampeonatoTimeRepository.Atualizar(participacao);
-            }
-            else
-            {
+            var vinculos = await _CampeonatoTimeRepository.ObterComIncludes(x => x.Time);
+            var participacao = vinculos.FirstOrDefault(x => x.Id == ParticipacaoId);
+            if (participacao == null)
                 throw new Exception("Esse convite não existe mais");
-            }
+
+            if (participacao.Time == null || participacao.Time.OrganizadorTimeId != OrganizadorTimeId)
+                throw new UnauthorizedAccessException("Este convite não pertence ao organizador autenticado.");
+
+            participacao.EnumStatusParticipacao = aceito ? EnumStatusParticipacao.Aceito : EnumStatusParticipacao.Recusado;
+            participacao.RespondidoEm = DateTime.Now;
+            participacao.RespondidoPorOrganizadorTimeId = OrganizadorTimeId;
+            await _CampeonatoTimeRepository.Atualizar(participacao);
         }
 
         public Task<IEnumerable<Campeonato>> ObterTodosComTimes()

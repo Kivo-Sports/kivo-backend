@@ -1,6 +1,7 @@
 ﻿using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Enums;
+using kivoBackend.Presentation.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,18 +12,26 @@ namespace kivoBackend.Presentation.Controller
     public class PartidaController : ControllerBase
     {
         private readonly IPartidaService _partidaService;
+        private readonly ICampeonatoService _campeonatoService;
+        private readonly IUsuarioService _usuarioService;
+        private readonly ICurrentUserService _currentUser;
 
-        public PartidaController(IPartidaService partidaService)
+        public PartidaController(IPartidaService partidaService, ICampeonatoService campeonatoService, IUsuarioService usuarioService, ICurrentUserService currentUser)
         {
             _partidaService = partidaService;
+            _campeonatoService = campeonatoService;
+            _usuarioService = usuarioService;
+            _currentUser = currentUser;
         }
 
         [HttpPost("gerar-tabela/{campeonatoId}")]
-        [Authorize]
+        [Authorize(Roles = "Administrador,OrganizadorCampeonato")]
         public async Task<IActionResult> Gerar(Guid campeonatoId)
         {
             try
             {
+                if (!await PodeAlterarCampeonato(campeonatoId)) return Forbid();
+
                 await _partidaService.GerarTabela(campeonatoId);
                 return Ok("Jogos gerados com sucesso.");
             }
@@ -30,13 +39,15 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/atualizar-placar")]
-        [Authorize]
+        [Authorize(Roles = "Administrador,OrganizadorCampeonato")]
         public async Task<IActionResult> AtualizarPlacar(Guid id, [FromBody] AtualizarPlacarDTO dto)
         {
             try
             {
                 var partida = await _partidaService.ObterPorId(id);
                 if (partida == null) return NotFound();
+                if (!await PodeAlterarCampeonato(partida.CampeonatoId)) return Forbid();
+
                 if (partida.Finalizado) return BadRequest("Esta partida já foi encerrada e não pode ser editada.");
                 if (partida.DataHora > DateTime.Now) return BadRequest("Não é possível atualizar o placar de uma partida que ainda não ocorreu.");
 
@@ -102,13 +113,14 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/agendar")]
-        [Authorize]
+        [Authorize(Roles = "Administrador,OrganizadorCampeonato")]
         public async Task<IActionResult> Agendar(Guid id, [FromBody] AgendarPartidaDTO dto)
         {
             try
             {
                 var partida = await _partidaService.ObterPorId(id);
                 if (partida == null) return NotFound();
+                if (!await PodeAlterarCampeonato(partida.CampeonatoId)) return Forbid();
 
                 partida.DataHora = dto.DataHora;
                 partida.Local = dto.Local ?? string.Empty;
@@ -167,6 +179,22 @@ namespace kivoBackend.Presentation.Controller
                 return Ok("Placar atualizado com sucesso.");
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        private async Task<bool> PodeAlterarCampeonato(Guid campeonatoId)
+        {
+            if (_currentUser.IsAdmin)
+                return true;
+
+            if (!_currentUser.UserId.HasValue)
+                return false;
+
+            var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
+            if (usuario.OrganizadorCampeonato == null)
+                return false;
+
+            var campeonato = await _campeonatoService.ObterCampeonatoPorId(campeonatoId);
+            return campeonato.OrganizadorCampeonatoId == usuario.OrganizadorCampeonato.Id;
         }
     }
 }
