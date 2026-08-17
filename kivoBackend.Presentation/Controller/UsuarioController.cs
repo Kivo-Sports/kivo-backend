@@ -438,7 +438,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost("check-email")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<IActionResult> CheckEmail([FromBody] CheckEmailRequest request)
         {
             try
@@ -456,7 +456,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost("check-cpf")]
-        [Authorize]
+        [AllowAnonymous]
         public async Task<IActionResult> CheckCpf([FromBody] CheckCpfRequest request)
         {
             try

@@ -66,6 +66,11 @@ namespace kivoBackend.Application.Services
             if (time.EsporteId != campeonato.EsporteId)
                 throw new Exception("Só é possível convidar times do mesmo esporte do campeonato.");
 
+            var conviteExistente = await _CampeonatoTimeRepository.BuscarPrimeiro(ct =>
+                ct.CampeonatoId == campeonatoId && ct.TimeId == timeId);
+            if (conviteExistente != null)
+                throw new InvalidOperationException("Este time já possui convite ou participação neste campeonato.");
+
             var novoConvite = new CampeonatoTime
             {
                 Id = Guid.NewGuid(),
@@ -121,6 +126,9 @@ namespace kivoBackend.Application.Services
             if (participacao.Time == null || participacao.Time.OrganizadorTimeId != OrganizadorTimeId)
                 throw new UnauthorizedAccessException("Este convite não pertence ao organizador autenticado.");
 
+            if (participacao.RespondidoEm.HasValue || participacao.EnumStatusParticipacao != EnumStatusParticipacao.Pendente)
+                throw new InvalidOperationException("Este convite já foi respondido.");
+
             participacao.EnumStatusParticipacao = aceito ? EnumStatusParticipacao.Aceito : EnumStatusParticipacao.Recusado;
             participacao.RespondidoEm = DateTime.Now;
             participacao.RespondidoPorOrganizadorTimeId = OrganizadorTimeId;
@@ -169,6 +177,9 @@ namespace kivoBackend.Application.Services
             {
                 throw new Exception("Não é possível editar um campeonato que já iniciou ou finalizou.");
             }
+
+            if (dto.DataFim <= dto.DataInicio)
+                throw new ArgumentException("A data de fim deve ser posterior à data de início.");
 
             if (dto.EsporteId != Guid.Empty)
                 campeonato.EsporteId = dto.EsporteId;

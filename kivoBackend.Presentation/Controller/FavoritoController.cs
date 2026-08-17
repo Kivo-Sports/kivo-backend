@@ -52,6 +52,8 @@ namespace kivoBackend.Presentation.Controller
                 await _favoritoService.Adicionar(usuarioId.Value, dto.Tipo, dto.ItemId);
                 return Ok("Favorito adicionado.");
             }
+            catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
 

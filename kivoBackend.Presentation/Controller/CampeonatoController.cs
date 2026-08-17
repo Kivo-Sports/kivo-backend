@@ -70,17 +70,22 @@ namespace kivoBackend.Presentation.Controller
                     }
                 }
 
+                if (!PeriodoCampeonatoValido(dto.DataInicio, dto.DataFim))
+                {
+                    return BadRequest("A data de fim deve ser posterior à data de início.");
+                }
+
+                if (dto.EsporteId == Guid.Empty)
+                {
+                    return BadRequest("Selecione um esporte para o campeonato.");
+                }
+
                 string? urlImage = dto.LogoUrl;
 
                 if (logo != null && logo.Length > 0)
                 {
                     using var stream = logo.OpenReadStream();
                     urlImage = await _storageService.UploadFileAsync(stream, logo.FileName, logo.ContentType);
-                }
-
-                if (dto.EsporteId == Guid.Empty)
-                {
-                    return BadRequest("Selecione um esporte para o campeonato.");
                 }
 
                 var organizadorCampeonatoId = await ObterOrganizadorCampeonatoIdParaCriacao(dto.OrganizadorCampeonatoId);
@@ -120,6 +125,11 @@ namespace kivoBackend.Presentation.Controller
                 if (campeonato == null) return NotFound("Campeonato não encontrado.");
 
                 if (!await PodeAlterarCampeonato(campeonato)) return Forbid();
+
+                if (!PeriodoCampeonatoValido(dto.DataInicio, dto.DataFim))
+                {
+                    return BadRequest("A data de fim deve ser posterior à data de início.");
+                }
 
                 if (logo != null && logo.Length > 0)
                 {
@@ -279,6 +289,7 @@ namespace kivoBackend.Presentation.Controller
                 await _campeonatoService.AdicionarTimeAoCampeonato(dto.CampeonatoId, dto.TimeId);
                 return Ok("Convite enviado com sucesso.");
             }
+            catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
 
@@ -297,6 +308,10 @@ namespace kivoBackend.Presentation.Controller
             catch (UnauthorizedAccessException)
             {
                 return Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
@@ -414,5 +429,8 @@ namespace kivoBackend.Presentation.Controller
             var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
             return usuario.OrganizadorCampeonato?.Id == campeonato.OrganizadorCampeonatoId;
         }
+
+        private static bool PeriodoCampeonatoValido(DateTime dataInicio, DateTime dataFim)
+            => dataFim > dataInicio;
     }
 }

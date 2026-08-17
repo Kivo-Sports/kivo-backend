@@ -124,6 +124,64 @@ public class SecurityAuthorizationTests
     }
 
     [Fact]
+    public async Task Time_CreateWithoutLogo_AllowsNullLogo()
+    {
+        var usuarios = new FakeUsuarioService();
+        usuarios.Users[_userA] = UsuarioOrganizadorTime(_userA, _orgTimeA);
+        var times = new FakeTimeService();
+        var controller = new TimeController(times, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(_userA));
+
+        var result = await controller.Post(new CriarTimeDto
+        {
+            OrganizadorTimeId = _orgTimeA,
+            EsporteId = Guid.NewGuid(),
+            Nome = "Palmeiras",
+            Cidade = "Sao Paulo",
+            Estado = "SP"
+        }, null);
+
+        var created = Assert.IsType<CreatedAtActionResult>(result);
+        var dto = Assert.IsType<ListarTimeDto>(created.Value);
+        Assert.Null(dto.LogoUrl);
+        Assert.Null(times.Added!.LogoUrl);
+    }
+
+    [Fact]
+    public async Task Campeonato_CreateWithInvalidDates_ReturnsBadRequestAndDoesNotPersist()
+    {
+        var usuarios = new FakeUsuarioService();
+        usuarios.Users[_userA] = UsuarioOrganizadorCampeonato(_userA, _orgCampA);
+        var campeonatos = new FakeCampeonatoService();
+        var dto = CriarCampeonatoDto(_orgCampA);
+        dto.DataInicio = DateTime.Today.AddDays(20);
+        dto.DataFim = DateTime.Today.AddDays(5);
+        var controller = new CampeonatoController(campeonatos, new FakeStorageService(), usuarios, new FakeCurrentUser(_userA));
+
+        var result = await controller.Post(dto, null);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Null(campeonatos.Added);
+    }
+
+    [Fact]
+    public async Task Campeonato_EditWithInvalidDates_ReturnsBadRequestAndDoesNotPersist()
+    {
+        var usuarios = new FakeUsuarioService();
+        usuarios.Users[_userA] = UsuarioOrganizadorCampeonato(_userA, _orgCampA);
+        var campA = Campeonato(_orgCampA);
+        var campeonatos = new FakeCampeonatoService { Current = campA };
+        var dto = EditarCampeonatoDto();
+        dto.DataInicio = DateTime.Today.AddDays(20);
+        dto.DataFim = DateTime.Today.AddDays(5);
+        var controller = new CampeonatoController(campeonatos, new FakeStorageService(), usuarios, new FakeCurrentUser(_userA));
+
+        var result = await controller.Put(campA.Id, dto, null);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.False(campeonatos.Mutated);
+    }
+
+    [Fact]
     public async Task Campeonato_OrganizerB_CannotMutateCampeonatoA()
     {
         var usuarios = new FakeUsuarioService();
@@ -174,6 +232,100 @@ public class SecurityAuthorizationTests
         var result = await controller.Responder(Guid.NewGuid(), new ResponderConviteDTO { OrganizadorTimeId = _orgTimeB, Aceito = true });
 
         Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task CampeonatoService_DuplicateInvite_ThrowsAndKeepsSingleInvite()
+    {
+        var esporteId = Guid.NewGuid();
+        var campeonatoId = Guid.NewGuid();
+        var timeId = Guid.NewGuid();
+        var campeonato = new Campeonato { Id = campeonatoId, EsporteId = esporteId };
+        var time = new Time { Id = timeId, EsporteId = esporteId };
+        var convites = new InMemoryRepo<CampeonatoTime>();
+        var service = new CampeonatoService(
+            new InMemoryRepo<Campeonato>(campeonato),
+            convites,
+            new InMemoryRepo<Time>(time),
+            new InMemoryRepo<Partida>(),
+            new FakeCampeonatoRepository(campeonato));
+
+        await service.AdicionarTimeAoCampeonato(campeonatoId, timeId);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.AdicionarTimeAoCampeonato(campeonatoId, timeId));
+
+        Assert.Contains("já possui convite", ex.Message);
+        Assert.Equal(1, convites.Count);
+    }
+
+    [Fact]
+    public async Task CampeonatoService_AlreadyAnsweredInvite_CannotBeAnsweredAgain()
+    {
+        var orgTimeId = Guid.NewGuid();
+        var participacaoId = Guid.NewGuid();
+        var participacao = new CampeonatoTime
+        {
+            Id = participacaoId,
+            CampeonatoId = Guid.NewGuid(),
+            TimeId = Guid.NewGuid(),
+            Time = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = orgTimeId },
+            EnumStatusParticipacao = EnumStatusParticipacao.Pendente
+        };
+        var convites = new InMemoryRepo<CampeonatoTime>(participacao);
+        var campeonato = Campeonato(_orgCampA);
+        var service = new CampeonatoService(
+            new InMemoryRepo<Campeonato>(campeonato),
+            convites,
+            new InMemoryRepo<Time>(),
+            new InMemoryRepo<Partida>(),
+            new FakeCampeonatoRepository(campeonato));
+
+        await service.ResponderConviteCampeonato(participacaoId, orgTimeId, true);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.ResponderConviteCampeonato(participacaoId, orgTimeId, false));
+
+        Assert.Contains("já foi respondido", ex.Message);
+        Assert.Equal(EnumStatusParticipacao.Aceito, participacao.EnumStatusParticipacao);
+    }
+
+    [Fact]
+    public async Task FavoritoService_NonexistentTimeOrCampeonato_DoesNotPersist()
+    {
+        var favoritos = new InMemoryRepo<Favorito>();
+        var service = new FavoritoService(
+            favoritos,
+            new InMemoryRepo<Time>(),
+            new InMemoryRepo<Partida>(),
+            new FakeCampeonatoRepository(null));
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.Adicionar(_userA, EnumTipoFavorito.Time, Guid.NewGuid()));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.Adicionar(_userA, EnumTipoFavorito.Campeonato, Guid.NewGuid()));
+        Assert.Equal(0, favoritos.Count);
+    }
+
+    [Fact]
+    public async Task FavoritoService_DuplicateValidFavorite_RemainsIdempotent()
+    {
+        var timeId = Guid.NewGuid();
+        var favoritos = new InMemoryRepo<Favorito>();
+        var service = new FavoritoService(
+            favoritos,
+            new InMemoryRepo<Time>(new Time { Id = timeId }),
+            new InMemoryRepo<Partida>(),
+            new FakeCampeonatoRepository(null));
+
+        await service.Adicionar(_userA, EnumTipoFavorito.Time, timeId);
+        await service.Adicionar(_userA, EnumTipoFavorito.Time, timeId);
+
+        Assert.Equal(1, favoritos.Count);
+    }
+
+    [Fact]
+    public void Usuario_CheckEmailAndCpf_AreAllowAnonymous()
+    {
+        var checkEmail = typeof(UsuarioController).GetMethod(nameof(UsuarioController.CheckEmail));
+        var checkCpf = typeof(UsuarioController).GetMethod(nameof(UsuarioController.CheckCpf));
+
+        Assert.Contains(checkEmail!.GetCustomAttributes(typeof(AllowAnonymousAttribute), inherit: false), a => a is AllowAnonymousAttribute);
+        Assert.Contains(checkCpf!.GetCustomAttributes(typeof(AllowAnonymousAttribute), inherit: false), a => a is AllowAnonymousAttribute);
     }
 
     [Fact]
@@ -434,6 +586,7 @@ public class SecurityAuthorizationTests
     {
         private readonly List<T> _items;
         public InMemoryRepo(params T[] items) => _items = items.ToList();
+        public int Count => _items.Count;
         public override string ToString() => $"{_items.Count}";
         public override Task<T?> ObterPorId(Guid id)
         {
@@ -445,13 +598,25 @@ public class SecurityAuthorizationTests
             _items.Add(entidade);
             return Task.FromResult(entidade);
         }
+        public override Task Atualizar(T entidade) => Task.CompletedTask;
+        public override Task Remover(Guid id)
+        {
+            var property = typeof(T).GetProperty("Id");
+            var item = _items.FirstOrDefault(x => property?.GetValue(x) is Guid value && value == id);
+            if (item != null) _items.Remove(item);
+            return Task.CompletedTask;
+        }
+        public override Task<IEnumerable<T>> ObterComIncludes(params Expression<Func<T, object>>[] includes) => Task.FromResult<IEnumerable<T>>(_items);
+        public override Task<IEnumerable<T>> Buscar(Expression<Func<T, bool>> predicate) => Task.FromResult<IEnumerable<T>>(_items.Where(predicate.Compile()));
+        public override Task<T?> BuscarPrimeiro(Expression<Func<T, bool>> predicate) => Task.FromResult(_items.FirstOrDefault(predicate.Compile()));
     }
 
     private sealed class FakeCampeonatoRepository : EmptyRepo<Campeonato>, IRepositoryCampeonato
     {
-        private readonly Campeonato _campeonato;
-        public FakeCampeonatoRepository(Campeonato campeonato) => _campeonato = campeonato;
-        public Task<Campeonato> ObterCampeonatoPorId(Guid id) => Task.FromResult(_campeonato);
-        public Task<IEnumerable<Campeonato>> ObterCampeonatosComTimes() => Task.FromResult<IEnumerable<Campeonato>>(new[] { _campeonato });
+        private readonly Campeonato? _campeonato;
+        public FakeCampeonatoRepository(Campeonato? campeonato) => _campeonato = campeonato;
+        public Task<Campeonato> ObterCampeonatoPorId(Guid id) => Task.FromResult(_campeonato!);
+        public Task<IEnumerable<Campeonato>> ObterCampeonatosComTimes()
+            => Task.FromResult<IEnumerable<Campeonato>>(_campeonato == null ? Array.Empty<Campeonato>() : new[] { _campeonato });
     }
 }

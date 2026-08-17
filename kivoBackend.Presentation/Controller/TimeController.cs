@@ -119,11 +119,6 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
-                if (string.IsNullOrEmpty(dto.LogoUrl) && (logo == null || logo.Length == 0))
-                {
-                    return BadRequest(new { message = "Você deve fornecer uma URL de imagem ou fazer o upload de um arquivo." });
-                }
-
                 string? urlImage = dto.LogoUrl;
 
                 if (logo != null && logo.Length > 0)

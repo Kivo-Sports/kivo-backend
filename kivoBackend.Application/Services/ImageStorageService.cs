@@ -15,9 +15,11 @@ namespace kivoBackend.Application.Services
             _bucketName = configuration["FIREBASE_BUCKET"] ?? "kivo-sports.firebasestorage.app";
             var credentialFileName = configuration["GOOGLE_APPLICATION_CREDENTIALS"];
 
-            var path = Path.Combine(Directory.GetCurrentDirectory(), credentialFileName);
+            var path = string.IsNullOrWhiteSpace(credentialFileName)
+                ? null
+                : Path.Combine(Directory.GetCurrentDirectory(), credentialFileName);
 
-            if (File.Exists(path))
+            if (path != null && File.Exists(path))
             {
                 var credential = GoogleCredential.FromFile(path);
                 _storageClient = StorageClient.Create(credential);

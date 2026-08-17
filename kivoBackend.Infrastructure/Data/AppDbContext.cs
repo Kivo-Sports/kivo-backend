@@ -103,6 +103,10 @@ namespace kivoBackend.Infrastructure.Data
                 .HasKey(ct => ct.Id);
 
             modelBuilder.Entity<CampeonatoTime>()
+                .HasIndex(ct => new { ct.CampeonatoId, ct.TimeId })
+                .IsUnique();
+
+            modelBuilder.Entity<CampeonatoTime>()
                 .HasOne(ct => ct.Campeonato)
                 .WithMany(c => c.CampeonatoTimes)
                 .HasForeignKey(ct => ct.CampeonatoId)
