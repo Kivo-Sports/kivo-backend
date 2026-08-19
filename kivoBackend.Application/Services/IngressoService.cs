@@ -48,9 +48,6 @@ namespace kivoBackend.Application.Services
             if (lote.QuantidadeDisponivel < compraDTO.Quantidade)
                 throw new Exception($"Estoque insuficiente. Quantidade disponível: {lote.QuantidadeDisponivel}");
 
-            lote.QuantidadeDisponivel -= compraDTO.Quantidade;
-            await _loteRepository.Atualizar(lote);
-
             var (nomePartida, dataPartida, localPartida) = await ObterDadosPartidaAsync(lote.PartidaId);
 
             var customerId = await _asaasService.ObterOuCriarClienteAsync(
@@ -112,6 +109,13 @@ namespace kivoBackend.Application.Services
             {
                 ingresso.StatusIngresso = EnumStatusIngresso.Pago;
                 await _ingressoRepository.Atualizar(ingresso);
+
+                var lote = await _loteRepository.ObterPorId(ingresso.IngressoLoteId);
+                if (lote != null && lote.QuantidadeDisponivel > 0)
+                {
+                    lote.QuantidadeDisponivel -= 1;
+                    await _loteRepository.Atualizar(lote);
+                }
             }
 
             return true;
@@ -131,6 +135,14 @@ namespace kivoBackend.Application.Services
 
             ingresso.StatusIngresso = EnumStatusIngresso.Pago;
             await _ingressoRepository.Atualizar(ingresso);
+
+            var lote = await _loteRepository.ObterPorId(ingresso.IngressoLoteId);
+            if (lote != null && lote.QuantidadeDisponivel > 0)
+            {
+                lote.QuantidadeDisponivel -= 1;
+                await _loteRepository.Atualizar(lote);
+            }
+
             return true;
         }
 
