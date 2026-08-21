@@ -165,5 +165,19 @@ namespace kivoBackend.Application.Services
 
             return JsonSerializer.Deserialize<AsaasQRCodePixResponseDTO>(responseBody)!;
         }
+
+        public async Task<string> ConsultarStatusCobrancaAsync(string paymentId)
+        {
+            var response = await _httpClient.GetAsync($"payments/{paymentId}");
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"Erro ao consultar cobrança no Asaas: {responseBody}");
+            }
+
+            using var doc = JsonDocument.Parse(responseBody);
+            return doc.RootElement.GetProperty("status").GetString() ?? "PENDING";
+        }
     }
 }

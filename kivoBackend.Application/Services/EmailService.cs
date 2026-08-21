@@ -185,5 +185,60 @@ namespace kivoBackend.Application.Services
             </html>
             ";
         }
+
+        public async Task EnviarEmailNotificacaoAsync(
+        string destinatario,
+        string nomeUsuario,
+        string titulo,
+        string mensagem,
+        string? linkAcao = null,
+        string textoBotao = "Acessar Plataforma")
+            {
+                var smtpServer = _configuration["EmailSettings:SmtpServer"];
+                var smtpPort = int.Parse(_configuration["EmailSettings:SmtpPort"] ?? "587");
+                var senderEmail = _configuration["EmailSettings:SenderEmail"];
+                var senderPassword = _configuration["EmailSettings:SenderPassword"];
+                var senderName = _configuration["EmailSettings:SenderName"] ?? "Kivo Sports";
+                var enableSSL = bool.Parse(_configuration["EmailSettings:EnableSSL"] ?? "true");
+
+                var corpo = $@"
+                    <!DOCTYPE html>
+                    <html lang='pt-BR'>
+                    <head><meta charset='UTF-8'></head>
+                    <body style='font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;'>
+                        <div style='max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden;'>
+                            <div style='background-color: #00E676; padding: 20px; text-align: center; color: white;'>
+                                <h2>{titulo}</h2>
+                            </div>
+                            <div style='padding: 20px; color: #333; line-height: 1.6;'>
+                                <p>Olá, <strong>{nomeUsuario}</strong>!</p>
+                                <p>{mensagem}</p>
+                                {(string.IsNullOrEmpty(linkAcao) ? "" : $@"
+                                <div style='text-align: center; margin: 30px 0;'>
+                                    <a href='{linkAcao}' style='background-color: #00E676; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;'>{textoBotao}</a>
+                                </div>")}
+                            </div>
+                            <div style='background-color: #eee; padding: 10px; text-align: center; font-size: 12px; color: #777;'>
+                                Kivo Sports &copy; 2026
+                            </div>
+                        </div>
+                    </body>
+                    </html>";
+
+            using var client = new SmtpClient(smtpServer, smtpPort)
+            {
+                EnableSsl = enableSSL,
+                Credentials = new NetworkCredential(senderEmail, senderPassword)
+            };
+
+            using var mail = new MailMessage(new MailAddress(senderEmail, senderName), new MailAddress(destinatario))
+            {
+                Subject = $"Kivo Sports - {titulo}",
+                Body = corpo,
+                IsBodyHtml = true
+            };
+
+            await client.SendMailAsync(mail);
+        }
     }
 }

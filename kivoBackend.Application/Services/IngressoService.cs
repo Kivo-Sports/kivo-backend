@@ -15,6 +15,7 @@ namespace kivoBackend.Application.Services
         private readonly IRepositoryGenerics<Time> _timeRepository;
         private readonly IRepositoryGenerics<Usuario> _usuarioRepository;
         private readonly IAsaasService _asaasService;
+        private readonly INotificacaoService _notificacaoService;
 
         public IngressoService(
             IRepositoryGenerics<Ingresso> ingressoRepo,
@@ -22,7 +23,8 @@ namespace kivoBackend.Application.Services
             IRepositoryGenerics<Partida> partidaRepo,
             IRepositoryGenerics<Time> timeRepo,
             IRepositoryGenerics<Usuario> usuarioRepo,
-            IAsaasService asaasService)
+            IAsaasService asaasService,
+            INotificacaoService notificacaoService)
         {
             _ingressoRepository = ingressoRepo;
             _loteRepository = loteRepo;
@@ -30,6 +32,7 @@ namespace kivoBackend.Application.Services
             _timeRepository = timeRepo;
             _usuarioRepository = usuarioRepo;
             _asaasService = asaasService;
+            _notificacaoService = notificacaoService;
         }
 
         public async Task<List<IngressoDetalhesDTO>> ComprarIngressosAsync(Guid usuarioId, RealizarCompraDTO compraDTO)
@@ -116,6 +119,16 @@ namespace kivoBackend.Application.Services
                     lote.QuantidadeDisponivel -= 1;
                     await _loteRepository.Atualizar(lote);
                 }
+
+                var (nomePartida, _, _) = await ObterDadosPartidaAsync(lote?.PartidaId);
+                await _notificacaoService.CriarNotificacaoAsync(
+                    ingresso.UsuarioId,
+                    "Pagamento Confirmado! 🎟️",
+                    $"Seu ingresso para {nomePartida} foi liberado com sucesso. Apresente seu QR Code na entrada do jogo!",
+                    EnumTipoNotificacao.IngressoConfirmado,
+                    link: "/meus-ingressos",
+                    enviarEmail: true
+                );
             }
 
             return true;
@@ -133,6 +146,18 @@ namespace kivoBackend.Application.Services
             if (ingresso.StatusIngresso == EnumStatusIngresso.Utilizado)
                 throw new Exception("Este ingresso já foi utilizado.");
 
+            if (!string.IsNullOrWhiteSpace(ingresso.AsaasPaymentId))
+            {
+                var statusAsaas = await _asaasService.ConsultarStatusCobrancaAsync(ingresso.AsaasPaymentId);
+
+                bool estaPagoNoAsaas = statusAsaas == "RECEIVED" || statusAsaas == "CONFIRMED" || statusAsaas == "DONE";
+
+                if (!estaPagoNoAsaas)
+                {
+                    throw new InvalidOperationException($"O pagamento deste ingresso ainda não foi confirmado no Asaas (Status atual: {statusAsaas}). O ingresso permanece Pendente.");
+                }
+            }
+
             ingresso.StatusIngresso = EnumStatusIngresso.Pago;
             await _ingressoRepository.Atualizar(ingresso);
 
@@ -142,6 +167,16 @@ namespace kivoBackend.Application.Services
                 lote.QuantidadeDisponivel -= 1;
                 await _loteRepository.Atualizar(lote);
             }
+
+            var (nomePartida, _, _) = await ObterDadosPartidaAsync(lote?.PartidaId);
+            await _notificacaoService.CriarNotificacaoAsync(
+                ingresso.UsuarioId,
+                "Pagamento Confirmado! 🎟️",
+                $"Seu ingresso para {nomePartida} foi confirmado com sucesso.",
+                EnumTipoNotificacao.IngressoConfirmado,
+                link: "/meus-ingressos",
+                enviarEmail: true
+            );
 
             return true;
         }
@@ -182,6 +217,16 @@ namespace kivoBackend.Application.Services
             ingresso.DataUso = DateTime.UtcNow;
 
             await _ingressoRepository.Atualizar(ingresso);
+
+            await _notificacaoService.CriarNotificacaoAsync(
+                ingresso.UsuarioId,
+                "Ingresso Validado na Entrada ✅",
+                $"Seu ingresso acabou de ser utilizado para entrada no evento em {ingresso.DataUso:dd/MM/yyyy HH:mm}.",
+                EnumTipoNotificacao.IngressoUtilizado,
+                link: null,
+                enviarEmail: false
+            );
+
             return true;
         }
 

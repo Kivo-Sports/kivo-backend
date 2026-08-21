@@ -1,7 +1,9 @@
 ﻿using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
+using kivoBackend.Core.Enums;
 using kivoBackend.Core.Interfaces;
+using kivoBackend.Infrastructure.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -12,13 +14,19 @@ namespace kivoBackend.Application.Services
     {
         private readonly IRepositoryGenerics<IngressoLote> _repositoryIngressoLote;
         private readonly IRepositoryGenerics<Partida> _repositoryPartida;
+        private readonly INotificacaoService _notificacaoService;
+        private readonly IRepositoryGenerics<Favorito> _repositoryFavorito;
+        private readonly IRepositoryTime _repositoryTime;
 
         public IngressoLoteService(
-            IRepositoryGenerics<IngressoLote> repositoryIngressoLote,
-            IRepositoryGenerics<Partida> repositoryPartida) : base(repositoryIngressoLote)
+            IRepositoryGenerics<IngressoLote> repositoryIngressoLote, IRepositoryGenerics<Favorito> repositoryFavorito,
+            IRepositoryGenerics<Partida> repositoryPartida, INotificacaoService notificacaoService, IRepositoryTime repositoryTime) : base(repositoryIngressoLote)
         {
             _repositoryIngressoLote = repositoryIngressoLote;
             _repositoryPartida = repositoryPartida;
+            _notificacaoService = notificacaoService;
+            _repositoryFavorito = repositoryFavorito;
+            _repositoryTime = repositoryTime;
         }
 
         public async Task<IngressoLote> CriarLote(CriarIngressoLoteDTO dto)
@@ -38,13 +46,42 @@ namespace kivoBackend.Application.Services
                 QuantidadeDisponivel = dto.QuantidadeTotal,
                 Ativo = true,
             };
-
+            await NotificarTorcedoresIngressosDisponiveis(partida, novoLote);
             return await _repositoryIngressoLote.Adicionar(novoLote);
         }
 
         public async Task<IEnumerable<IngressoLote>> ObterLotesPorPartida(Guid partidaId)
         {
             return await _repositoryIngressoLote.Buscar(l => l.PartidaId == partidaId && l.Ativo);
+        }
+
+        private async Task NotificarTorcedoresIngressosDisponiveis(Partida partida, IngressoLote lote)
+        {
+            var timesIds = new List<Guid>();
+            if (partida.TimeCasaId.HasValue) timesIds.Add(partida.TimeCasaId.Value);
+            if (partida.TimeVisitanteId.HasValue) timesIds.Add(partida.TimeVisitanteId.Value);
+
+            if (!timesIds.Any()) return;
+
+            var timeCasa = partida.TimeCasaId.HasValue ? await _repositoryTime.ObterPorId(partida.TimeCasaId.Value) : null;
+            var timeVisitante = partida.TimeVisitanteId.HasValue ? await _repositoryTime.ObterPorId(partida.TimeVisitanteId.Value) : null;
+
+            string confronto = $"{timeCasa?.Nome ?? "Time"} x {timeVisitante?.Nome ?? "Time"}";
+
+            var favoritos = await _repositoryFavorito.Buscar(f => timesIds.Contains(f.ItemId));
+            var usuariosNotificar = favoritos.Select(f => f.UsuarioId).Distinct().ToList();
+
+            foreach (var usuarioId in usuariosNotificar)
+            {
+                await _notificacaoService.CriarNotificacaoAsync(
+                    usuarioId,
+                    "Ingressos Disponíveis! 🎟️",
+                    $"Os ingressos para {confronto} ({lote.NomeLote} - R$ {lote.Preco:F2}) já estão à venda!",
+                    EnumTipoNotificacao.IngressoConfirmado,
+                    link: $"/partidas/{partida.Id}",
+                    enviarEmail: false
+                );
+            }
         }
     }
 }
