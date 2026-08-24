@@ -3,20 +3,28 @@ using kivoBackend.Application.Interfaces;
 using kivoBackend.Presentation.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace kivoBackend.Presentation.Controller
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class IngressoController : ControllerBase
     {
         private readonly IIngressoLoteService _ingressoLoteService;
+        private readonly IIngressoService? _ingressoService;
         private readonly IUsuarioService _usuarioService;
         private readonly ICurrentUserService _currentUser;
 
-        public IngressoController(IIngressoLoteService ingressoLoteService, IUsuarioService usuarioService, ICurrentUserService currentUser)
+        public IngressoController(
+            IIngressoLoteService ingressoLoteService,
+            IUsuarioService usuarioService,
+            ICurrentUserService currentUser,
+            IIngressoService? ingressoService = null)
         {
             _ingressoLoteService = ingressoLoteService;
+            _ingressoService = ingressoService;
             _usuarioService = usuarioService;
             _currentUser = currentUser;
         }
@@ -44,7 +52,26 @@ namespace kivoBackend.Presentation.Controller
             }
         }
 
+        [HttpPost("comprar")]
+        public async Task<IActionResult> Comprar([FromBody] RealizarCompraDTO dto)
+        {
+            try
+            {
+                var usuarioIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!Guid.TryParse(usuarioIdStr, out Guid usuarioId))
+                    return Unauthorized(new { message = "Usuário não autenticado corretamente." });
+
+                var resultado = await IngressoService().ComprarIngressosAsync(usuarioId, dto);
+                return Ok(resultado);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpGet("partida/{partidaId}/lotes")]
+        [AllowAnonymous]
         public async Task<IActionResult> ObterLotesPorPartida(Guid partidaId)
         {
             try
@@ -68,6 +95,53 @@ namespace kivoBackend.Presentation.Controller
             }
         }
 
+        [HttpGet("meus-ingressos")]
+        public async Task<IActionResult> ObterMeusIngressos()
+        {
+            try
+            {
+                var usuarioIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!Guid.TryParse(usuarioIdStr, out Guid usuarioId))
+                    return Unauthorized(new { message = "Usuário não autenticado." });
+
+                var ingressos = await IngressoService().ObterMeusIngressosAsync(usuarioId);
+                return Ok(ingressos);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("validar-portaria/{codigo}")]
+        [Authorize(Roles = "Administrador,OrganizadorCampeonato")]
+        public async Task<IActionResult> ValidarPortaria(string codigo)
+        {
+            try
+            {
+                await IngressoService().ValidarIngressosNaPortariaAsync(codigo);
+                return Ok(new { message = "Ingresso validado com sucesso! Entrada liberada." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("pagar/{ingressoId}")]
+        public async Task<IActionResult> ConfirmarPagamento(Guid ingressoId)
+        {
+            try
+            {
+                await IngressoService().ConfirmarPagamentoAsync(ingressoId);
+                return Ok(new { message = "Pagamento confirmado com sucesso! Seu QR Code de entrada foi liberado." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         private async Task<Guid?> ObterOrganizadorCampeonatoIdAtual()
         {
             if (!_currentUser.UserId.HasValue)
@@ -75,6 +149,12 @@ namespace kivoBackend.Presentation.Controller
 
             var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
             return usuario.OrganizadorCampeonato?.Id;
+        }
+
+        private IIngressoService IngressoService()
+        {
+            return _ingressoService
+                ?? throw new InvalidOperationException("Serviço de ingressos não configurado.");
         }
     }
 }

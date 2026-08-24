@@ -505,7 +505,6 @@ namespace kivoBackend.Application.Services
             if (partida.TimeCasaId == null || partida.TimeVisitanteId == null)
                 throw new Exception("Defina os dois times antes de registrar o placar desta partida.");
 
-            // Final: apenas grava o placar e define o campeão.
             if (partida.Fase == EnumFaseMataMata.Final)
             {
                 partida.GolsTimeCasa = dto.GolsTimeCasa;
@@ -519,7 +518,6 @@ namespace kivoBackend.Application.Services
                 return;
             }
 
-            // Localiza o jogo dependente (próxima fase) que consome o vencedor desta partida.
             int numeroJogoProximaFase = (partida.NumeroJogoChave + 1) / 2;
             EnumFaseMataMata proximaFase = (EnumFaseMataMata)((int)partida.Fase + 1);
 
@@ -544,7 +542,6 @@ namespace kivoBackend.Application.Services
 
             if (dependente != null)
             {
-                // Substitui o vencedor antigo pelo novo no slot correto do jogo seguinte.
                 if (vencedorAntigo != null && dependente.TimeCasaId == vencedorAntigo)
                     dependente.TimeCasaId = vencedorNovo;
                 else if (vencedorAntigo != null && dependente.TimeVisitanteId == vencedorAntigo)
@@ -558,8 +555,6 @@ namespace kivoBackend.Application.Services
             }
             else
             {
-                // Ainda não existe o jogo seguinte: usa a lógica padrão para criá-lo
-                // quando o jogo irmão também estiver finalizado.
                 await AtualizarPlacarMataMata(partida);
             }
         }
@@ -568,7 +563,6 @@ namespace kivoBackend.Application.Services
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(partida.CampeonatoId);
 
-            // Em campeonatos híbridos, alterar a fase de grupos pode mudar quem se classifica.
             if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.Hibrido)
             {
                 var jogosMataMata = (await _repositoryGenerics.Buscar(p =>
@@ -577,7 +571,6 @@ namespace kivoBackend.Application.Services
                 if (jogosMataMata.Any(j => j.Finalizado))
                     throw new Exception("A fase de mata-mata já teve jogos finalizados; não é possível alterar a fase de grupos.");
 
-                // Remove o mata-mata ainda não finalizado para que seja regerado pela nova classificação.
                 foreach (var jogo in jogosMataMata)
                     await _repositoryGenerics.Remover(jogo.Id);
             }
@@ -587,7 +580,6 @@ namespace kivoBackend.Application.Services
             partida.Finalizado = true;
             await _repositoryGenerics.Atualizar(partida);
 
-            // Recalcula campeão (pontos corridos) ou regera o mata-mata (híbrido) quando a fase terminar.
             await VerificarFimFasePontosCorridos(partida.CampeonatoId);
         }
 

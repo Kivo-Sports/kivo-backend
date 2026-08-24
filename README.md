@@ -7,7 +7,7 @@
 
 ### Plataforma web de gestão de campeonatos esportivos e venda de ingressos digitais para eventos amadores e semiprofissionais.
 
-[Sobre](#-sobre-o-projeto) · [Stack](#-stack) · [Estrutura](#-estrutura-do-projeto) · [Como rodar](#-como-rodar) · [Variáveis de ambiente](#-variáveis-de-ambiente) · [API](#-endpoints-principais) · [Padrões](#-padrões-de-desenvolvimento)
+[Sobre](#-sobre-o-projeto) · [Stack](#-stack) · [Estrutura](#-estrutura-do-projeto) · [Como rodar](#-como-rodar) · [Variáveis de ambiente](#-variáveis-de-ambiente) · [Pagamentos & Asaas](#-pagamentos--asaas-pix) · [Padrões](#-padrões-de-desenvolvimento)
 
 </div>
 
@@ -23,15 +23,16 @@ Este repositório contém o **backend** da plataforma, desenvolvido em **.NET 8*
 
 ## 🧩 Stack
 
-| Camada             | Tecnologia                                                              |
-| ------------------ | ----------------------------------------------------------------------- |
-| Framework          | [.NET 8](https://dotnet.microsoft.com/)                                 |
-| Linguagem          | [C#](https://docs.microsoft.com/en-us/dotnet/csharp/)                   |
-| Banco de Dados     | [SQL Server](https://www.microsoft.com/sql-server/) (LocalDB)           |
-| ORM                | [Entity Framework Core 8](https://docs.microsoft.com/ef/core/)           |
-| Autenticação       | [ASP.NET Core Identity](https://docs.microsoft.com/aspnet/identity/)     |
-| Documentação API   | [Swagger/OpenAPI](https://swagger.io/)                                  |
-| Injeção de Dependência | ASP.NET Core nativa                                                  |
+| Camada                 | Tecnologia                                                            |
+| ---------------------- | ----------------------------------------------------------------------- |
+| Framework              | [.NET 8](https://dotnet.microsoft.com/)                                 |
+| Linguagem              | [C#](https://docs.microsoft.com/en-us/dotnet/csharp/)                   |
+| Banco de Dados         | [SQL Server](https://www.microsoft.com/sql-server/) (LocalDB)           |
+| ORM                    | [Entity Framework Core 8](https://docs.microsoft.com/ef/core/)          |
+| Autenticação           | [ASP.NET Core Identity](https://docs.microsoft.com/aspnet/identity/)    |
+| Pagamentos (Pix)       | [Asaas API](https://www.asaas.com/) (Sandbox/Homologação)               |
+| Documentação API       | [Swagger/OpenAPI](https://swagger.io/)                                  |
+| Injeção de Dependência | ASP.NET Core nativa                                                     |
 
 ---
 
@@ -143,6 +144,10 @@ SENDER_PASSWORD=xxxx xxxx xxxx xxxx
 SENDER_NAME=Kivo Sports
 ENABLE_SSL=true
 
+# Asaas (Pagamentos Pix - Sandbox)
+ASAAS_API_KEY=sua_api_key_sandbox_aqui
+ASAAS_API_URL=https://sandbox.asaas.com/api/v3
+
 # Frontend CORS (separados por vírgula)
 CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 
@@ -164,6 +169,8 @@ ASPNETCORE_ENVIRONMENT=Development
 | `SENDER_PASSWORD` | App Password (não a senha da conta) | `xxxx xxxx xxxx xxxx` |
 | `SENDER_NAME` | Nome do remetente de emails | `Kivo Sports` |
 | `ENABLE_SSL` | Usar SSL no SMTP | `true` |
+| `ASAAS_API_KEY` | Chave de API do Asaas (Sandbox) | `$aact_YourApiKeyHere` |
+| `ASAAS_API_URL` | URL base da API do Asaas | `https://sandbox.asaas.com/api/v3` |
 | `CORS_ORIGINS` | Origens permitidas (separadas por vírgula) | `http://localhost:3000,http://localhost:3001` |
 | `ASPNETCORE_ENVIRONMENT` | Ambiente de execução | `Development` ou `Production` |
 
@@ -193,26 +200,83 @@ az webapp config appsettings set --resource-group MyGroup --name MyApp \
   --settings ASPNETCORE_ENVIRONMENT=Production \
   DB_CONNECTION_STRING="..." \
   JWT_KEY="..." \
-  SENDER_PASSWORD="..."
+  SENDER_PASSWORD="..." \
+  ASAAS_API_KEY="..."
 ```
 
 **Docker:**
 ```dockerfile
 ENV DB_CONNECTION_STRING="..."
 ENV JWT_KEY="..."
+ENV ASAAS_API_KEY="..."
 ```
 
 **Linux/VPS:**
 ```bash
 export DB_CONNECTION_STRING="..."
 export JWT_KEY="..."
+export ASAAS_API_KEY="..."
 dotnet run
 ```
 
 ---
 
-## Documentação
+## 💳 Pagamentos & Asaas (Pix)
 
+A plataforma utiliza a API do **Asaas** em ambiente **Sandbox (Homologação)** para simular o fluxo financeiro completo, autônomo e em tempo real de compra de ingressos.
+
+### 🔄 Fluxo de Compra e Validação
+
+```text
+[Torcedor] ── Solicita Compra ──► [API Kivo] ── Cria Cobrança Pix ──► [Asaas Sandbox]
+                                        │                                    │
+                               Retorna Pix Copia e Cola                      │
+                               e QR Code de Pagamento                        │
+                                        │                                    │
+[Torcedor] ◄────────────────────────────┘                                    │
+    │                                                                        │
+    └── Simula Pagamento no Sandbox ─────────────────────────────────────────┘
+                                                                             │
+                                              Asaas dispara Webhook          │
+                                              com status PAYMENT_RECEIVED    │
+                                                                             │
+[Portaria / Evento] ◄── Libera Ingresso ◄── Atualiza Banco (Status: Pago) ◄──┘
+ (Valida QR Code)
+```
+
+**Geração do Pix**
+O torcedor escolhe o lote e a quantidade. A API cria/vincula o cliente no Asaas e gera a cobrança Pix com `externalReference` vinculado ao ID do ingresso, retornando o código Copia e Cola e a imagem do QR Code em Base64 com status inicial **Pendente (0)**.
+
+**Confirmação via Webhook**
+Ao efetuar ou simular o pagamento no Asaas Sandbox, os servidores do Asaas disparam uma notificação HTTP `POST` (`PAYMENT_RECEIVED` ou `PAYMENT_CONFIRMED`) para a rota `/api/webhook/asaas`.
+
+**Liberação do Ingresso**
+O backend processa o webhook de forma assíncrona, atualiza o status no banco de dados para **Pago (1)** e gera o QR Code oficial de entrada baseado no código de validação único.
+
+**Validação na Portaria**
+Na entrada do evento, o aplicativo do organizador lê o QR Code e consome o endpoint `POST /api/ingresso/validar-portaria`, alterando o status para **Utilizado (2)** e impedindo tentativas de reutilização.
+
+### 🌐 Como Testar o Webhook em Desenvolvimento Local (Túnel Cloudflare)
+
+Como o Asaas precisa notificar uma URL pública na internet, utilizamos o túnel da Cloudflare para encaminhar as requisições até o `localhost:5211`:
+
+1. Inicie a API no Visual Studio (garantindo que suba na porta `5211`).
+2. Abra o terminal e execute o túnel:
+```powershell
+cloudflared tunnel --url http://localhost:5211
+```
+3. Copie a URL pública gerada (exemplo: `https://nome-aleatorio.trycloudflare.com`).
+4. Cadastre no Painel do Asaas:
+   - Acesse `sandbox.asaas.com` → **Integrações** → **Webhooks**.
+   - No campo **URL do Webhook**, preencha com o endpoint completo:
+     ```
+     https://nome-aleatorio.trycloudflare.com/api/webhook/asaas
+     ```
+   - Marque a opção para receber eventos de cobrança (`PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`) e salve.
+
+---
+
+## Documentação
 
 > 📚 Documentação completa disponível em `/swagger` após iniciar a aplicação
 
