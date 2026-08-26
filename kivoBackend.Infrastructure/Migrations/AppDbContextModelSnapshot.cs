@@ -480,6 +480,9 @@ namespace kivoBackend.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CpfTitular")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("DataCompra")
                         .HasColumnType("datetime2");
 
@@ -488,6 +491,9 @@ namespace kivoBackend.Infrastructure.Migrations
 
                     b.Property<Guid>("IngressoLoteId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NomeTitular")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("PrecoPago")
                         .HasPrecision(18, 2)

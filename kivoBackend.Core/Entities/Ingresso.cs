@@ -16,5 +16,7 @@ namespace kivoBackend.Core.Entities
         public string CodigoValidacao { get; set; } = Guid.NewGuid().ToString("N").ToUpper();
         public DateTime? DataUso { get; set; }
         public string? AsaasPaymentId { get; set; }
+        public string? NomeTitular { get; set; }
+        public string? CpfTitular { get; set; }
     }
 }
