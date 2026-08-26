@@ -20,5 +20,7 @@ namespace kivoBackend.Application.DTO
         public string CodigoValidacao { get; set; } = string.Empty;
         public string QrCodeBase64 { get; set; } = string.Empty;
         public string PixCopiaCola { get; set; } = string.Empty;
+        public string NomeTitular { get; set; } = string.Empty;
+        public string CpfTitular { get; set; } = string.Empty;
     }
 }

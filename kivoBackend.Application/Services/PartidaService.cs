@@ -6,7 +6,6 @@ using kivoBackend.Core.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace kivoBackend.Application.Services
@@ -15,11 +14,22 @@ namespace kivoBackend.Application.Services
     {
         private readonly IRepositoryGenerics<Partida> _repositoryGenerics;
         private readonly IRepositoryCampeonato _repositoryCampeonato;
-        public PartidaService(IRepositoryGenerics<Partida> repositoryGenerics, IRepositoryCampeonato repositoryCampeonato) : base(repositoryGenerics)
+        private readonly IRepositoryTime _repositoryTime;
+        private readonly INotificacaoService _notificacaoService;
+
+        public PartidaService(
+            IRepositoryGenerics<Partida> repositoryGenerics,
+            IRepositoryCampeonato repositoryCampeonato,
+            IRepositoryTime repositoryTime,
+            INotificacaoService notificacaoService)
+            : base(repositoryGenerics)
         {
             _repositoryGenerics = repositoryGenerics;
             _repositoryCampeonato = repositoryCampeonato;
+            _repositoryTime = repositoryTime;
+            _notificacaoService = notificacaoService;
         }
+
         public async Task GerarTabela(Guid campeonatoId)
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
@@ -53,6 +63,18 @@ namespace kivoBackend.Application.Services
                 default:
                     throw new Exception("Formato de campeonato inválido.");
             }
+
+            if (campeonato.OrganizadorCampeonato?.UsuarioId != null)
+            {
+                await _notificacaoService.CriarNotificacaoAsync(
+                    campeonato.OrganizadorCampeonato.UsuarioId,
+                    "Tabela de Jogos Gerada 📅",
+                    $"A tabela de confrontos do campeonato '{campeonato.Nome}' foi gerada com sucesso.",
+                    EnumTipoNotificacao.Sistema,
+                    link: $"/campeonatos/{campeonatoId}/tabela",
+                    enviarEmail: false
+                );
+            }
         }
 
         public async Task GerarPontosCorridos(Guid campeonatoId, List<Guid> times)
@@ -68,7 +90,7 @@ namespace kivoBackend.Application.Services
                 : campeonato.DataFim;
 
             double intervaloEmDias = (dataLimiteFaseDeGrupos - campeonato.DataInicio).TotalDays / Math.Max(numRodadas, 1);
-            if(intervaloEmDias < 1) intervaloEmDias = 1;
+            if (intervaloEmDias < 1) intervaloEmDias = 1;
 
             for (int r = 0; r < numRodadas; r++)
             {
@@ -128,6 +150,7 @@ namespace kivoBackend.Application.Services
                 });
             }
         }
+
         public async Task AtualizarPlacarMataMata(Partida partidaFinalizada)
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(partidaFinalizada.CampeonatoId);
@@ -143,6 +166,7 @@ namespace kivoBackend.Application.Services
             {
                 campeonato.TimeVencedorId = vencedorId;
                 await _repositoryCampeonato.Atualizar(campeonato);
+                await NotificarCampeao(vencedorId, campeonato.Nome);
                 return;
             }
 
@@ -182,15 +206,18 @@ namespace kivoBackend.Application.Services
                     dataProximaPartida = AjustarParaHorarioComercialEsportivo(DateTime.Now.AddDays(diasAteProximaFase), partidaFinalizada.NumeroJogoChave);
                 }
 
-                    await _repositoryGenerics.Adicionar(new Partida
-                    {
-                        CampeonatoId = partidaFinalizada.CampeonatoId,
-                        TimeCasaId = vencedorId,
-                        TimeVisitanteId = vencedorParceiroId,
-                        Fase = proximaFase,
-                        DataHora = dataProximaPartida,
-                        NumeroJogoChave = numeroJogoProximaFase
-                    });
+                await _repositoryGenerics.Adicionar(new Partida
+                {
+                    CampeonatoId = partidaFinalizada.CampeonatoId,
+                    TimeCasaId = vencedorId,
+                    TimeVisitanteId = vencedorParceiroId,
+                    Fase = proximaFase,
+                    DataHora = dataProximaPartida,
+                    NumeroJogoChave = numeroJogoProximaFase
+                });
+
+                await NotificarClassificacaoMataMata(vencedorId, campeonato.Nome, proximaFase.ToString());
+                await NotificarClassificacaoMataMata(vencedorParceiroId, campeonato.Nome, proximaFase.ToString());
             }
         }
 
@@ -247,6 +274,7 @@ namespace kivoBackend.Application.Services
                 .ThenByDescending(x => x.SaldoGols)
                 .ToList();
         }
+
         public async Task VerificarFimFasePontosCorridos(Guid campeonatoId)
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
@@ -255,7 +283,7 @@ namespace kivoBackend.Application.Services
                 campeonato.FormatoCampeonato != EnumFormatoCampeonato.PontosCorridos) return;
 
             var totalPartidasPC = await _repositoryGenerics.Buscar(p => p.CampeonatoId == campeonatoId && p.Rodada != null);
-            
+
             if (totalPartidasPC.All(p => p.Finalizado))
             {
                 if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.Hibrido)
@@ -281,6 +309,7 @@ namespace kivoBackend.Application.Services
                     {
                         campeonato.TimeVencedorId = campeao.TimeId;
                         await _repositoryCampeonato.Atualizar(campeonato);
+                        await NotificarCampeao(campeao.TimeId, campeonato.Nome);
                     }
                 }
             }
@@ -449,6 +478,7 @@ namespace kivoBackend.Application.Services
                 Finalizado = partida.Finalizado
             };
         }
+
         public async Task<Partida> CriarPartidaManual(CriarPartidaManualDTO dto)
         {
             var partida = new Partida
@@ -495,6 +525,8 @@ namespace kivoBackend.Application.Services
                 await EditarPlacarMataMataAdmin(partida, dto);
             else
                 await EditarPlacarPontosCorridosAdmin(partida, dto);
+
+            await NotificarResultadoPartida(partida, dto.GolsTimeCasa, dto.GolsTimeVisitante);
         }
 
         private async Task EditarPlacarMataMataAdmin(Partida partida, AtualizarPlacarDTO dto)
@@ -524,7 +556,8 @@ namespace kivoBackend.Application.Services
             var dependente = await _repositoryGenerics.BuscarPrimeiro(p =>
                 p.CampeonatoId == partida.CampeonatoId &&
                 p.Fase == proximaFase &&
-                p.NumeroJogoChave == numeroJogoProximaFase);
+                p.NumeroJogoChave != partida.NumeroJogoChave &&
+                ((p.NumeroJogoChave + 1) / 2) == numeroJogoProximaFase);
 
             if (dependente != null && dependente.Finalizado)
                 throw new Exception("A próxima fase já ocorreu; não é possível alterar este placar.");
@@ -581,6 +614,73 @@ namespace kivoBackend.Application.Services
             await _repositoryGenerics.Atualizar(partida);
 
             await VerificarFimFasePontosCorridos(partida.CampeonatoId);
+        }
+
+        private async Task NotificarResultadoPartida(Partida partida, int golsCasa, int golsVisitante)
+        {
+            if (partida.TimeCasaId.HasValue)
+            {
+                var timeCasa = await _repositoryTime.ObterPorId(partida.TimeCasaId.Value);
+                if (timeCasa?.OrganizadorTime?.UsuarioId != null)
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        timeCasa.OrganizadorTime.UsuarioId,
+                        "Fim de Jogo! ⚽",
+                        $"O placar final da sua partida foi registrado: {timeCasa.Nome} {golsCasa} x {golsVisitante}.",
+                        EnumTipoNotificacao.CampeonatoFase,
+                        link: $"/partidas/{partida.Id}",
+                        enviarEmail: false
+                    );
+                }
+            }
+
+            if (partida.TimeVisitanteId.HasValue)
+            {
+                var timeVisitante = await _repositoryTime.ObterPorId(partida.TimeVisitanteId.Value);
+                if (timeVisitante?.OrganizadorTime?.UsuarioId != null)
+                {
+                    await _notificacaoService.CriarNotificacaoAsync(
+                        timeVisitante.OrganizadorTime.UsuarioId,
+                        "Fim de Jogo! ⚽",
+                        $"O placar final da sua partida foi registrado: {golsCasa} x {golsVisitante} {timeVisitante.Nome}.",
+                        EnumTipoNotificacao.CampeonatoFase,
+                        link: $"/partidas/{partida.Id}",
+                        enviarEmail: false
+                    );
+                }
+            }
+        }
+
+        private async Task NotificarClassificacaoMataMata(Guid timeId, string nomeCampeonato, string proximaFase)
+        {
+            var time = await _repositoryTime.ObterPorId(timeId);
+            if (time?.OrganizadorTime?.UsuarioId != null)
+            {
+                await _notificacaoService.CriarNotificacaoAsync(
+                    time.OrganizadorTime.UsuarioId,
+                    "Classificação Conquistada! 🏆",
+                    $"Parabéns! O time '{time.Nome}' avançou para a fase de {proximaFase} no campeonato '{nomeCampeonato}'!",
+                    EnumTipoNotificacao.CampeonatoFase,
+                    link: "/meu-time",
+                    enviarEmail: true
+                );
+            }
+        }
+
+        private async Task NotificarCampeao(Guid timeId, string nomeCampeonato)
+        {
+            var time = await _repositoryTime.ObterPorId(timeId);
+            if (time?.OrganizadorTime?.UsuarioId != null)
+            {
+                await _notificacaoService.CriarNotificacaoAsync(
+                    time.OrganizadorTime.UsuarioId,
+                    "É CAMPEÃO! 🥇🏆",
+                    $"Parabéns! O time '{time.Nome}' sagrou-se grande campeão do campeonato '{nomeCampeonato}'!",
+                    EnumTipoNotificacao.CampeonatoFase,
+                    link: "/meu-time",
+                    enviarEmail: true
+                );
+            }
         }
 
         private DateTime AjustarParaHorarioComercialEsportivo(DateTime dataOriginal, int indiceJogo)

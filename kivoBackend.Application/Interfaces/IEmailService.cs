@@ -25,5 +25,6 @@ namespace kivoBackend.Application.Interfaces
         /// Envia email com código de reativação
         /// </summary>
         Task EnviarCodigoReativacaoAsync(string destinatario, string nomeUsuario, string codigo);
+        Task EnviarEmailNotificacaoAsync(string destinatario, string nomeUsuario, string titulo, string mensagem, string? linkAcao = null, string textoBotao = "Acessar Plataforma");
     }
 }

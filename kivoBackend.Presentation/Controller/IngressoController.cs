@@ -77,12 +77,31 @@ namespace kivoBackend.Presentation.Controllers
             try
             {
                 var sucesso = await _ingressoService.ConfirmarPagamentoAsync(ingressoId);
-                return Ok(new { message = "Pagamento confirmado com sucesso! Seu QR Code de entrada foi liberado." });
+                return Ok(new { message = "Pagamento confirmado com sucesso! Seus ingressos foram liberados." });
             }
             catch (Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpPut("{ingressoId}/titular")]
+        public async Task<IActionResult> AtribuirTitular(Guid ingressoId, [FromBody] AtribuirTitularIngressoDTO dto)
+        {
+            try
+            {
+                var usuarioIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!Guid.TryParse(usuarioIdStr, out var usuarioId))
+                    return Unauthorized(new { message = "Usuário não autenticado corretamente." });
+
+                await _ingressoService.AtribuirTitularAsync(usuarioId, ingressoId, dto);
+                return Ok(new { message = "Titular atribuído com sucesso! O QR Code de entrada foi liberado." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
     }
 }
