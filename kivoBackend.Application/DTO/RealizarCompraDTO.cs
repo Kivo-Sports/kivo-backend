@@ -9,10 +9,20 @@ namespace kivoBackend.Application.DTO
 {
     public class RealizarCompraDTO
     {
+        /// <summary>
+        /// Itens do carrinho. Permite ingressos de lotes diferentes na mesma cobrança.
+        /// </summary>
+        [Required]
+        [MinLength(1, ErrorMessage = "Informe pelo menos um lote de ingressos.")]
+        public List<ItemCompraIngressoDTO> Itens { get; set; } = new();
+    }
+
+    public class ItemCompraIngressoDTO
+    {
         [Required]
         public Guid IngressoLoteId { get; set; }
 
-        [Range(1, 10, ErrorMessage = "A quantidade máxima por compra é de 10 ingressos.")]
+        [Range(1, 10, ErrorMessage = "A quantidade máxima por lote é de 10 ingressos.")]
         public int Quantidade { get; set; } = 1;
     }
 }

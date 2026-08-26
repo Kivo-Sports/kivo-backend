@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using kivoBackend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using kivoBackend.Infrastructure.Data;
 namespace kivoBackend.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260820234319_AdicionandoNotificacao")]
+    partial class AdicionandoNotificacao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -306,10 +309,9 @@ namespace kivoBackend.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TimeId");
+                    b.HasIndex("CampeonatoId");
 
-                    b.HasIndex("CampeonatoId", "TimeId")
-                        .IsUnique();
+                    b.HasIndex("TimeId");
 
                     b.ToTable("CampeonatoTimes");
                 });
@@ -481,9 +483,6 @@ namespace kivoBackend.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("CpfTitular")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("DataCompra")
                         .HasColumnType("datetime2");
 
@@ -492,9 +491,6 @@ namespace kivoBackend.Infrastructure.Migrations
 
                     b.Property<Guid>("IngressoLoteId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("NomeTitular")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("PrecoPago")
                         .HasPrecision(18, 2)

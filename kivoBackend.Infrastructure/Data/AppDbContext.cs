@@ -29,6 +29,7 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<Favorito> Favoritos { get; set; }
         public DbSet<IngressoLote> IngressoLotes { get; set; }
         public DbSet<Ingresso> Ingressos { get; set; }
+        public DbSet<Notificacao> Notificacoes { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

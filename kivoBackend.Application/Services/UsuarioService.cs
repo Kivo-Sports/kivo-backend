@@ -19,15 +19,17 @@ namespace kivoBackend.Application.Services
         private readonly IEmailService _emailService;
         private readonly IRepositoryGenerics<CodigoReativacao> _codigoRepository;
         private readonly IVerificationCodeService _verificationCodeService;
+        private readonly INotificacaoService _notificacaoService;
 
         public UsuarioService(IRepositoryGenerics<Usuario> repositoryGenerics, IRepositoryUsuario usuarioRepository,
             UserManager<IdentityUser> userManager, IEmailService emailService, IRepositoryGenerics<CodigoReativacao> codigoRepository,
-            IVerificationCodeService verificationCodeService)
+            IVerificationCodeService verificationCodeService, INotificacaoService notificacaoService)
             : base(repositoryGenerics)
         {
             _repositoryGenerics = repositoryGenerics;
             _usuarioRepository = usuarioRepository;
             _userManager = userManager;
+            _notificacaoService = notificacaoService;
             _emailService = emailService;
             _codigoRepository = codigoRepository;
             _verificationCodeService = verificationCodeService;
@@ -106,7 +108,18 @@ namespace kivoBackend.Application.Services
 
                 InicializarPerfilPorCargo(usuario);
 
-                return await _repositoryGenerics.Adicionar(usuario);
+                var usuarioCriado = await _repositoryGenerics.Adicionar(usuario);
+
+                await _notificacaoService.CriarNotificacaoAsync(
+                    usuarioCriado.Id,
+                    "Bem-vindo ao Kivo Sports! ⚽",
+                    "Sua conta foi criada com sucesso. Explore campeonatos, acompanhe seus times e garanta ingressos!",
+                    EnumTipoNotificacao.Sistema,
+                    link: "/",
+                    enviarEmail: false
+                );
+
+                return usuarioCriado;
             }
             catch (Exception ex)
             {
@@ -185,6 +198,16 @@ namespace kivoBackend.Application.Services
             }
 
             await _repositoryGenerics.Atualizar(existente);
+
+            await _notificacaoService.CriarNotificacaoAsync(
+                existente.Id,
+                "Perfil Atualizado 📝",
+                "Suas informações de perfil e endereço foram atualizadas com sucesso.",
+                EnumTipoNotificacao.Sistema,
+                link: "/perfil",
+                enviarEmail: false
+            );
+
             return existente;
         }
 
@@ -350,6 +373,15 @@ namespace kivoBackend.Application.Services
                 VerificationCodeType.AccountReactivation
             );
 
+            await _notificacaoService.CriarNotificacaoAsync(
+                usuario.Id,
+                "Conta Reativada! 🎉",
+                "Sua conta foi reativada com sucesso. Seja bem-vindo de volta ao Kivo Sports!",
+                EnumTipoNotificacao.Sistema,
+                link: "/",
+                enviarEmail: false
+            );
+
             await AtivarConta(usuario.Id);
         }
 
@@ -424,6 +456,15 @@ namespace kivoBackend.Application.Services
             {
                 await AtivarConta(usuario.Id);
             }
+
+            await _notificacaoService.CriarNotificacaoAsync(
+                usuario.Id,
+                "Senha Alterada com Sucesso 🔒",
+                "Sua senha foi redefinida. Se não foi você quem realizou esta alteração, entre em contato imediatamente com o suporte.",
+                EnumTipoNotificacao.Sistema,
+                link: null,
+                enviarEmail: true
+            );
         }
 
         /// <summary>
@@ -456,6 +497,15 @@ namespace kivoBackend.Application.Services
                 var erros = string.Join(", ", result.Errors.Select(e => e.Description));
                 throw new InvalidOperationException($"Erro ao atualizar senha: {erros}");
             }
+
+            await _notificacaoService.CriarNotificacaoAsync(
+                usuario.Id,
+                "Senha Atualizada 🔒",
+                "Sua senha de acesso foi modificada com sucesso através do painel de usuário.",
+                EnumTipoNotificacao.Sistema,
+                link: null,
+                enviarEmail: true
+            );
         }
 
         /// <summary>

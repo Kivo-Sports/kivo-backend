@@ -175,5 +175,19 @@ namespace kivoBackend.Application.Services
             if (!_configured)
                 throw new InvalidOperationException("Configuração ausente: a chave ASAAS_API_KEY não foi encontrada no .env nem no appsettings.json.");
         }
+
+        public async Task<string> ConsultarStatusCobrancaAsync(string paymentId)
+        {
+            var response = await _httpClient.GetAsync($"payments/{paymentId}");
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"Erro ao consultar cobrança no Asaas: {responseBody}");
+            }
+
+            using var doc = JsonDocument.Parse(responseBody);
+            return doc.RootElement.GetProperty("status").GetString() ?? "PENDING";
+        }
     }
 }
