@@ -1,0 +1,23 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/azure-sql-edge:latest # nativo arm64 (Apple Silicon), sem emulação
+    container_name: kivo-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?defina MSSQL_SA_PASSWORD no .env}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - kivo-sqlserver-data:/var/opt/mssql
+    restart: unless-stopped
+    healthcheck:
+      # azure-sql-edge não inclui sqlcmd; checamos apenas se a porta está aceitando conexões.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/1433' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  kivo-sqlserver-data:

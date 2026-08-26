@@ -31,6 +31,8 @@ namespace kivoBackend.Application.Services
 
         public async Task Adicionar(Guid usuarioId, EnumTipoFavorito tipo, Guid itemId)
         {
+            await ValidarItemFavoritoExiste(tipo, itemId);
+
             var existente = await _favoritoRepository.BuscarPrimeiro(f =>
                 f.UsuarioId == usuarioId && f.Tipo == tipo && f.ItemId == itemId);
 
@@ -44,6 +46,26 @@ namespace kivoBackend.Application.Services
                 ItemId = itemId,
                 CriadoEm = DateTime.Now
             });
+        }
+
+        private async Task ValidarItemFavoritoExiste(EnumTipoFavorito tipo, Guid itemId)
+        {
+            if (itemId == Guid.Empty)
+                throw new ArgumentException("Item favorito inválido.");
+
+            switch (tipo)
+            {
+                case EnumTipoFavorito.Time:
+                    if (await _timeRepository.ObterPorId(itemId) == null)
+                        throw new KeyNotFoundException("Time não encontrado para favoritar.");
+                    return;
+                case EnumTipoFavorito.Campeonato:
+                    if (await _repositoryCampeonato.ObterCampeonatoPorId(itemId) == null)
+                        throw new KeyNotFoundException("Campeonato não encontrado para favoritar.");
+                    return;
+                default:
+                    throw new ArgumentException("Tipo de favorito inválido.");
+            }
         }
 
         public async Task Remover(Guid usuarioId, EnumTipoFavorito tipo, Guid itemId)

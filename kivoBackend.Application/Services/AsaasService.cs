@@ -15,6 +15,7 @@ namespace kivoBackend.Application.Services
     {
         private readonly HttpClient _httpClient;
         private readonly string _asaasApiKey;
+        private readonly bool _configured;
 
         public AsaasService(HttpClient httpClient, IConfiguration configuration)
         {
@@ -29,21 +30,20 @@ namespace kivoBackend.Application.Services
                           ?? "https://sandbox.asaas.com/api/v3";
 
             _asaasApiKey = apiKey.Trim().Trim('"');
-
-            if (string.IsNullOrWhiteSpace(_asaasApiKey) || _asaasApiKey.Contains("SUA_CHAVE_AQUI"))
-            {
-                throw new Exception("Configuração ausente: A chave ASAAS_API_KEY não foi encontrada no .env nem no appsettings.json.");
-            }
+            _configured = !string.IsNullOrWhiteSpace(_asaasApiKey) && !_asaasApiKey.Contains("SUA_CHAVE_AQUI");
 
             _httpClient.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
             _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("access_token", _asaasApiKey);
+            if (_configured)
+                _httpClient.DefaultRequestHeaders.Add("access_token", _asaasApiKey);
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "KivoSports/1.0");
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
 
         public async Task<string> ObterOuCriarClienteAsync(string nome, string cpf, string email)
         {
+            EnsureConfigured();
+
             var cpfLimpo = Regex.Replace(cpf ?? "", @"[^\d]", "");
 
             if (!ValidarCpfAlgoritmo(cpfLimpo))
@@ -131,6 +131,8 @@ namespace kivoBackend.Application.Services
 
         public async Task<AsaasCobrancaResponseDTO> CriarCobrancaPixAsync(string customerId, decimal valor, string descricao, string externalReference)
         {
+            EnsureConfigured();
+
             var payload = new AsaasCriarCobrancaRequestDTO
             {
                 Customer = customerId,
@@ -155,6 +157,8 @@ namespace kivoBackend.Application.Services
 
         public async Task<AsaasQRCodePixResponseDTO> ObterQrCodePixAsync(string paymentId)
         {
+            EnsureConfigured();
+
             var response = await _httpClient.GetAsync($"payments/{paymentId}/pixQrCode");
             var responseBody = await response.Content.ReadAsStringAsync();
 
@@ -164,6 +168,12 @@ namespace kivoBackend.Application.Services
             }
 
             return JsonSerializer.Deserialize<AsaasQRCodePixResponseDTO>(responseBody)!;
+        }
+
+        private void EnsureConfigured()
+        {
+            if (!_configured)
+                throw new InvalidOperationException("Configuração ausente: a chave ASAAS_API_KEY não foi encontrada no .env nem no appsettings.json.");
         }
 
         public async Task<string> ConsultarStatusCobrancaAsync(string paymentId)
