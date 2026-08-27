@@ -20,10 +20,11 @@ namespace kivoBackend.Application.Services
         private readonly IRepositoryCampeonato _repositoryCampeonato;
 
         public IngressoLoteService(
-            IRepositoryGenerics<IngressoLote> repositoryIngressoLote, IRepositoryGenerics<Favorito> repositoryFavorito,
-            IRepositoryGenerics<Partida> repositoryPartida, INotificacaoService notificacaoService, IRepositoryTime repositoryTime) : base(repositoryIngressoLote)
             IRepositoryGenerics<IngressoLote> repositoryIngressoLote,
+            IRepositoryGenerics<Favorito> repositoryFavorito,
             IRepositoryGenerics<Partida> repositoryPartida,
+            INotificacaoService notificacaoService,
+            IRepositoryTime repositoryTime,
             IRepositoryCampeonato repositoryCampeonato) : base(repositoryIngressoLote)
         {
             _repositoryIngressoLote = repositoryIngressoLote;
@@ -32,6 +33,13 @@ namespace kivoBackend.Application.Services
             _repositoryFavorito = repositoryFavorito;
             _repositoryTime = repositoryTime;
             _repositoryCampeonato = repositoryCampeonato;
+        }
+        public IngressoLoteService(
+            IRepositoryGenerics<IngressoLote> repositoryIngressoLote,
+            IRepositoryGenerics<Partida> repositoryPartida,
+            IRepositoryCampeonato repositoryCampeonato)
+            : this(repositoryIngressoLote, null!, repositoryPartida, null!, null!, repositoryCampeonato)
+        {
         }
 
         public async Task<IngressoLote> CriarLote(CriarIngressoLoteDTO dto, Guid? organizadorCampeonatoId, bool ehAdmin)

@@ -18,7 +18,7 @@ namespace kivoBackend.Application.Services
         private readonly IRepositoryGenerics<Time> _timeRepository;
         private readonly IRepositoryGenerics<Partida> _partidaRepository;
         private readonly IRepositoryCampeonato _repositoryCampeonato;
-        private readonly INotificacaoService _notificacaoService;
+        private readonly INotificacaoService? _notificacaoService;
         public CampeonatoService(IRepositoryGenerics<Campeonato> repositoryGenerics, IRepositoryGenerics<CampeonatoTime> CampeonatoTimeRepository, IRepositoryGenerics<Time> timeRepository, IRepositoryGenerics<Partida> partidaRepository, IRepositoryCampeonato repositoryCampeonato, INotificacaoService notificacaoService) : base(repositoryGenerics)
         {
             _CampeonatoTimeRepository = CampeonatoTimeRepository;
@@ -27,6 +27,17 @@ namespace kivoBackend.Application.Services
             _notificacaoService = notificacaoService;
             _partidaRepository = partidaRepository;
             _repositoryCampeonato = repositoryCampeonato;
+        }
+
+        // Mantém compatibilidade com os testes que não precisam disparar notificações.
+        public CampeonatoService(
+            IRepositoryGenerics<Campeonato> repositoryGenerics,
+            IRepositoryGenerics<CampeonatoTime> campeonatoTimeRepository,
+            IRepositoryGenerics<Time> timeRepository,
+            IRepositoryGenerics<Partida> partidaRepository,
+            IRepositoryCampeonato repositoryCampeonato)
+            : this(repositoryGenerics, campeonatoTimeRepository, timeRepository, partidaRepository, repositoryCampeonato, null!)
+        {
         }
 
         public async Task<IEnumerable<Campeonato>> ObterCampeonatosComTimes()
@@ -146,34 +157,21 @@ namespace kivoBackend.Application.Services
             participacao.RespondidoEm = DateTime.Now;
             participacao.RespondidoPorOrganizadorTimeId = OrganizadorTimeId;
             await _CampeonatoTimeRepository.Atualizar(participacao);
-        }
-            var participacao = await _CampeonatoTimeRepository.ObterPorId(ParticipacaoId);
-            if (participacao != null)
-            {
-                participacao.EnumStatusParticipacao = aceito ? EnumStatusParticipacao.Aceito : EnumStatusParticipacao.Recusado;
-                participacao.RespondidoEm = DateTime.Now;
-                participacao.RespondidoPorOrganizadorTimeId = OrganizadorTimeId;
-                await _CampeonatoTimeRepository.Atualizar(participacao);
 
-                var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(participacao.CampeonatoId);
-                var time = await _timeRepository.ObterPorId(participacao.TimeId);
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(participacao.CampeonatoId);
+            var time = await _timeRepository.ObterPorId(participacao.TimeId);
 
-                if (campeonato?.OrganizadorCampeonato?.UsuarioId != null && time != null)
-                {
-                    string respostaTexto = aceito ? "aceitou o convite e está confirmado" : "recusou o convite";
-                    await _notificacaoService.CriarNotificacaoAsync(
-                        campeonato.OrganizadorCampeonato.UsuarioId,
-                        "Resposta de Convite 📋",
-                        $"O time '{time.Nome}' {respostaTexto} para o campeonato '{campeonato.Nome}'.",
-                        EnumTipoNotificacao.TimeInscrito,
-                        link: $"/campeonatos/{campeonato.Id}/times",
-                        enviarEmail: false
-                    );
-                }
-            }
-            else
+            if (_notificacaoService != null && campeonato?.OrganizadorCampeonato?.UsuarioId != null && time != null)
             {
-                throw new Exception("Esse convite não existe mais");
+                string respostaTexto = aceito ? "aceitou o convite e está confirmado" : "recusou o convite";
+                await _notificacaoService.CriarNotificacaoAsync(
+                    campeonato.OrganizadorCampeonato.UsuarioId,
+                    "Resposta de Convite 📋",
+                    $"O time '{time.Nome}' {respostaTexto} para o campeonato '{campeonato.Nome}'.",
+                    EnumTipoNotificacao.TimeInscrito,
+                    link: $"/campeonatos/{campeonato.Id}/times",
+                    enviarEmail: false
+                );
             }
         }
 
