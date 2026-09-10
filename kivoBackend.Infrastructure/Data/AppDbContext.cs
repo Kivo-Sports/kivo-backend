@@ -195,6 +195,18 @@ namespace kivoBackend.Infrastructure.Data
                 // Evita dois caminhos de cascade até Posts no SQL Server.
                 .OnDelete(DeleteBehavior.NoAction);
 
+            modelBuilder.Entity<Post>()
+                .HasOne(p => p.TimeAutor)
+                .WithMany()
+                .HasForeignKey(p => p.TimeAutorId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Post>()
+                .HasOne(p => p.CampeonatoAutor)
+                .WithMany()
+                .HasForeignKey(p => p.CampeonatoAutorId)
+                .OnDelete(DeleteBehavior.NoAction);
+
         }
     }
 }

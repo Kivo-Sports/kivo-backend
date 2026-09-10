@@ -1,6 +1,7 @@
 using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
+using kivoBackend.Core.Enums;
 using kivoBackend.Presentation.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -54,6 +55,10 @@ namespace kivoBackend.Presentation.Controller
             if (erro != null)
                 return BadRequest(erro);
 
+            erro = await ValidarAutorExibicaoAsync(dto);
+            if (erro != null)
+                return BadRequest(erro);
+
             string? imagemUrl = null;
             if (imagem != null)
             {
@@ -64,6 +69,9 @@ namespace kivoBackend.Presentation.Controller
             var post = new Post
             {
                 AutorId = _currentUser.UserId.Value,
+                TipoAutorExibicao = dto.TipoAutorExibicao,
+                TimeAutorId = dto.TipoAutorExibicao == EnumTipoAutorPost.Time ? dto.EntidadeAutorId : null,
+                CampeonatoAutorId = dto.TipoAutorExibicao == EnumTipoAutorPost.Campeonato ? dto.EntidadeAutorId : null,
                 Titulo = LimparTexto(dto.Titulo),
                 Conteudo = LimparTexto(dto.Conteudo),
                 ImagemUrl = imagemUrl
@@ -125,6 +133,39 @@ namespace kivoBackend.Presentation.Controller
         private bool PodeAlterar(Post post) =>
             _currentUser.IsAdmin || (_currentUser.UserId.HasValue && post.AutorId == _currentUser.UserId.Value);
 
+        private async Task<string?> ValidarAutorExibicaoAsync(CriarPostDto dto)
+        {
+            if (!_currentUser.UserId.HasValue)
+                return "Usuário não autenticado.";
+
+            switch (dto.TipoAutorExibicao)
+            {
+                case EnumTipoAutorPost.Usuario:
+                    return _currentUser.IsAdmin
+                        ? null
+                        : "Organizadores devem selecionar o time ou campeonato pelo qual estão publicando.";
+
+                case EnumTipoAutorPost.Time:
+                    if (!dto.EntidadeAutorId.HasValue)
+                        return "Selecione um time para publicar.";
+
+                    return await _postService.UsuarioPossuiTimeAsync(_currentUser.UserId.Value, dto.EntidadeAutorId.Value)
+                        ? null
+                        : "Você só pode publicar em nome de um time que organiza.";
+
+                case EnumTipoAutorPost.Campeonato:
+                    if (!dto.EntidadeAutorId.HasValue)
+                        return "Selecione um campeonato para publicar.";
+
+                    return await _postService.UsuarioPossuiCampeonatoAsync(_currentUser.UserId.Value, dto.EntidadeAutorId.Value)
+                        ? null
+                        : "Você só pode publicar em nome de um campeonato que organiza.";
+
+                default:
+                    return "Tipo de autor inválido.";
+            }
+        }
+
         private static string? ValidarPost(
             string? titulo,
             string? conteudo,
@@ -155,16 +196,35 @@ namespace kivoBackend.Presentation.Controller
         private static string? LimparTexto(string? valor) =>
             string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
 
-        private static ListarPostDto MapearParaDto(Post post) => new()
+        private static ListarPostDto MapearParaDto(Post post)
         {
-            Id = post.Id,
-            AutorId = post.AutorId,
-            AutorNome = post.Autor?.Nome ?? string.Empty,
-            Titulo = post.Titulo,
-            Conteudo = post.Conteudo,
-            ImagemUrl = post.ImagemUrl,
-            CriadoEm = post.CriadoEm,
-            AtualizadoEm = post.AtualizadoEm
-        };
+            var (nome, imagemUrl, entidadeId) = post.TipoAutorExibicao switch
+            {
+                EnumTipoAutorPost.Time => (
+                    post.TimeAutor?.Nome ?? "Time indisponível",
+                    post.TimeAutor?.LogoUrl,
+                    post.TimeAutorId),
+                EnumTipoAutorPost.Campeonato => (
+                    post.CampeonatoAutor?.Nome ?? "Campeonato indisponível",
+                    post.CampeonatoAutor?.LogoUrl,
+                    post.CampeonatoAutorId),
+                _ => (post.Autor?.Nome ?? string.Empty, (string?)null, (Guid?)null)
+            };
+
+            return new ListarPostDto
+            {
+                Id = post.Id,
+                AutorId = post.AutorId,
+                AutorNome = nome,
+                AutorImagemUrl = imagemUrl,
+                TipoAutorExibicao = post.TipoAutorExibicao,
+                EntidadeAutorId = entidadeId,
+                Titulo = post.Titulo,
+                Conteudo = post.Conteudo,
+                ImagemUrl = post.ImagemUrl,
+                CriadoEm = post.CriadoEm,
+                AtualizadoEm = post.AtualizadoEm
+            };
+        }
     }
 }
