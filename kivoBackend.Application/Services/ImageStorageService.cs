@@ -21,9 +21,13 @@ namespace kivoBackend.Application.Services
                 : Path.Combine(Directory.GetCurrentDirectory(), credentialFileName);
         }
 
-        public async Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType)
+        public Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType)
+            => UploadFileAsync(fileStream, fileName, contentType, "logos");
+
+        public async Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType, string directory)
         {
-            var objectName = $"logos/{Guid.NewGuid()}_{fileName}";
+            var safeDirectory = directory.Trim().Trim('/');
+            var objectName = $"{safeDirectory}/{Guid.NewGuid()}_{fileName}";
 
             await GetStorageClient().UploadObjectAsync(_bucketName, objectName, contentType, fileStream);
 

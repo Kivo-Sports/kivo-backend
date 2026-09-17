@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using kivoBackend.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using kivoBackend.Infrastructure.Data;
 namespace kivoBackend.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260910220125_AdicionaFeedNoticias")]
+    partial class AdicionaFeedNoticias
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -696,9 +699,6 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<Guid>("AutorId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("CampeonatoAutorId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("Conteudo")
                         .HasMaxLength(5000)
                         .HasColumnType("nvarchar(max)");
@@ -709,12 +709,6 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<string>("ImagemUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("TimeAutorId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("TipoAutorExibicao")
-                        .HasColumnType("int");
-
                     b.Property<string>("Titulo")
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
@@ -722,10 +716,6 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AutorId");
-
-                    b.HasIndex("CampeonatoAutorId");
-
-                    b.HasIndex("TimeAutorId");
 
                     b.ToTable("Posts");
                 });
@@ -1131,21 +1121,7 @@ namespace kivoBackend.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("kivoBackend.Core.Entities.Campeonato", "CampeonatoAutor")
-                        .WithMany()
-                        .HasForeignKey("CampeonatoAutorId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("kivoBackend.Core.Entities.Time", "TimeAutor")
-                        .WithMany()
-                        .HasForeignKey("TimeAutorId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Autor");
-
-                    b.Navigation("CampeonatoAutor");
-
-                    b.Navigation("TimeAutor");
                 });
 
             modelBuilder.Entity("kivoBackend.Core.Entities.RecuperacaoSenha", b =>

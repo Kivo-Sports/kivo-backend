@@ -30,6 +30,7 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<IngressoLote> IngressoLotes { get; set; }
         public DbSet<Ingresso> Ingressos { get; set; }
         public DbSet<Notificacao> Notificacoes { get; set; }
+        public DbSet<Post> Posts { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -178,6 +179,34 @@ namespace kivoBackend.Infrastructure.Data
             modelBuilder.Entity<IngressoLote>()
                 .Property(il => il.Preco)
                 .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Post>()
+                .Property(p => p.Titulo)
+                .HasMaxLength(160);
+
+            modelBuilder.Entity<Post>()
+                .Property(p => p.Conteudo)
+                .HasMaxLength(5000);
+
+            modelBuilder.Entity<Post>()
+                .HasOne(p => p.Autor)
+                .WithMany()
+                .HasForeignKey(p => p.AutorId)
+                // Evita dois caminhos de cascade até Posts no SQL Server.
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Post>()
+                .HasOne(p => p.TimeAutor)
+                .WithMany()
+                .HasForeignKey(p => p.TimeAutorId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Post>()
+                .HasOne(p => p.CampeonatoAutor)
+                .WithMany()
+                .HasForeignKey(p => p.CampeonatoAutorId)
+                .OnDelete(DeleteBehavior.NoAction);
+
         }
     }
 }
