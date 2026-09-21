@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Coverage settings for backend application behavior.
+
+  Excludes generated/boilerplate/declarative code that does not provide
+  meaningful executable behavior. Services, repositories, auth, controllers
+  and domain logic remain part of the denominator.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+
+          <ExcludeByFile>
+            **/Migrations/**/*.cs,
+            **/Program.cs,
+            **/DTO/**/*.cs,
+            **/Interfaces/**/*.cs
+          </ExcludeByFile>
+
+          <Exclude>
+            [kivoBackend.Infrastructure]*Migrations*,
+            [*]Program
+          </Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

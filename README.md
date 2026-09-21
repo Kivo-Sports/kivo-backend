@@ -7,7 +7,7 @@
 
 ### Plataforma web de gestão de campeonatos esportivos e venda de ingressos digitais para eventos amadores e semiprofissionais.
 
-[Sobre](#-sobre-o-projeto) · [Stack](#-stack) · [Estrutura](#-estrutura-do-projeto) · [Como rodar](#-como-rodar) · [Variáveis de ambiente](#-variáveis-de-ambiente) · [Pagamentos & Asaas](#-pagamentos--asaas-pix) · [Padrões](#-padrões-de-desenvolvimento)
+[Sobre](#-sobre-o-projeto) · [Stack](#-stack) · [Estrutura](#-estrutura-do-projeto) · [Como rodar](#-como-rodar) · [Variáveis de ambiente](#-variáveis-de-ambiente) · [Pagamentos & Asaas](#-pagamentos--asaas-pix) · [Testes & Cobertura](#-testes--cobertura) · [Padrões](#-padrões-de-desenvolvimento)
 
 </div>
 
@@ -273,6 +273,69 @@ cloudflared tunnel --url http://localhost:5211
      https://nome-aleatorio.trycloudflare.com/api/webhook/asaas
      ```
    - Marque a opção para receber eventos de cobrança (`PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`) e salve.
+
+---
+
+## 🧪 Testes & Cobertura
+
+O projeto usa **xUnit** para a suíte de testes (`kivoBackend.Tests`), com testes unitários
+(`Unit/`, fakes em `TestSupport/`) e testes de integração de repositório contra SQLite
+in-memory (`Integration/`).
+
+### Rodar os testes
+
+```bash
+# Rodar toda a suíte
+dotnet test
+
+# Rodar só uma classe/namespace (filtro por nome do teste)
+dotnet test --filter "FullyQualifiedName~UsuarioServiceTests"
+
+# Ver cada teste sendo executado (saída detalhada)
+dotnet test --logger "console;verbosity=detailed"
+```
+
+### Gerar o relatório de cobertura
+
+A cobertura é coletada com o **coverlet.collector** (já referenciado no projeto de testes) e
+as regras de exclusão (Migrations, Program.cs, DTOs, Interfaces — código declarativo/gerado,
+sem comportamento) ficam em [`coverlet.runsettings`](./coverlet.runsettings).
+
+```bash
+# 1. Instale o reportgenerator (uma vez só, globalmente)
+dotnet tool install -g dotnet-reportgenerator-globaltool
+# garanta que ~/.dotnet/tools está no PATH:
+export PATH="$PATH:$HOME/.dotnet/tools"
+
+# 2. Rode os testes coletando cobertura
+dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+
+# 3. Gere o relatório HTML + resumo em texto a partir do .cobertura.xml gerado
+reportgenerator \
+  -reports:"**/coverage.cobertura.xml" \
+  -targetdir:"coverage-report" \
+  -reporttypes:"Html;TextSummary"
+
+# 4. Veja o resumo no terminal...
+cat coverage-report/Summary.txt
+
+# ...ou abra o relatório navegável no browser
+open coverage-report/index.html   # macOS
+# xdg-open coverage-report/index.html   # Linux
+```
+
+Para começar do zero (útil depois de mudanças grandes na suíte, evita misturar resultados de
+execuções antigas):
+
+```bash
+find . -type d -name TestResults -prune -exec rm -rf {} +
+rm -rf coverage-report
+dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+reportgenerator -reports:"**/coverage.cobertura.xml" -targetdir:"coverage-report" -reporttypes:"Html;TextSummary"
+```
+
+O estado atual da cobertura (baseline vs. atual, por área, gaps conhecidos e por quê) está
+documentado em [`KIVO_BACKEND_TEST_COVERAGE_REPORT.md`](./KIVO_BACKEND_TEST_COVERAGE_REPORT.md).
 
 ---
 

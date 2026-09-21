@@ -14,6 +14,9 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <!-- SQLite in-memory: enough to exercise real EF Core query/Include/unique-index
+         behavior for repository integration tests, without touching SQL Server. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.8" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +31,7 @@
     <ProjectReference Include="..\kivoBackend.Presentation\kivoBackend.Presentation.csproj" />
     <ProjectReference Include="..\kivoBackend.Application\kivoBackend.Application.csproj" />
     <ProjectReference Include="..\kivoBackend.Core\kivoBackend.Core.csproj" />
+    <ProjectReference Include="..\kivoBackend.Infrastructure\kivoBackend.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
