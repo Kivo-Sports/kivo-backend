@@ -238,6 +238,7 @@ builder.Services.AddScoped<IStorageService, ImageStorageService>();
 builder.Services.AddScoped<IFavoritoService, FavoritoService>();
 builder.Services.AddScoped<INotificacaoService, NotificacaoService>();
 builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IRelatorioService, RelatorioService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
