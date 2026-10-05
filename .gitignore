@@ -153,6 +153,9 @@ coverage*.json
 coverage*.xml
 coverage*.info
 
+# reportgenerator HTML/summary output (regenerate locally, see README)
+coverage-report/
+
 # Visual Studio code coverage results
 *.coverage
 *.coveragexml
@@ -483,3 +486,5 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 firebase-key.json
+
+*.kivoBackend.Application
