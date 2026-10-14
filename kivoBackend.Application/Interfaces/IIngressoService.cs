@@ -15,5 +15,6 @@ namespace kivoBackend.Application.Interfaces
         Task<bool> ConfirmarPagamentoAsync(Guid ingressoId);
         Task<bool> ProcessarWebhookAsaasAsync(string asaasPaymentId, string evento);
         Task AtribuirTitularAsync(Guid compradorId, Guid ingressoId, AtribuirTitularIngressoDTO dto);
+        Task SolicitarEstornoAsync(Guid solicitanteId, bool ehAdministrador, Guid ingressoId, string? motivo);
     }
 }

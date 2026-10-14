@@ -11,6 +11,7 @@ namespace kivoBackend.Core.Enums
         Pendente = 0,
         Pago = 1,
         Cancelado = 2,
-        Utilizado = 3
+        Utilizado = 3,
+        EstornoPendente = 4
     }
 }

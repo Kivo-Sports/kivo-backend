@@ -260,6 +260,7 @@ public sealed class FakeIngressoService : IIngressoService
     public Exception? ThrowOnComprar { get; set; }
     public Exception? ThrowOnConfirmarPagamento { get; set; }
     public Exception? ThrowOnAtribuirTitular { get; set; }
+    public Exception? ThrowOnSolicitarEstorno { get; set; }
     public Guid? LastAtribuirTitularCompradorId { get; private set; }
     public Guid? LastAtribuirTitularIngressoId { get; private set; }
 
@@ -281,6 +282,11 @@ public sealed class FakeIngressoService : IIngressoService
         if (ThrowOnAtribuirTitular != null) throw ThrowOnAtribuirTitular;
         LastAtribuirTitularCompradorId = compradorId;
         LastAtribuirTitularIngressoId = ingressoId;
+        return Task.CompletedTask;
+    }
+    public Task SolicitarEstornoAsync(Guid solicitanteId, bool ehAdministrador, Guid ingressoId, string? motivo)
+    {
+        if (ThrowOnSolicitarEstorno != null) throw ThrowOnSolicitarEstorno;
         return Task.CompletedTask;
     }
 }
@@ -314,6 +320,8 @@ public sealed class FakeAsaasService : IAsaasService
     public string PaymentId { get; set; } = "pay_fake_1";
     public string StatusCobranca { get; set; } = "PENDING";
     public bool ClienteChamado { get; private set; }
+    public string? EstornoSolicitadoParaPaymentId { get; private set; }
+    public string? MotivoEstorno { get; private set; }
 
     public Task<string> ObterOuCriarClienteAsync(string nome, string cpf, string email)
     {
@@ -328,6 +336,12 @@ public sealed class FakeAsaasService : IAsaasService
         => Task.FromResult(new AsaasQRCodePixResponseDTO { EncodedImage = "ZmFrZQ==", Payload = "00020101fakepix" });
 
     public Task<string> ConsultarStatusCobrancaAsync(string paymentId) => Task.FromResult(StatusCobranca);
+    public Task SolicitarEstornoAsync(string paymentId, string? motivo)
+    {
+        EstornoSolicitadoParaPaymentId = paymentId;
+        MotivoEstorno = motivo;
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Backs UsuarioService's IRepositoryUsuario dependency (custom lookups by cpf/email/id).</summary>

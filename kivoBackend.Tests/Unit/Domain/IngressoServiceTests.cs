@@ -366,11 +366,81 @@ public class IngressoServiceTests
     // ─── ObterMeusIngressosAsync ─────────────────────────────────────────────
 
     [Fact]
+    public async Task SolicitarEstorno_CompraPaga_MarcaTodaCompraComoPendenteEChamaAsaas()
+    {
+        var lote = NovoLote(quantidadeDisponivel: 8);
+        var (service, ingressos, _, asaas, _) = NovoService(lote);
+        var ingresso1 = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.Pago };
+        var ingresso2 = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.Pago };
+        await ingressos.Adicionar(ingresso1);
+        await ingressos.Adicionar(ingresso2);
+
+        await service.SolicitarEstornoAsync(CompradorPadrao, false, ingresso1.Id, "Nao poderei comparecer");
+
+        Assert.All(ingressos.Items, i => Assert.Equal(EnumStatusIngresso.EstornoPendente, i.StatusIngresso));
+        Assert.Equal("pay_1", asaas.EstornoSolicitadoParaPaymentId);
+        Assert.Equal("Nao poderei comparecer", asaas.MotivoEstorno);
+    }
+
+    [Fact]
+    public async Task ProcessarWebhookAsaasAsync_EstornoConfirmado_CancelaIngressosERestauraEstoqueUmaVez()
+    {
+        var lote = NovoLote(quantidadeDisponivel: 8);
+        var (service, ingressos, lotes, _, _) = NovoService(lote);
+        var ingresso1 = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
+        var ingresso2 = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
+        await ingressos.Adicionar(ingresso1);
+        await ingressos.Adicionar(ingresso2);
+
+        await service.ProcessarWebhookAsaasAsync("pay_1", "PAYMENT_REFUNDED");
+        await service.ProcessarWebhookAsaasAsync("pay_1", "PAYMENT_REFUNDED");
+
+        Assert.All(ingressos.Items, i => Assert.Equal(EnumStatusIngresso.Cancelado, i.StatusIngresso));
+        Assert.Equal(10, (await lotes.ObterPorId(lote.Id))!.QuantidadeDisponivel);
+    }
+
+    [Fact]
+    public async Task ProcessarWebhookAsaasAsync_EstornoRecusado_RestauraIngressoPagoSemAlterarEstoque()
+    {
+        var lote = NovoLote(quantidadeDisponivel: 8);
+        var (service, ingressos, lotes, _, _) = NovoService(lote);
+        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
+        await ingressos.Adicionar(ingresso);
+
+        await service.ProcessarWebhookAsaasAsync("pay_1", "PAYMENT_REFUND_DENIED");
+
+        Assert.Equal(EnumStatusIngresso.Pago, ingresso.StatusIngresso);
+        Assert.Equal(8, (await lotes.ObterPorId(lote.Id))!.QuantidadeDisponivel);
+    }
+
+    [Fact]
+    public async Task SolicitarEstorno_CompraComIngressoUtilizado_Rejeita()
+    {
+        var lote = NovoLote();
+        var (service, ingressos, _, _, _) = NovoService(lote);
+        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.Utilizado };
+        await ingressos.Adicionar(ingresso);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SolicitarEstornoAsync(CompradorPadrao, false, ingresso.Id, null));
+    }
+
+    [Fact]
     public async Task ObterMeusIngressosAsync_SemIngressos_RetornaListaVazia()
     {
         var (service, _, _, _, _) = NovoService();
 
         Assert.Empty(await service.ObterMeusIngressosAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task ObterMeusIngressosAsync_EstornoPendenteOuCancelado_NaoExibeAoComprador()
+    {
+        var lote = NovoLote();
+        var (service, ingressos, _, _, _) = NovoService(lote);
+        await ingressos.Adicionar(new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, StatusIngresso = EnumStatusIngresso.EstornoPendente });
+        await ingressos.Adicionar(new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, StatusIngresso = EnumStatusIngresso.Cancelado });
+
+        Assert.Empty(await service.ObterMeusIngressosAsync(CompradorPadrao));
     }
 
     [Fact]

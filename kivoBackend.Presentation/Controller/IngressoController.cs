@@ -142,6 +142,32 @@ namespace kivoBackend.Presentation.Controller
             }
         }
 
+        [HttpPost("{ingressoId}/estorno")]
+        public async Task<IActionResult> SolicitarEstorno(Guid ingressoId, [FromBody] SolicitarEstornoDTO? dto)
+        {
+            try
+            {
+                if (!_currentUser.UserId.HasValue)
+                    return Unauthorized(new { message = "Usuário não autenticado corretamente." });
+
+                await IngressoService().SolicitarEstornoAsync(
+                    _currentUser.UserId.Value,
+                    _currentUser.IsAdmin,
+                    ingressoId,
+                    dto?.Motivo);
+
+                return Accepted(new { message = "Estorno solicitado. O ingresso foi removido da sua lista enquanto o Asaas processa a devolução do valor." });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpPut("{ingressoId}/titular")]
         public async Task<IActionResult> AtribuirTitular(Guid ingressoId, [FromBody] AtribuirTitularIngressoDTO dto)
         {

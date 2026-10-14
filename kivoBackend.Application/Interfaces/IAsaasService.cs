@@ -13,5 +13,6 @@ namespace kivoBackend.Application.Interfaces
         Task<AsaasCobrancaResponseDTO> CriarCobrancaPixAsync(string customerId, decimal valor, string descricao, string externalReference);
         Task<AsaasQRCodePixResponseDTO> ObterQrCodePixAsync(string paymentId);
         Task<string> ConsultarStatusCobrancaAsync(string paymentId);
+        Task SolicitarEstornoAsync(string paymentId, string? motivo);
     }
 }

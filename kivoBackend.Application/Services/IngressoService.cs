@@ -106,12 +106,21 @@ namespace kivoBackend.Application.Services
 
         public async Task<bool> ProcessarWebhookAsaasAsync(string asaasPaymentId, string evento)
         {
+            if (evento == "PAYMENT_REFUND_IN_PROGRESS")
+                return true;
+
+            if (evento == "PAYMENT_REFUNDED")
+                return await FinalizarEstornoAsync(asaasPaymentId);
+
+            if (evento == "PAYMENT_REFUND_DENIED")
+                return await CancelarEstornoAsync(asaasPaymentId);
+
             if (evento != "PAYMENT_RECEIVED" && evento != "PAYMENT_CONFIRMED")
                 return true;
 
             var ingressos = await _ingressoRepository.Buscar(i => i.AsaasPaymentId == asaasPaymentId);
             var ingressosPendentes = ingressos
-                .Where(i => i.StatusIngresso != EnumStatusIngresso.Pago && i.StatusIngresso != EnumStatusIngresso.Utilizado)
+                .Where(i => i.StatusIngresso == EnumStatusIngresso.Pendente)
                 .ToList();
 
             if (!ingressos.Any())
@@ -135,6 +144,52 @@ namespace kivoBackend.Application.Services
                 await NotificarPagamentoConfirmadoAsync(ingressosPendentes);
 
             return true;
+        }
+
+        public async Task SolicitarEstornoAsync(Guid solicitanteId, bool ehAdministrador, Guid ingressoId, string? motivo)
+        {
+            var ingresso = await _ingressoRepository.ObterPorId(ingressoId);
+            if (ingresso == null)
+                throw new KeyNotFoundException("Ingresso não encontrado.");
+
+            if (!ehAdministrador && ingresso.UsuarioId != solicitanteId)
+                throw new UnauthorizedAccessException("Apenas o comprador ou um administrador pode solicitar este estorno.");
+
+            if (string.IsNullOrWhiteSpace(ingresso.AsaasPaymentId))
+                throw new InvalidOperationException("Este ingresso não possui uma cobrança Asaas vinculada.");
+
+            var ingressosDaCompra = (await _ingressoRepository.Buscar(i => i.AsaasPaymentId == ingresso.AsaasPaymentId)).ToList();
+            if (!ingressosDaCompra.Any())
+                throw new InvalidOperationException("Não foram encontrados ingressos para esta compra.");
+
+            if (ingressosDaCompra.Any(i => i.StatusIngresso == EnumStatusIngresso.Utilizado))
+                throw new InvalidOperationException("Não é possível estornar uma compra que já possui ingresso utilizado.");
+
+            if (ingressosDaCompra.Any(i => i.StatusIngresso == EnumStatusIngresso.EstornoPendente))
+                throw new InvalidOperationException("Já existe um estorno em processamento para esta compra.");
+
+            if (ingressosDaCompra.Any(i => i.StatusIngresso != EnumStatusIngresso.Pago))
+                throw new InvalidOperationException("Apenas compras integralmente pagas podem ser estornadas.");
+
+            foreach (var item in ingressosDaCompra)
+            {
+                item.StatusIngresso = EnumStatusIngresso.EstornoPendente;
+                await _ingressoRepository.Atualizar(item);
+            }
+
+            try
+            {
+                await _asaasService.SolicitarEstornoAsync(ingresso.AsaasPaymentId, motivo);
+            }
+            catch
+            {
+                foreach (var item in ingressosDaCompra)
+                {
+                    item.StatusIngresso = EnumStatusIngresso.Pago;
+                    await _ingressoRepository.Atualizar(item);
+                }
+                throw;
+            }
         }
 
         public async Task<bool> ConfirmarPagamentoAsync(Guid ingressoId)
@@ -186,7 +241,12 @@ namespace kivoBackend.Application.Services
 
         public async Task<List<IngressoDetalhesDTO>> ObterMeusIngressosAsync(Guid usuarioId)
         {
-            var ingressos = await _ingressoRepository.Buscar(i => i.UsuarioId == usuarioId);
+            // Ingressos cancelados ou com estorno em processamento não devem aparecer como utilizáveis para o torcedor.
+            // Caso o Asaas recuse o estorno, o webhook restaura o status para Pago e ele volta a ser listado.
+            var ingressos = await _ingressoRepository.Buscar(i =>
+                i.UsuarioId == usuarioId &&
+                i.StatusIngresso != EnumStatusIngresso.Cancelado &&
+                i.StatusIngresso != EnumStatusIngresso.EstornoPendente);
             var dtos = new List<IngressoDetalhesDTO>();
 
             foreach (var ingresso in ingressos)
@@ -268,6 +328,44 @@ namespace kivoBackend.Application.Services
                 link: null,
                 enviarEmail: false
             );
+
+            return true;
+        }
+
+        private async Task<bool> FinalizarEstornoAsync(string asaasPaymentId)
+        {
+            var ingressos = (await _ingressoRepository.Buscar(i => i.AsaasPaymentId == asaasPaymentId))
+                .Where(i => i.StatusIngresso == EnumStatusIngresso.EstornoPendente)
+                .ToList();
+
+            foreach (var ingresso in ingressos)
+            {
+                ingresso.StatusIngresso = EnumStatusIngresso.Cancelado;
+                await _ingressoRepository.Atualizar(ingresso);
+
+                var lote = await _loteRepository.ObterPorId(ingresso.IngressoLoteId);
+                if (lote != null && lote.QuantidadeDisponivel < lote.QuantidadeTotal)
+                {
+                    lote.QuantidadeDisponivel += 1;
+                    await _loteRepository.Atualizar(lote);
+                }
+            }
+
+            return true;
+        }
+
+        private async Task<bool> CancelarEstornoAsync(string asaasPaymentId)
+        {
+            var ingressos = (await _ingressoRepository.Buscar(i => i.AsaasPaymentId == asaasPaymentId))
+                .Where(i => i.StatusIngresso == EnumStatusIngresso.EstornoPendente)
+                .ToList();
+
+            foreach (var ingresso in ingressos)
+            {
+                // O Asaas recusou o estorno: a cobrança original segue recebida e o ingresso continua válido.
+                ingresso.StatusIngresso = EnumStatusIngresso.Pago;
+                await _ingressoRepository.Atualizar(ingresso);
+            }
 
             return true;
         }

@@ -189,5 +189,18 @@ namespace kivoBackend.Application.Services
             using var doc = JsonDocument.Parse(responseBody);
             return doc.RootElement.GetProperty("status").GetString() ?? "PENDING";
         }
+
+        public async Task SolicitarEstornoAsync(string paymentId, string? motivo)
+        {
+            EnsureConfigured();
+
+            var payload = new { description = string.IsNullOrWhiteSpace(motivo) ? "Estorno solicitado no Kivo Sports" : motivo.Trim() };
+            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync($"payments/{paymentId}/refund", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException($"Não foi possível solicitar o estorno no Asaas: {responseBody}");
+        }
     }
 }

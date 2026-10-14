@@ -488,3 +488,4 @@ $RECYCLE.BIN/
 firebase-key.json
 
 *.kivoBackend.Application
+/.env.example
