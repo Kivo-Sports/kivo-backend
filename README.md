@@ -276,6 +276,54 @@ cloudflared tunnel --url http://localhost:5211
 
 ---
 
+### Estorno de cobrança Pix
+
+Uma compra paga pode ser estornada pelo próprio comprador ou por um administrador. O estorno é sempre aplicado à cobrança inteira do Asaas; portanto, se a compra tiver mais de um ingresso, todos os ingressos vinculados à mesma cobrança são incluídos.
+
+#### Endpoint
+
+```http
+POST /api/Ingresso/{ingressoId}/estorno
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "motivo": "Não poderei comparecer ao evento"
+}
+```
+
+O campo `motivo` é opcional. Em caso de solicitação aceita, a API responde `202 Accepted`.
+
+#### Regras e comportamento
+
+- Somente o comprador ou um administrador pode solicitar o estorno.
+- A compra precisa estar integralmente paga; ingressos já utilizados na portaria não podem ser estornados.
+- Logo após a solicitação, os ingressos ficam com status `EstornoPendente` e deixam de aparecer em `GET /api/Ingresso/meus-ingressos`. O front pode atualizar a lista após receber o `202`.
+- Quando o Asaas confirmar o evento `PAYMENT_REFUNDED` no webhook, os ingressos são cancelados e as unidades retornam ao lote, respeitando sua quantidade total.
+- Se o Asaas enviar `PAYMENT_REFUND_DENIED`, os ingressos voltam ao status `Pago` e reaparecem para o torcedor. Nesse caso, nenhuma vaga é devolvida ao lote.
+
+> A confirmação financeira é responsabilidade do Asaas. A API não informa que o dinheiro foi devolvido antes de receber `PAYMENT_REFUNDED`.
+
+#### Teste no Sandbox
+
+1. Faça uma compra Pix e confirme o pagamento no Asaas, deixando o ingresso como `Pago`.
+2. Chame o endpoint de estorno com o ID de um dos ingressos da compra e um token do comprador ou administrador.
+3. Confira que o ingresso saiu de `GET /api/Ingresso/meus-ingressos`.
+4. No painel do Asaas, acompanhe o estorno e mantenha o webhook configurado para receber `PAYMENT_REFUND_IN_PROGRESS`, `PAYMENT_REFUNDED` e `PAYMENT_REFUND_DENIED` em `/api/webhook/asaas`.
+
+Para simular somente a confirmação do provedor durante uma apresentação, envie este payload ao webhook local **enquanto a compra estiver em `EstornoPendente`**:
+
+```json
+{
+  "event": "PAYMENT_REFUNDED",
+  "payment": { "id": "pay_id_da_cobranca" }
+}
+```
+
+Isso valida o fluxo interno (cancelamento e devolução da vaga), mas não realiza uma transferência financeira real. Para testar o Pix completo no Sandbox, use uma segunda conta Sandbox do Asaas como pagadora da cobrança original.
+
+---
+
 ## 🧪 Testes & Cobertura
 
 O projeto usa **xUnit** para a suíte de testes (`kivoBackend.Tests`), com testes unitários
