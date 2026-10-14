@@ -179,6 +179,10 @@ public class IngressoServiceTests
 
         Assert.Equal(EnumStatusIngresso.Pago, ingresso1.StatusIngresso);
         Assert.Equal(EnumStatusIngresso.Pago, ingresso2.StatusIngresso);
+        // A receita confirmada é atribuída à data do pagamento, não à da compra.
+        Assert.NotNull(ingresso1.DataPagamento);
+        Assert.Equal(DateTimeKind.Utc, ingresso1.DataPagamento!.Value.Kind);
+        Assert.Equal(ingresso1.DataPagamento, ingresso2.DataPagamento);
         Assert.Equal(3, lote.QuantidadeDisponivel); // 5 - 2
         Assert.Contains(notificacoes.Criadas, n => n.UsuarioId == usuarioId && n.Tipo == EnumTipoNotificacao.IngressoConfirmado);
     }
@@ -338,13 +342,17 @@ public class IngressoServiceTests
         var lote = NovoLote(quantidadeDisponivel: 5);
         var (service, ingressos, lotes, _, notificacoes) = NovoService(lote);
         var usuarioId = Guid.NewGuid();
-        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = usuarioId, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.Pendente };
+        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = usuarioId, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.Pendente, DataCompra = DateTime.UtcNow.AddDays(-3) };
         await ingressos.Adicionar(ingresso);
+        var antes = DateTime.UtcNow;
 
         var resultado = await service.ProcessarWebhookAsaasAsync("pay_1", "PAYMENT_RECEIVED");
 
         Assert.True(resultado);
         Assert.Equal(EnumStatusIngresso.Pago, ingresso.StatusIngresso);
+        // Confirmação posterior: data do pagamento é a do webhook, dias depois da compra.
+        Assert.NotNull(ingresso.DataPagamento);
+        Assert.True(ingresso.DataPagamento >= antes);
         Assert.Equal(4, (await lotes.ObterPorId(lote.Id))!.QuantidadeDisponivel);
         Assert.Contains(notificacoes.Criadas, n => n.UsuarioId == usuarioId && n.Tipo == EnumTipoNotificacao.IngressoConfirmado);
     }
@@ -361,6 +369,8 @@ public class IngressoServiceTests
 
         Assert.True(resultado);
         Assert.Empty(notificacoes.Criadas);
+        // Registro histórico sem data de pagamento não ganha uma data inventada no reenvio do webhook.
+        Assert.Null(ingresso.DataPagamento);
     }
 
     // ─── ObterMeusIngressosAsync ─────────────────────────────────────────────

@@ -211,6 +211,15 @@ public class SecurityAuthorizationTests
     }
 
     [Fact]
+    public void Relatorio_AdministrativoEndpoint_RequiresAdministradorRole()
+    {
+        var method = typeof(RelatorioController).GetMethod(nameof(RelatorioController.Administrativo));
+        var authorize = Assert.Single(method!.GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false).Cast<AuthorizeAttribute>());
+
+        Assert.Equal("Administrador", authorize.Roles);
+    }
+
+    [Fact]
     public async Task Convite_OrganizerB_CannotRespondInviteForTimeA()
     {
         var usuarios = new FakeUsuarioService();
