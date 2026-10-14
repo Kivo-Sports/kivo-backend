@@ -15,6 +15,8 @@ namespace kivoBackend.Core.Entities
         public EnumStatusIngresso StatusIngresso { get; set; } = EnumStatusIngresso.Pendente;
         public string CodigoValidacao { get; set; } = Guid.NewGuid().ToString("N").ToUpper();
         public DateTime? DataUso { get; set; }
+        /// <summary>Momento (UTC) em que o pagamento foi confirmado. Nulo em ingressos pendentes e em registros anteriores a esta coluna.</summary>
+        public DateTime? DataPagamento { get; set; }
         public string? AsaasPaymentId { get; set; }
         public string? NomeTitular { get; set; }
         public string? CpfTitular { get; set; }

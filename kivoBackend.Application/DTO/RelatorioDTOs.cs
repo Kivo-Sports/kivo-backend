@@ -6,6 +6,12 @@ public class FiltroRelatorioDTO
     public DateTime? Fim { get; set; }
 }
 
+/// <summary>Filtro exclusivo do relatório administrativo: o esporte recorta campeonatos, partidas, times e vendas.</summary>
+public class FiltroRelatorioAdministrativoDTO : FiltroRelatorioDTO
+{
+    public Guid? EsporteId { get; set; }
+}
+
 public class SerieVendasDTO
 {
     public DateTime Data { get; set; }
@@ -32,13 +38,26 @@ public class OcupacaoLoteDTO
     public decimal OcupacaoPercentual { get; set; }
 }
 
+/// <summary>
+/// Períodos são dias inclusivos em America/Sao_Paulo.
+/// - Receita/IngressosPagos: ingressos confirmados (pagos ou utilizados) pela data do pagamento.
+///   Sem filtro de data, incluem também os confirmados sem DataPagamento (registros anteriores à coluna).
+/// - Emitidos/Pendentes/Cancelados: ingressos emitidos (data da compra) no período, pela situação atual.
+/// - Comparecimento: check-ins ÷ confirmados de partidas elegíveis (finalizadas ou já iniciadas) com data no período.
+/// </summary>
 public class ResumoFinanceiroDTO
 {
     public decimal ReceitaConfirmada { get; set; }
     public int IngressosPagos { get; set; }
+    /// <summary>Confirmados sem DataPagamento no recorte de esporte/organizador; nunca atribuídos a um dia.</summary>
+    public decimal ReceitaSemDataPagamento { get; set; }
+    public int IngressosSemDataPagamento { get; set; }
+    public int IngressosEmitidos { get; set; }
+    public int IngressosEmitidosConfirmados { get; set; }
     public int IngressosPendentes { get; set; }
     public int IngressosCancelados { get; set; }
     public int CheckIns { get; set; }
+    public int IngressosElegiveisCheckIn { get; set; }
     public decimal TaxaComparecimento { get; set; }
 }
 
@@ -91,6 +110,7 @@ public class RelatorioAdministrativoDTO
 {
     public DateTime? Inicio { get; set; }
     public DateTime? Fim { get; set; }
+    public Guid? EsporteId { get; set; }
     public int UsuariosTotais { get; set; }
     public int NovosUsuarios { get; set; }
     public int CampeonatosTotais { get; set; }

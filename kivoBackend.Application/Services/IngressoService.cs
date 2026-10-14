@@ -117,9 +117,11 @@ namespace kivoBackend.Application.Services
             if (!ingressos.Any())
                 return false;
 
+            var dataPagamento = DateTime.UtcNow;
             foreach (var ingresso in ingressosPendentes)
             {
                 ingresso.StatusIngresso = EnumStatusIngresso.Pago;
+                ingresso.DataPagamento = dataPagamento;
                 await _ingressoRepository.Atualizar(ingresso);
 
                 var lote = await _loteRepository.ObterPorId(ingresso.IngressoLoteId);
@@ -166,9 +168,11 @@ namespace kivoBackend.Application.Services
                 : (await _ingressoRepository.Buscar(i => i.AsaasPaymentId == ingresso.AsaasPaymentId)).ToList();
             var ingressosPendentes = ingressosDaCompra.Where(i => i.StatusIngresso == EnumStatusIngresso.Pendente).ToList();
 
+            var dataPagamento = DateTime.UtcNow;
             foreach (var ingressoPendente in ingressosPendentes)
             {
                 ingressoPendente.StatusIngresso = EnumStatusIngresso.Pago;
+                ingressoPendente.DataPagamento = dataPagamento;
                 await _ingressoRepository.Atualizar(ingressoPendente);
                 var lote = await _loteRepository.ObterPorId(ingressoPendente.IngressoLoteId);
                 if (lote != null && lote.QuantidadeDisponivel > 0)

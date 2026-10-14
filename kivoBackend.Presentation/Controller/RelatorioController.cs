@@ -61,7 +61,7 @@ public class RelatorioController : ControllerBase
 
     [HttpGet("administrativo")]
     [Authorize(Roles = "Administrador")]
-    public async Task<IActionResult> Administrativo([FromQuery] FiltroRelatorioDTO filtro)
+    public async Task<IActionResult> Administrativo([FromQuery] FiltroRelatorioAdministrativoDTO filtro)
     {
         try { return Ok(await _relatorioService.ObterAdministrativoAsync(filtro)); }
         catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
