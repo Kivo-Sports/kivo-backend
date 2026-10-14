@@ -487,6 +487,9 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<DateTime>("DataCompra")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DataPagamento")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("DataUso")
                         .HasColumnType("datetime2");
 
