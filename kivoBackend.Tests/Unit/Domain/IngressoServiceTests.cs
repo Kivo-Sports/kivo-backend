@@ -340,7 +340,8 @@ public class IngressoServiceTests
     public async Task ProcessarWebhookAsaasAsync_IngressosPendentes_MarcaPagosEDecrementaLoteENotifica()
     {
         var lote = NovoLote(quantidadeDisponivel: 5);
-        var (service, ingressos, lotes, _, notificacoes) = NovoService(lote);
+        var (service, ingressos, lotes, asaas, notificacoes) = NovoService(lote);
+        asaas.StatusCobranca = "RECEIVED";
         var usuarioId = Guid.NewGuid();
         var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = usuarioId, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.Pendente, DataCompra = DateTime.UtcNow.AddDays(-3) };
         await ingressos.Adicionar(ingresso);
@@ -373,6 +374,28 @@ public class IngressoServiceTests
         Assert.Null(ingresso.DataPagamento);
     }
 
+    [Theory]
+    [InlineData("PENDING")]
+    [InlineData("OVERDUE")]
+    [InlineData("REFUNDED")]
+    public async Task ProcessarWebhookAsaasAsync_PagamentoNaoConfirmadoNoAsaas_NaoMarcaPago(string statusNoAsaas)
+    {
+        // Webhook forjado: o comprador conhece o próprio AsaasPaymentId e chama a API sem ter pago
+        var lote = NovoLote(quantidadeDisponivel: 5);
+        var (service, ingressos, lotes, asaas, notificacoes) = NovoService(lote);
+        asaas.StatusCobranca = statusNoAsaas;
+        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.Pendente };
+        await ingressos.Adicionar(ingresso);
+
+        var resultado = await service.ProcessarWebhookAsaasAsync("pay_1", "PAYMENT_RECEIVED");
+
+        Assert.False(resultado);
+        Assert.Equal(EnumStatusIngresso.Pendente, ingresso.StatusIngresso);
+        Assert.Null(ingresso.DataPagamento);
+        Assert.Equal(5, (await lotes.ObterPorId(lote.Id))!.QuantidadeDisponivel);
+        Assert.Empty(notificacoes.Criadas);
+    }
+
     // ─── ObterMeusIngressosAsync ─────────────────────────────────────────────
 
     [Fact]
@@ -396,7 +419,8 @@ public class IngressoServiceTests
     public async Task ProcessarWebhookAsaasAsync_EstornoConfirmado_CancelaIngressosERestauraEstoqueUmaVez()
     {
         var lote = NovoLote(quantidadeDisponivel: 8);
-        var (service, ingressos, lotes, _, _) = NovoService(lote);
+        var (service, ingressos, lotes, asaas, _) = NovoService(lote);
+        asaas.StatusCobranca = "REFUNDED";
         var ingresso1 = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
         var ingresso2 = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
         await ingressos.Adicionar(ingresso1);
@@ -410,10 +434,27 @@ public class IngressoServiceTests
     }
 
     [Fact]
+    public async Task ProcessarWebhookAsaasAsync_EstornoNaoConfirmadoNoAsaas_MantemEstornoPendente()
+    {
+        var lote = NovoLote(quantidadeDisponivel: 8);
+        var (service, ingressos, lotes, asaas, _) = NovoService(lote);
+        asaas.StatusCobranca = "RECEIVED";
+        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
+        await ingressos.Adicionar(ingresso);
+
+        var resultado = await service.ProcessarWebhookAsaasAsync("pay_1", "PAYMENT_REFUNDED");
+
+        Assert.False(resultado);
+        Assert.Equal(EnumStatusIngresso.EstornoPendente, ingresso.StatusIngresso);
+        Assert.Equal(8, (await lotes.ObterPorId(lote.Id))!.QuantidadeDisponivel);
+    }
+
+    [Fact]
     public async Task ProcessarWebhookAsaasAsync_EstornoRecusado_RestauraIngressoPagoSemAlterarEstoque()
     {
         var lote = NovoLote(quantidadeDisponivel: 8);
-        var (service, ingressos, lotes, _, _) = NovoService(lote);
+        var (service, ingressos, lotes, asaas, _) = NovoService(lote);
+        asaas.StatusCobranca = "RECEIVED";
         var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
         await ingressos.Adicionar(ingresso);
 
@@ -421,6 +462,22 @@ public class IngressoServiceTests
 
         Assert.Equal(EnumStatusIngresso.Pago, ingresso.StatusIngresso);
         Assert.Equal(8, (await lotes.ObterPorId(lote.Id))!.QuantidadeDisponivel);
+    }
+
+    [Fact]
+    public async Task ProcessarWebhookAsaasAsync_RecusaForjadaAposEstornoDevolvido_NaoReativaIngresso()
+    {
+        // O dinheiro já voltou para o comprador; um "estorno recusado" forjado não pode devolver o ingresso
+        var lote = NovoLote(quantidadeDisponivel: 8);
+        var (service, ingressos, _, asaas, _) = NovoService(lote);
+        asaas.StatusCobranca = "REFUNDED";
+        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
+        await ingressos.Adicionar(ingresso);
+
+        var resultado = await service.ProcessarWebhookAsaasAsync("pay_1", "PAYMENT_REFUND_DENIED");
+
+        Assert.False(resultado);
+        Assert.Equal(EnumStatusIngresso.EstornoPendente, ingresso.StatusIngresso);
     }
 
     [Fact]

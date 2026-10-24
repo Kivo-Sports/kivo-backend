@@ -276,7 +276,14 @@ public sealed class FakeIngressoService : IIngressoService
         if (ThrowOnConfirmarPagamento != null) throw ThrowOnConfirmarPagamento;
         return Task.FromResult(ConfirmarPagamentoResult);
     }
-    public Task<bool> ProcessarWebhookAsaasAsync(string asaasPaymentId, string evento) => Task.FromResult(ProcessarWebhookResult);
+    public Exception? ThrowOnProcessarWebhook { get; set; }
+    public int ProcessarWebhookChamadas { get; private set; }
+    public Task<bool> ProcessarWebhookAsaasAsync(string asaasPaymentId, string evento)
+    {
+        ProcessarWebhookChamadas++;
+        if (ThrowOnProcessarWebhook != null) throw ThrowOnProcessarWebhook;
+        return Task.FromResult(ProcessarWebhookResult);
+    }
     public Task AtribuirTitularAsync(Guid compradorId, Guid ingressoId, AtribuirTitularIngressoDTO dto)
     {
         if (ThrowOnAtribuirTitular != null) throw ThrowOnAtribuirTitular;

@@ -126,6 +126,14 @@ namespace kivoBackend.Application.Services
             if (!ingressos.Any())
                 return false;
 
+            if (!ingressosPendentes.Any())
+                return true;
+
+            // O webhook é público e o comprador conhece o AsaasPaymentId: só marca como pago se o Asaas confirmar
+            var statusAsaas = await _asaasService.ConsultarStatusCobrancaAsync(asaasPaymentId);
+            if (!EstaPagoNoAsaas(statusAsaas))
+                return false;
+
             var dataPagamento = DateTime.UtcNow;
             foreach (var ingresso in ingressosPendentes)
             {
@@ -210,9 +218,7 @@ namespace kivoBackend.Application.Services
             {
                 var statusAsaas = await _asaasService.ConsultarStatusCobrancaAsync(ingresso.AsaasPaymentId);
 
-                bool estaPagoNoAsaas = statusAsaas == "RECEIVED" || statusAsaas == "CONFIRMED" || statusAsaas == "DONE";
-
-                if (!estaPagoNoAsaas)
+                if (!EstaPagoNoAsaas(statusAsaas))
                 {
                     throw new InvalidOperationException($"O pagamento deste ingresso ainda não foi confirmado no Asaas (Status atual: {statusAsaas}). O ingresso permanece Pendente.");
                 }
@@ -342,6 +348,13 @@ namespace kivoBackend.Application.Services
                 .Where(i => i.StatusIngresso == EnumStatusIngresso.EstornoPendente)
                 .ToList();
 
+            if (!ingressos.Any())
+                return true;
+
+            // Confirma no Asaas que o dinheiro foi mesmo devolvido antes de cancelar os ingressos
+            if (await _asaasService.ConsultarStatusCobrancaAsync(asaasPaymentId) != "REFUNDED")
+                return false;
+
             foreach (var ingresso in ingressos)
             {
                 ingresso.StatusIngresso = EnumStatusIngresso.Cancelado;
@@ -364,6 +377,13 @@ namespace kivoBackend.Application.Services
                 .Where(i => i.StatusIngresso == EnumStatusIngresso.EstornoPendente)
                 .ToList();
 
+            if (!ingressos.Any())
+                return true;
+
+            // Sem essa checagem, quem já recebeu o estorno poderia forjar um "recusado" e reativar o ingresso
+            if (!EstaPagoNoAsaas(await _asaasService.ConsultarStatusCobrancaAsync(asaasPaymentId)))
+                return false;
+
             foreach (var ingresso in ingressos)
             {
                 // O Asaas recusou o estorno: a cobrança original segue recebida e o ingresso continua válido.
@@ -373,6 +393,9 @@ namespace kivoBackend.Application.Services
 
             return true;
         }
+
+        private static bool EstaPagoNoAsaas(string statusAsaas)
+            => statusAsaas == "RECEIVED" || statusAsaas == "CONFIRMED" || statusAsaas == "DONE";
 
         private static List<ItemCompraIngressoDTO> NormalizarItensCompra(RealizarCompraDTO compraDTO)
         {
