@@ -9,11 +9,14 @@ namespace kivoBackend.Application.Services
     {
         private readonly string _bucketName;
         private readonly string? _credentialPath;
+        private readonly string? _credentialJson;
         private StorageClient? _storageClient;
 
         public ImageStorageService(IConfiguration configuration)
         {
             _bucketName = configuration["FIREBASE_BUCKET"] ?? "kivo-sports.firebasestorage.app";
+            // Em produção (Azure) o conteúdo do firebase-key.json vem direto da variável de ambiente
+            _credentialJson = configuration["FIREBASE_CREDENTIALS_JSON"];
             var credentialFileName = configuration["GOOGLE_APPLICATION_CREDENTIALS"];
 
             _credentialPath = string.IsNullOrWhiteSpace(credentialFileName)
@@ -41,7 +44,12 @@ namespace kivoBackend.Application.Services
 
             try
             {
-                if (_credentialPath != null && File.Exists(_credentialPath))
+                if (!string.IsNullOrWhiteSpace(_credentialJson))
+                {
+                    var credential = CredentialFactory.FromJson<ServiceAccountCredential>(_credentialJson).ToGoogleCredential();
+                    _storageClient = StorageClient.Create(credential);
+                }
+                else if (_credentialPath != null && File.Exists(_credentialPath))
                 {
                     var credential = GoogleCredential.FromFile(_credentialPath);
                     _storageClient = StorageClient.Create(credential);

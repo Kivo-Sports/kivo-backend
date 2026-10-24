@@ -1,0 +1,159 @@
+# CI/CD da API Kivo (.NET 8) -> Azure App Service (Windows, plano F1)
+#
+# - Pull request para develop/master: build + testes (não publica nada)
+# - Push na master ou execução manual: build + testes + deploy em produção + smoke test
+#
+# Configuração no GitHub (Settings > Secrets and variables > Actions):
+#   Secret   AZURE_WEBAPP_PUBLISH_PROFILE  conteúdo do "Baixar o perfil de publicação" do App Service
+#   Variable AZURE_WEBAPP_NAME             nome do App Service (ex.: kivosports-api)
+#
+# As configurações da API em produção (banco, JWT, e-mail, Firebase, Asaas) ficam nas
+# variáveis de ambiente do App Service, não no repositório.
+name: CI/CD API (Azure)
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - '.env.example'
+      - 'docker-compose.yml'
+  pull_request:
+    branches: [develop, master]
+    paths-ignore:
+      - '**.md'
+      - '.env.example'
+      - 'docker-compose.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# PRs cancelam execuções antigas; deploys na master entram em fila (nunca são interrompidos no meio)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  SOLUTION_PATH: kivoBackend.sln
+  PROJECT_PATH: kivoBackend.Presentation/kivoBackend.Presentation.csproj
+
+jobs:
+  build:
+    name: Build e testes
+    runs-on: windows-latest # mesmo sistema operacional do App Service
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache de pacotes NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION_PATH }} -c Release --no-restore
+
+      - name: Testes
+        run: >-
+          dotnet test ${{ env.SOLUTION_PATH }} -c Release --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory TestResults
+
+      - name: Anexar resultado dos testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Publish
+        if: github.event_name != 'pull_request'
+        run: dotnet publish ${{ env.PROJECT_PATH }} -c Release --no-build -o publish
+
+      - name: Anexar pacote da API
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-package
+          path: publish
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy em produção
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    steps:
+      - name: Baixar pacote da API
+        uses: actions/download-artifact@v4
+        with:
+          name: api-package
+          path: publish
+
+      - name: Deploy no Azure App Service
+        id: deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: publish
+
+      # O primeiro start aplica as migrations e o plano F1 pode estar "frio": até ~5 min de espera
+      - name: Smoke test (/health)
+        env:
+          APP_URL: ${{ steps.deploy.outputs.webapp-url }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "::error::O deploy não retornou a URL do App Service."
+            exit 1
+          fi
+          for i in $(seq 1 20); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$APP_URL/health" || true)
+            if [ "$status" = "200" ]; then
+              echo "API saudável (HTTP 200) na tentativa $i"
+              exit 0
+            fi
+            echo "Tentativa $i/20: HTTP $status, nova tentativa em 15s"
+            sleep 15
+          done
+          echo "::error::A API não respondeu em $APP_URL/health. Confira o Log stream do App Service no portal."
+          exit 1
+
+      - name: Resumo do deploy
+        if: always()
+        env:
+          APP_URL: ${{ steps.deploy.outputs.webapp-url }}
+        run: |
+          {
+            echo "### Deploy da API Kivo"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${GITHUB_SHA::7}\` |"
+            echo "| URL | $APP_URL |"
+            echo "| Health | $APP_URL/health |"
+            echo "| Swagger | $APP_URL/swagger |"
+          } >> "$GITHUB_STEP_SUMMARY"
