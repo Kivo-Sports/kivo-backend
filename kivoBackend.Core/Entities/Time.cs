@@ -11,6 +11,8 @@ namespace kivoBackend.Core.Entities
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid OrganizadorTimeId { get; set; }
 
+        public Guid EsporteId { get; set; }
+
         public string Nome { get; set; }
         public string Cidade { get; set; }
         public string Estado { get; set; }
@@ -20,5 +22,6 @@ namespace kivoBackend.Core.Entities
         public DateTime CriadoEm { get; set; }
 
         public OrganizadorTime OrganizadorTime { get; set; }
+        public Esporte Esporte { get; set; }
     }
 }

@@ -3,6 +3,8 @@ using kivoBackend.Application.Interfaces;
 using kivoBackend.Application.Services;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
+using kivoBackend.Core.Interfaces;
+using kivoBackend.Presentation.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,12 +15,53 @@ namespace kivoBackend.Presentation.Controller
     public class UsuarioController : ControllerBase
     {
         private readonly IUsuarioService _usuarioService;
-        private readonly IServiceGenerics<Usuario> _serviceGenerics;
-        public UsuarioController(IUsuarioService usuarioService)
+        private readonly IRepositoryGenerics<OrganizadorCampeonato> _organizadorCampeonatoRepository;
+        private readonly IRepositoryGenerics<OrganizadorTime> _organizadorTimeRepository;
+        private readonly ICurrentUserService _currentUser;
+        public UsuarioController(
+            IUsuarioService usuarioService,
+            IRepositoryGenerics<OrganizadorCampeonato> organizadorCampeonatoRepository,
+            IRepositoryGenerics<OrganizadorTime> organizadorTimeRepository,
+            ICurrentUserService currentUser)
         {
             _usuarioService = usuarioService;
+            _organizadorCampeonatoRepository = organizadorCampeonatoRepository;
+            _organizadorTimeRepository = organizadorTimeRepository;
+            _currentUser = currentUser;
         }
+
+        [Authorize(Roles = "Administrador")]
+        [HttpGet("organizadores-campeonato")]
+        public async Task<IActionResult> GetOrganizadoresCampeonato()
+        {
+            try
+            {
+                var organizadores = await _organizadorCampeonatoRepository.ObterComIncludes(o => o.Usuario);
+                var retorno = organizadores
+                    .Where(o => o.Usuario != null)
+                    .Select(o => new { o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
+                return Ok(retorno);
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
+        [Authorize(Roles = "Administrador")]
+        [HttpGet("organizadores-time")]
+        public async Task<IActionResult> GetOrganizadoresTime()
+        {
+            try
+            {
+                var organizadores = await _organizadorTimeRepository.ObterComIncludes(o => o.Usuario);
+                var retorno = organizadores
+                    .Where(o => o.Usuario != null)
+                    .Select(o => new { o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
+                return Ok(retorno);
+            }
+            catch (Exception ex) { return BadRequest(ex.Message); }
+        }
+
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> GetAll()
         {
             try
@@ -34,6 +77,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<IActionResult> GetById(Guid id)
         {
             try
@@ -64,6 +108,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpGet("cpf/{cpf}")]
+        [Authorize]
         public async Task<IActionResult> ObterPorCpf(string cpf)
         {
             var usuario = await _usuarioService.ObterUsuarioPorCpf(cpf);
@@ -211,10 +256,14 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPut("torcedor/{id}")]
+        [Authorize]
         public async Task<IActionResult> EditarTorcedor(Guid id, [FromBody] EditarUsuarioDTO dto)
         {
             try
             {
+                var acesso = ValidarAcessoAoUsuario(id);
+                if (acesso != null) return acesso;
+
                 var usuario = MapearParaUpdate(dto);
                 usuario.Torcedor = new Torcedor { Endereco = MapearEndereco(dto.Endereco) };
 
@@ -225,10 +274,14 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPut("organizador-time/{id}")]
+        [Authorize]
         public async Task<IActionResult> EditarOrgTime(Guid id, [FromBody] EditarUsuarioDTO dto)
         {
             try
             {
+                var acesso = ValidarAcessoAoUsuario(id);
+                if (acesso != null) return acesso;
+
                 var usuario = MapearParaUpdate(dto);
                 usuario.OrganizadorTime = new OrganizadorTime { Endereco = MapearEndereco(dto.Endereco) };
 
@@ -239,10 +292,14 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPut("organizador-campeonato/{id}")]
+        [Authorize]
         public async Task<IActionResult> EditarOrgCampeonato(Guid id, [FromBody] EditarOrganizadorCampeonatoDTO dto)
         {
             try
             {
+                var acesso = ValidarAcessoAoUsuario(id);
+                if (acesso != null) return acesso;
+
                 if (dto.ContaBanco == null)
                     return BadRequest("Dados da conta bancária são obrigatórios.");
 
@@ -363,10 +420,14 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> Delete(Guid id)
         {
             try
             {
+                var acesso = ValidarAcessoAoUsuario(id);
+                if (acesso != null) return acesso;
+
                 await _usuarioService.RemoverUsuario(id);
                 return NoContent();
             }
@@ -377,6 +438,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost("check-email")]
+        [AllowAnonymous]
         public async Task<IActionResult> CheckEmail([FromBody] CheckEmailRequest request)
         {
             try
@@ -394,6 +456,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPost("check-cpf")]
+        [AllowAnonymous]
         public async Task<IActionResult> CheckCpf([FromBody] CheckCpfRequest request)
         {
             try
@@ -412,6 +475,7 @@ namespace kivoBackend.Presentation.Controller
         }
 
         [HttpPatch("{id}/reativar")]
+        [Authorize(Roles = "Administrador")]
         public async Task<IActionResult> Reativar(Guid id)
         {
             try
@@ -423,6 +487,17 @@ namespace kivoBackend.Presentation.Controller
             {
                 return BadRequest(ex.Message);
             }
+        }
+
+        private IActionResult? ValidarAcessoAoUsuario(Guid targetUserId)
+        {
+            if (!_currentUser.UserId.HasValue)
+                return Unauthorized(new { message = "Usuário não identificado." });
+
+            if (_currentUser.IsAdmin || _currentUser.UserId.Value == targetUserId)
+                return null;
+
+            return Forbid();
         }
     }
 }

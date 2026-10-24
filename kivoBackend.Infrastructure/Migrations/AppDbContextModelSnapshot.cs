@@ -238,6 +238,15 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<int>("EnumStatusCampeonato")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("EsporteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("FormatoCampeonato")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LogoUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -245,18 +254,28 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<Guid>("OrganizadorCampeonatoId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("PontosDerrota")
+                    b.Property<int?>("PontosDerrota")
                         .HasColumnType("int");
 
-                    b.Property<int>("PontosEmpate")
+                    b.Property<int?>("PontosEmpate")
                         .HasColumnType("int");
 
-                    b.Property<int>("PontosVitoria")
+                    b.Property<int?>("PontosVitoria")
                         .HasColumnType("int");
+
+                    b.Property<int?>("QuantidadeTimesClassificam")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("TimeVencedorId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EsporteId");
+
                     b.HasIndex("OrganizadorCampeonatoId");
+
+                    b.HasIndex("TimeVencedorId");
 
                     b.ToTable("Campeonatos");
                 });
@@ -287,9 +306,10 @@ namespace kivoBackend.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CampeonatoId");
-
                     b.HasIndex("TimeId");
+
+                    b.HasIndex("CampeonatoId", "TimeId")
+                        .IsUnique();
 
                     b.ToTable("CampeonatoTimes");
                 });
@@ -397,6 +417,179 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.ToTable("Enderecos");
                 });
 
+            modelBuilder.Entity("kivoBackend.Core.Entities.Esporte", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Icone")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Esportes");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.Favorito", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId", "Tipo", "ItemId")
+                        .IsUnique();
+
+                    b.ToTable("Favoritos");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.Ingresso", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AsaasPaymentId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CodigoValidacao")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CpfTitular")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DataCompra")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DataPagamento")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DataUso")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("IngressoLoteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NomeTitular")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("PrecoPago")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("StatusIngresso")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IngressoLoteId");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("Ingressos");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.IngressoLote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NomeLote")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("PartidaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Preco")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("QuantidadeDisponivel")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuantidadeTotal")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartidaId");
+
+                    b.ToTable("IngressoLotes");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.Notificacao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CriadaEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Lida")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LinkRedirecionamento")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Mensagem")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("Notificacoes");
+                });
+
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorCampeonato", b =>
                 {
                     b.Property<Guid>("Id")
@@ -441,6 +634,103 @@ namespace kivoBackend.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("OrganizadoresTime");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.Partida", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CampeonatoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DataHora")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Fase")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Finalizado")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("GolsTimeCasa")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GolsTimeVisitante")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Local")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("NumeroJogoChave")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Rodada")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("TimeCasaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TimeVisitanteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampeonatoId");
+
+                    b.HasIndex("TimeCasaId");
+
+                    b.HasIndex("TimeVisitanteId");
+
+                    b.ToTable("Partida", (string)null);
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.Post", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("AutorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CampeonatoAutorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Conteudo")
+                        .HasMaxLength(5000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ImagemUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("TimeAutorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("TipoAutorExibicao")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Titulo")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AutorId");
+
+                    b.HasIndex("CampeonatoAutorId");
+
+                    b.HasIndex("TimeAutorId");
+
+                    b.ToTable("Posts");
                 });
 
             modelBuilder.Entity("kivoBackend.Core.Entities.RecuperacaoSenha", b =>
@@ -488,6 +778,9 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("EsporteId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Estado")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -503,6 +796,8 @@ namespace kivoBackend.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EsporteId");
 
                     b.HasIndex("OrganizadorTimeId");
 
@@ -665,13 +960,27 @@ namespace kivoBackend.Infrastructure.Migrations
 
             modelBuilder.Entity("kivoBackend.Core.Entities.Campeonato", b =>
                 {
+                    b.HasOne("kivoBackend.Core.Entities.Esporte", "Esporte")
+                        .WithMany()
+                        .HasForeignKey("EsporteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("kivoBackend.Core.Entities.OrganizadorCampeonato", "OrganizadorCampeonato")
                         .WithMany("Campeonatos")
                         .HasForeignKey("OrganizadorCampeonatoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("kivoBackend.Core.Entities.Time", "TimeVencedor")
+                        .WithMany()
+                        .HasForeignKey("TimeVencedorId");
+
+                    b.Navigation("Esporte");
+
                     b.Navigation("OrganizadorCampeonato");
+
+                    b.Navigation("TimeVencedor");
                 });
 
             modelBuilder.Entity("kivoBackend.Core.Entities.CampeonatoTime", b =>
@@ -715,6 +1024,47 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Navigation("OrganizadorCampeonato");
                 });
 
+            modelBuilder.Entity("kivoBackend.Core.Entities.Ingresso", b =>
+                {
+                    b.HasOne("kivoBackend.Core.Entities.IngressoLote", "IngressoLote")
+                        .WithMany()
+                        .HasForeignKey("IngressoLoteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("IngressoLote");
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.IngressoLote", b =>
+                {
+                    b.HasOne("kivoBackend.Core.Entities.Partida", "Partida")
+                        .WithMany()
+                        .HasForeignKey("PartidaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Partida");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.Notificacao", b =>
+                {
+                    b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorCampeonato", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.Endereco", "Endereco")
@@ -753,6 +1103,54 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("kivoBackend.Core.Entities.Partida", b =>
+                {
+                    b.HasOne("kivoBackend.Core.Entities.Campeonato", null)
+                        .WithMany("Partidas")
+                        .HasForeignKey("CampeonatoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("kivoBackend.Core.Entities.Time", "TimeCasa")
+                        .WithMany()
+                        .HasForeignKey("TimeCasaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("kivoBackend.Core.Entities.Time", "TimeVisitante")
+                        .WithMany()
+                        .HasForeignKey("TimeVisitanteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("TimeCasa");
+
+                    b.Navigation("TimeVisitante");
+                });
+
+            modelBuilder.Entity("kivoBackend.Core.Entities.Post", b =>
+                {
+                    b.HasOne("kivoBackend.Core.Entities.Usuario", "Autor")
+                        .WithMany()
+                        .HasForeignKey("AutorId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("kivoBackend.Core.Entities.Campeonato", "CampeonatoAutor")
+                        .WithMany()
+                        .HasForeignKey("CampeonatoAutorId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("kivoBackend.Core.Entities.Time", "TimeAutor")
+                        .WithMany()
+                        .HasForeignKey("TimeAutorId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Autor");
+
+                    b.Navigation("CampeonatoAutor");
+
+                    b.Navigation("TimeAutor");
+                });
+
             modelBuilder.Entity("kivoBackend.Core.Entities.RecuperacaoSenha", b =>
                 {
                     b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
@@ -766,11 +1164,19 @@ namespace kivoBackend.Infrastructure.Migrations
 
             modelBuilder.Entity("kivoBackend.Core.Entities.Time", b =>
                 {
+                    b.HasOne("kivoBackend.Core.Entities.Esporte", "Esporte")
+                        .WithMany()
+                        .HasForeignKey("EsporteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("kivoBackend.Core.Entities.OrganizadorTime", "OrganizadorTime")
                         .WithMany("Times")
                         .HasForeignKey("OrganizadorTimeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Esporte");
 
                     b.Navigation("OrganizadorTime");
                 });
@@ -808,6 +1214,8 @@ namespace kivoBackend.Infrastructure.Migrations
             modelBuilder.Entity("kivoBackend.Core.Entities.Campeonato", b =>
                 {
                     b.Navigation("CampeonatoTimes");
+
+                    b.Navigation("Partidas");
                 });
 
             modelBuilder.Entity("kivoBackend.Core.Entities.OrganizadorCampeonato", b =>

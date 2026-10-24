@@ -15,12 +15,29 @@ namespace kivoBackend.Application.Services
     {
         private readonly IRepositoryGenerics<CampeonatoTime> _CampeonatoTimeRepository;
         private readonly IRepositoryGenerics<Campeonato> _repositoryGenerics;
+        private readonly IRepositoryGenerics<Time> _timeRepository;
+        private readonly IRepositoryGenerics<Partida> _partidaRepository;
         private readonly IRepositoryCampeonato _repositoryCampeonato;
-        public CampeonatoService(IRepositoryGenerics<Campeonato> repositoryGenerics, IRepositoryGenerics<CampeonatoTime> CampeonatoTimeRepository, IRepositoryCampeonato repositoryCampeonato) : base(repositoryGenerics)
+        private readonly INotificacaoService? _notificacaoService;
+        public CampeonatoService(IRepositoryGenerics<Campeonato> repositoryGenerics, IRepositoryGenerics<CampeonatoTime> CampeonatoTimeRepository, IRepositoryGenerics<Time> timeRepository, IRepositoryGenerics<Partida> partidaRepository, IRepositoryCampeonato repositoryCampeonato, INotificacaoService notificacaoService) : base(repositoryGenerics)
         {
             _CampeonatoTimeRepository = CampeonatoTimeRepository;
             _repositoryGenerics = repositoryGenerics;
+            _timeRepository = timeRepository;
+            _notificacaoService = notificacaoService;
+            _partidaRepository = partidaRepository;
             _repositoryCampeonato = repositoryCampeonato;
+        }
+
+        // Mantém compatibilidade com os testes que não precisam disparar notificações.
+        public CampeonatoService(
+            IRepositoryGenerics<Campeonato> repositoryGenerics,
+            IRepositoryGenerics<CampeonatoTime> campeonatoTimeRepository,
+            IRepositoryGenerics<Time> timeRepository,
+            IRepositoryGenerics<Partida> partidaRepository,
+            IRepositoryCampeonato repositoryCampeonato)
+            : this(repositoryGenerics, campeonatoTimeRepository, timeRepository, partidaRepository, repositoryCampeonato, null!)
+        {
         }
 
         public async Task<IEnumerable<Campeonato>> ObterCampeonatosComTimes()
@@ -31,7 +48,7 @@ namespace kivoBackend.Application.Services
         public async Task<Campeonato> ObterCampeonatoPorId(Guid id)
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(id);
-            if(campeonato == null)
+            if (campeonato == null)
                 throw new Exception("Campeonato não encontrado");
             return campeonato;
         }
@@ -51,6 +68,22 @@ namespace kivoBackend.Application.Services
 
         public async Task AdicionarTimeAoCampeonato(Guid campeonatoId, Guid timeId)
         {
+            var campeonato = await _repositoryGenerics.ObterPorId(campeonatoId);
+            if (campeonato == null)
+                throw new Exception("Campeonato não encontrado.");
+
+            var time = await _timeRepository.ObterPorId(timeId);
+            if (time == null)
+                throw new Exception("Time não encontrado.");
+
+            if (time.EsporteId != campeonato.EsporteId)
+                throw new Exception("Só é possível convidar times do mesmo esporte do campeonato.");
+
+            var conviteExistente = await _CampeonatoTimeRepository.BuscarPrimeiro(ct =>
+                ct.CampeonatoId == campeonatoId && ct.TimeId == timeId);
+            if (conviteExistente != null)
+                throw new InvalidOperationException("Este time já possui convite ou participação neste campeonato.");
+
             var novoConvite = new CampeonatoTime
             {
                 Id = Guid.NewGuid(),
@@ -61,14 +94,25 @@ namespace kivoBackend.Application.Services
             };
 
             await _CampeonatoTimeRepository.Adicionar(novoConvite);
+            if (time.OrganizadorTime?.UsuarioId != null)
+            {
+                await _notificacaoService.CriarNotificacaoAsync(
+                    time.OrganizadorTime.UsuarioId,
+                    "Novo Convite para Campeonato! 🏆",
+                    $"Seu time '{time.Nome}' foi convidado para participar do campeonato '{campeonato.Nome}'.",
+                    EnumTipoNotificacao.TimeInscrito,
+                    link: "/meu-time/convites",
+                    enviarEmail: true
+                );
+            }
         }
 
         public async Task<IEnumerable<CampeonatoTime>> ObterConvitesPorOrganizador(Guid organizadorTimeId)
         {
-             var vinculos = await _CampeonatoTimeRepository.ObterComIncludes(
-                 x => x.Time,
-                 x => x.Campeonato
-             );
+            var vinculos = await _CampeonatoTimeRepository.ObterComIncludes(
+                x => x.Time,
+                x => x.Campeonato
+            );
 
             return vinculos.Where(x =>
                 x.EnumStatusParticipacao == EnumStatusParticipacao.Pendente &&
@@ -98,17 +142,36 @@ namespace kivoBackend.Application.Services
 
         public async Task ResponderConviteCampeonato(Guid ParticipacaoId, Guid OrganizadorTimeId, bool aceito)
         {
-            var participacao = await _CampeonatoTimeRepository.ObterPorId(ParticipacaoId);
-            if (participacao != null)
-            {
-                participacao.EnumStatusParticipacao = aceito ? EnumStatusParticipacao.Aceito : EnumStatusParticipacao.Recusado;
-                participacao.RespondidoEm = DateTime.Now;
-                participacao.RespondidoPorOrganizadorTimeId = OrganizadorTimeId;
-                await _CampeonatoTimeRepository.Atualizar(participacao);
-            }
-            else
-            {
+            var vinculos = await _CampeonatoTimeRepository.ObterComIncludes(x => x.Time);
+            var participacao = vinculos.FirstOrDefault(x => x.Id == ParticipacaoId);
+            if (participacao == null)
                 throw new Exception("Esse convite não existe mais");
+
+            if (participacao.Time == null || participacao.Time.OrganizadorTimeId != OrganizadorTimeId)
+                throw new UnauthorizedAccessException("Este convite não pertence ao organizador autenticado.");
+
+            if (participacao.RespondidoEm.HasValue || participacao.EnumStatusParticipacao != EnumStatusParticipacao.Pendente)
+                throw new InvalidOperationException("Este convite já foi respondido.");
+
+            participacao.EnumStatusParticipacao = aceito ? EnumStatusParticipacao.Aceito : EnumStatusParticipacao.Recusado;
+            participacao.RespondidoEm = DateTime.Now;
+            participacao.RespondidoPorOrganizadorTimeId = OrganizadorTimeId;
+            await _CampeonatoTimeRepository.Atualizar(participacao);
+
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(participacao.CampeonatoId);
+            var time = await _timeRepository.ObterPorId(participacao.TimeId);
+
+            if (_notificacaoService != null && campeonato?.OrganizadorCampeonato?.UsuarioId != null && time != null)
+            {
+                string respostaTexto = aceito ? "aceitou o convite e está confirmado" : "recusou o convite";
+                await _notificacaoService.CriarNotificacaoAsync(
+                    campeonato.OrganizadorCampeonato.UsuarioId,
+                    "Resposta de Convite 📋",
+                    $"O time '{time.Nome}' {respostaTexto} para o campeonato '{campeonato.Nome}'.",
+                    EnumTipoNotificacao.TimeInscrito,
+                    link: $"/campeonatos/{campeonato.Id}/times",
+                    enviarEmail: false
+                );
             }
         }
 
@@ -120,44 +183,160 @@ namespace kivoBackend.Application.Services
         public async Task<Campeonato> IniciarCampeonato(Guid campeonatoId)
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
-
-            if (campeonato == null)
-                throw new Exception("Campeonato não encontrado.");
-
-            int contagemTimesConfirmados = campeonato.CampeonatoTimes?
-                .Count(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0;
-
-            if (contagemTimesConfirmados < 8)
+            int timesConfirmados = campeonato.CampeonatoTimes?.Count(ct => ct.EnumStatusParticipacao == EnumStatusParticipacao.Aceito) ?? 0;
+            if (timesConfirmados == 0)
             {
-                throw new Exception($"O campeonato precisa de pelo menos 8 times confirmados. Atuais: {contagemTimesConfirmados}");
+                throw new Exception("Não é possível iniciar um campeonato sem times confirmados.");
+            }
+            if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.MataMata)
+            {
+                if (!ePotenciaDeDois(timesConfirmados))
+                    throw new Exception("Mata-mata requer um número de times que seja potência de 2 (ex: 4, 8, 16).");
+            }
+            else if (campeonato.FormatoCampeonato == EnumFormatoCampeonato.PontosCorridos)
+            {
+                if (timesConfirmados < 8)
+                    throw new Exception("Pontos corridos requer pelo menos 8 times.");
             }
 
             campeonato.EnumStatusCampeonato = EnumStatusCampeonato.EmAndamento;
             await _repositoryGenerics.Atualizar(campeonato);
+            if (campeonato.CampeonatoTimes != null)
+            {
+                foreach (var ct in campeonato.CampeonatoTimes.Where(v => v.EnumStatusParticipacao == EnumStatusParticipacao.Aceito))
+                {
+                    var time = await _timeRepository.ObterPorId(ct.TimeId);
+                    if (time?.OrganizadorTime?.UsuarioId != null)
+                    {
+                        await _notificacaoService.CriarNotificacaoAsync(
+                            time.OrganizadorTime.UsuarioId,
+                            "Campeonato Iniciado! 🚀⚽",
+                            $"O campeonato '{campeonato.Nome}' começou! Confira a tabela de jogos e prepare sua equipe.",
+                            EnumTipoNotificacao.CampeonatoFase,
+                            link: $"/campeonatos/{campeonato.Id}/tabela",
+                            enviarEmail: false
+                        );
+                    }
+                }
+            }
             return campeonato;
         }
+        private bool ePotenciaDeDois(int n) => n > 0 && (n & (n - 1)) == 0;
 
-        public async Task<Campeonato> EditarCampeonato(Guid campeonatoId, EditarCampeonatoDto dto)
+        public async Task<Campeonato> EditarCampeonato(Guid campeonatoId, EditarCampeonatoDto dto, bool ehAdmin = false)
         {
             var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
             if (campeonato == null)
                 throw new Exception("Campeonato não encontrado.");
 
-            if (campeonato.EnumStatusCampeonato == EnumStatusCampeonato.EmAndamento ||
-                     campeonato.EnumStatusCampeonato == EnumStatusCampeonato.Finalizado)
+            if (!ehAdmin &&
+                (campeonato.EnumStatusCampeonato == EnumStatusCampeonato.EmAndamento ||
+                 campeonato.EnumStatusCampeonato == EnumStatusCampeonato.Finalizado))
             {
                 throw new Exception("Não é possível editar um campeonato que já iniciou ou finalizou.");
             }
 
+            if (dto.DataFim <= dto.DataInicio)
+                throw new ArgumentException("A data de fim deve ser posterior à data de início.");
+
+            if (dto.EsporteId != Guid.Empty)
+                campeonato.EsporteId = dto.EsporteId;
             campeonato.Nome = dto.Nome;
             campeonato.DataInicio = dto.DataInicio;
             campeonato.DataFim = dto.DataFim;
             campeonato.PontosVitoria = dto.PontosVitoria;
             campeonato.PontosDerrota = dto.PontosDerrota;
             campeonato.PontosEmpate = dto.PontosEmpate;
+            campeonato.FormatoCampeonato = dto.FormatoCampeonato;
+            campeonato.QuantidadeTimesClassificam = dto.QuantidadeTimesClassificam;
+            if (!string.IsNullOrEmpty(dto.LogoUrl))
+                campeonato.LogoUrl = dto.LogoUrl;
 
             await _repositoryGenerics.Atualizar(campeonato);
             return campeonato;
+        }
+
+        public async Task DeletarCampeonatoAdmin(Guid campeonatoId)
+        {
+            var campeonato = await _repositoryGenerics.ObterPorId(campeonatoId);
+            if (campeonato == null) throw new Exception("Campeonato não encontrado.");
+
+            var partidas = await _partidaRepository.Buscar(p => p.CampeonatoId == campeonatoId);
+            foreach (var partida in partidas)
+                await _partidaRepository.Remover(partida.Id);
+
+            var vinculos = await _CampeonatoTimeRepository.Buscar(ct => ct.CampeonatoId == campeonatoId);
+            foreach (var vinculo in vinculos)
+                await _CampeonatoTimeRepository.Remover(vinculo.Id);
+
+            await _repositoryGenerics.Remover(campeonatoId);
+        }
+
+        public async Task DescancelarCampeonato(Guid campeonatoId)
+        {
+            var campeonato = await _repositoryGenerics.ObterPorId(campeonatoId);
+            if (campeonato == null) throw new Exception("Campeonato não encontrado.");
+
+            if (campeonato.EnumStatusCampeonato != EnumStatusCampeonato.Cancelado)
+                throw new Exception("Apenas campeonatos cancelados podem ser descancelados.");
+
+            campeonato.EnumStatusCampeonato = EnumStatusCampeonato.InscricoesAbertas;
+            await _repositoryGenerics.Atualizar(campeonato);
+        }
+
+        public async Task ReatribuirCampeonato(Guid campeonatoId, Guid novoOrganizadorCampeonatoId)
+        {
+            var campeonato = await _repositoryGenerics.ObterPorId(campeonatoId);
+            if (campeonato == null) throw new Exception("Campeonato não encontrado.");
+
+            campeonato.OrganizadorCampeonatoId = novoOrganizadorCampeonatoId;
+            await _repositoryGenerics.Atualizar(campeonato);
+        }
+
+        public async Task CancelarCampeonato(Guid campeonatoId)
+        {
+            var campeonato = await _repositoryCampeonato.ObterCampeonatoPorId(campeonatoId);
+            if (campeonato == null) throw new Exception("Campeonato não encontrado.");
+
+            if (campeonato.EnumStatusCampeonato == EnumStatusCampeonato.Finalizado)
+                throw new Exception("Não é possível cancelar um campeonato que já foi finalizado.");
+
+            if (campeonato.EnumStatusCampeonato == EnumStatusCampeonato.Cancelado)
+                throw new Exception("Este campeonato já está cancelado.");
+
+            campeonato.EnumStatusCampeonato = EnumStatusCampeonato.Cancelado;
+            await _repositoryGenerics.Atualizar(campeonato);
+
+            if (campeonato.Partidas != null && campeonato.Partidas.Any())
+            {
+                var partidasParaRemover = campeonato.Partidas.Where(p => !p.Finalizado).ToList();
+
+                foreach (var partida in partidasParaRemover)
+                {
+                    campeonato.Partidas.Remove(partida);
+                }
+
+                await _repositoryGenerics.Atualizar(campeonato);
+            }
+
+            if (campeonato.CampeonatoTimes != null)
+            {
+                foreach (var ct in campeonato.CampeonatoTimes)
+                {
+                    var time = await _timeRepository.ObterPorId(ct.TimeId);
+                    if (time?.OrganizadorTime?.UsuarioId != null)
+                    {
+                        await _notificacaoService.CriarNotificacaoAsync(
+                            time.OrganizadorTime.UsuarioId,
+                            "Campeonato Cancelado ⚠️",
+                            $"O campeonato '{campeonato.Nome}' foi cancelado pelo organizador.",
+                            EnumTipoNotificacao.Sistema,
+                            link: "/meu-time",
+                            enviarEmail: true
+                        );
+                    }
+                }
+            }
         }
     }
 }

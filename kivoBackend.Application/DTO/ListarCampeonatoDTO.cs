@@ -1,4 +1,5 @@
-﻿using System;
+﻿using kivoBackend.Core.Enums;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,9 +11,14 @@ namespace kivoBackend.Application.DTO
     {
         public Guid Id { get; set; }
         public Guid OrganizadorCampeonatoId { get; set; }
+        public string? OrganizadorNome { get; set; }
+        public Guid EsporteId { get; set; }
+        public string? EsporteNome { get; set; }
+        public string? EsporteIcone { get; set; }
         public string Nome { get; set; }
         public DateTime DataInicio { get; set; }
         public DateTime DataFim { get; set; }
+        public string? LogoUrl { get; set; }
         public string Status { get; set; }
         public int TotalTimes { get; set; }
         public List<Guid> Times { get; set; }
@@ -20,6 +26,11 @@ namespace kivoBackend.Application.DTO
         public int PontosVitoria { get; set; }
         public int PontosDerrota { get; set; }
         public int PontosEmpate { get; set; }
+        public int QuantidadeTimesClassificam { get; set; }
+        public string FormatoCampeonato { get; set; }
+        public Guid? VencedorTimeId { get; set; }
+        public string? VencedorTimeNome { get; set; }
+        public string? VencedorTimeLogo { get; set; }
         public List<Guid> TimeIds { get; set; } = new();
     }
 }

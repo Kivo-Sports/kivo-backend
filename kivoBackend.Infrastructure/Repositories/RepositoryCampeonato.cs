@@ -24,6 +24,10 @@ namespace kivoBackend.Infrastructure.Repositories
             return await _context.Campeonatos
                 .Include(c => c.CampeonatoTimes)
                 .ThenInclude(ct => ct.Time)
+                .Include(c => c.OrganizadorCampeonato)
+                .ThenInclude(o => o.Usuario)
+                .Include(c => c.TimeVencedor)
+                .Include(c => c.Esporte)
                 .ToListAsync();
         }
 
@@ -32,6 +36,10 @@ namespace kivoBackend.Infrastructure.Repositories
             return await _context.Campeonatos
                 .Include(c => c.CampeonatoTimes)
                 .ThenInclude(ct => ct.Time)
+                .Include(c => c.OrganizadorCampeonato)
+                .ThenInclude(o => o.Usuario)
+                .Include(c => c.TimeVencedor)
+                .Include(c => c.Esporte)
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
     }

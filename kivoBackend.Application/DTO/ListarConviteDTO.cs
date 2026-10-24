@@ -15,6 +15,7 @@ namespace kivoBackend.Application.DTO
         public DateTime ConvidadoEm { get; set; }
         public DateTime DataInicio { get; set; }
         public DateTime DataFim { get; set; }
+        public string? LogoUrl { get; set; }
         public int PontosVitoria { get; set; }
         public int PontosDerrota { get; set; }
         public int PontosEmpate { get; set; }

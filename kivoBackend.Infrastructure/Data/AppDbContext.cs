@@ -20,10 +20,18 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<ContaBanco> ContasBanco { get; set; }
         public DbSet<Time> Times { get; set; }
         public DbSet<Campeonato> Campeonatos { get; set; }
+        public DbSet<Esporte> Esportes { get; set; }
         public DbSet<CampeonatoTime> CampeonatoTimes { get; set; }
+        public DbSet<Partida> Partidas { get; set; }
         public DbSet<RecuperacaoSenha> RecuperacoesSenha { get; set; }
         public DbSet<CodigoReativacao> CodigosReativacao { get; set; }
         public DbSet<VerificationCode> VerificationCodes { get; set; }
+        public DbSet<Favorito> Favoritos { get; set; }
+        public DbSet<IngressoLote> IngressoLotes { get; set; }
+        public DbSet<Ingresso> Ingressos { get; set; }
+        public DbSet<Notificacao> Notificacoes { get; set; }
+        public DbSet<Post> Posts { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -79,9 +87,27 @@ namespace kivoBackend.Infrastructure.Data
                 .HasForeignKey<ContaBanco>(cb => cb.OrganizadorCampeonatoId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Relacionamento Time -> Esporte (modalidade do time)
+            modelBuilder.Entity<Time>()
+                .HasOne(t => t.Esporte)
+                .WithMany()
+                .HasForeignKey(t => t.EsporteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relacionamento Campeonato -> Esporte (modalidade do campeonato)
+            modelBuilder.Entity<Campeonato>()
+                .HasOne(c => c.Esporte)
+                .WithMany()
+                .HasForeignKey(c => c.EsporteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Configuração da Tabela de Associação (N:N) Campeonato <-> Time
             modelBuilder.Entity<CampeonatoTime>()
                 .HasKey(ct => ct.Id);
+
+            modelBuilder.Entity<CampeonatoTime>()
+                .HasIndex(ct => new { ct.CampeonatoId, ct.TimeId })
+                .IsUnique();
 
             modelBuilder.Entity<CampeonatoTime>()
                 .HasOne(ct => ct.Campeonato)
@@ -108,6 +134,79 @@ namespace kivoBackend.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(vc => vc.UsuarioId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // A tabela já existe no banco como "Partida" (singular), criada antes do DbSet.
+            // Mapeia explicitamente para não procurar "Partidas".
+            modelBuilder.Entity<Partida>()
+                .ToTable("Partida");
+
+            // Dois FKs para Time precisam ser configurados explicitamente para evitar ambiguidade
+            modelBuilder.Entity<Partida>()
+                .HasOne(p => p.TimeCasa)
+                .WithMany()
+                .HasForeignKey(p => p.TimeCasaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Partida>()
+                .HasOne(p => p.TimeVisitante)
+                .WithMany()
+                .HasForeignKey(p => p.TimeVisitanteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Favorito: impede duplicidade do mesmo item para o mesmo usuário.
+            modelBuilder.Entity<Favorito>()
+                .HasIndex(f => new { f.UsuarioId, f.Tipo, f.ItemId })
+                .IsUnique();
+
+            // Mapeamento do Ingresso e prevenção de Cascade Delete múltiplos
+            modelBuilder.Entity<Ingresso>()
+                .HasOne(i => i.Usuario)
+                .WithMany()
+                .HasForeignKey(i => i.UsuarioId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Ingresso>()
+                .HasOne(i => i.IngressoLote)
+                .WithMany()
+                .HasForeignKey(i => i.IngressoLoteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // (Aproveitamos para definir a precisão decimal e tirar os avisos/warnings do terminal)
+            modelBuilder.Entity<Ingresso>()
+                .Property(i => i.PrecoPago)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<IngressoLote>()
+                .Property(il => il.Preco)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Post>()
+                .Property(p => p.Titulo)
+                .HasMaxLength(160);
+
+            modelBuilder.Entity<Post>()
+                .Property(p => p.Conteudo)
+                .HasMaxLength(5000);
+
+            modelBuilder.Entity<Post>()
+                .HasOne(p => p.Autor)
+                .WithMany()
+                .HasForeignKey(p => p.AutorId)
+                // Evita dois caminhos de cascade até Posts no SQL Server.
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Post>()
+                .HasOne(p => p.TimeAutor)
+                .WithMany()
+                .HasForeignKey(p => p.TimeAutorId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Post>()
+                .HasOne(p => p.CampeonatoAutor)
+                .WithMany()
+                .HasForeignKey(p => p.CampeonatoAutorId)
+                .OnDelete(DeleteBehavior.NoAction);
+
         }
     }
 }

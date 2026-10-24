@@ -1,6 +1,7 @@
-﻿using kivoBackend.Core.Entities;
+using kivoBackend.Core.Entities;
 using kivoBackend.Core.Interfaces;
 using kivoBackend.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,6 +17,20 @@ namespace kivoBackend.Infrastructure.Repositories
         public RepositoryTime(AppDbContext context) : base(context)
         {
             _context = context;
+        }
+
+        public override async Task<IEnumerable<Time>> ObterTodos()
+        {
+            return await _context.Times
+                .Include(t => t.Esporte)
+                .ToListAsync();
+        }
+
+        public override async Task<Time?> ObterPorId(Guid id)
+        {
+            return await _context.Times
+                .Include(t => t.Esporte)
+                .FirstOrDefaultAsync(t => t.Id == id);
         }
     }
 }

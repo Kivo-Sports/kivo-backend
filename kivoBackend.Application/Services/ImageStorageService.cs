@@ -7,34 +7,56 @@ namespace kivoBackend.Application.Services
 {
     public class ImageStorageService : IStorageService
     {
-        private readonly StorageClient _storageClient;
         private readonly string _bucketName;
+        private readonly string? _credentialPath;
+        private StorageClient? _storageClient;
 
         public ImageStorageService(IConfiguration configuration)
         {
             _bucketName = configuration["FIREBASE_BUCKET"] ?? "kivo-sports.firebasestorage.app";
             var credentialFileName = configuration["GOOGLE_APPLICATION_CREDENTIALS"];
 
-            var path = Path.Combine(Directory.GetCurrentDirectory(), credentialFileName);
-
-            if (File.Exists(path))
-            {
-                var credential = GoogleCredential.FromFile(path);
-                _storageClient = StorageClient.Create(credential);
-            }
-            else
-            {
-                _storageClient = StorageClient.Create();
-            }
+            _credentialPath = string.IsNullOrWhiteSpace(credentialFileName)
+                ? null
+                : Path.Combine(Directory.GetCurrentDirectory(), credentialFileName);
         }
 
-        public async Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType)
-        {
-            var objectName = $"logos/{Guid.NewGuid()}_{fileName}";
+        public Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType)
+            => UploadFileAsync(fileStream, fileName, contentType, "logos");
 
-            await _storageClient.UploadObjectAsync(_bucketName, objectName, contentType, fileStream);
+        public async Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType, string directory)
+        {
+            var safeDirectory = directory.Trim().Trim('/');
+            var objectName = $"{safeDirectory}/{Guid.NewGuid()}_{fileName}";
+
+            await GetStorageClient().UploadObjectAsync(_bucketName, objectName, contentType, fileStream);
 
             return $"https://firebasestorage.googleapis.com/v0/b/{_bucketName}/o/{Uri.EscapeDataString(objectName)}?alt=media";
+        }
+
+        private StorageClient GetStorageClient()
+        {
+            if (_storageClient != null)
+                return _storageClient;
+
+            try
+            {
+                if (_credentialPath != null && File.Exists(_credentialPath))
+                {
+                    var credential = GoogleCredential.FromFile(_credentialPath);
+                    _storageClient = StorageClient.Create(credential);
+                }
+                else
+                {
+                    _storageClient = StorageClient.Create();
+                }
+
+                return _storageClient;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Storage de imagens não configurado para upload.", ex);
+            }
         }
     }
 }
