@@ -118,7 +118,8 @@ builder.Services.AddControllers();
 // CORS
 builder.Services.AddCors(options =>
 {
-    var origins = builder.Configuration["CORS_ORIGINS"]?.Split(',') ?? new[] { "http://localhost:3000", "http://localhost:3001" };
+    var origins = builder.Configuration["CORS_ORIGINS"]?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        ?? new[] { "http://localhost:3000", "http://localhost:3001" };
     options.AddPolicy("AllowFrontend", corsBuilder =>
     {
         corsBuilder.WithOrigins(origins)
@@ -247,8 +248,8 @@ builder.Services.AddHttpClient<IAsaasService, AsaasService>();
 
 var app = builder.Build();
 
-// Swagger
-if (app.Environment.IsDevelopment())
+// Swagger (em produção, só com ENABLE_SWAGGER=true)
+if (app.Environment.IsDevelopment() || Environment.GetEnvironmentVariable("ENABLE_SWAGGER") == "true")
 {
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -261,9 +262,20 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Health check sem acesso ao banco (usado para manter a API acordada no Azure)
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
 // Inicialização de Roles e Usuário Admin
 using (var scope = app.Services.CreateScope())
 {
+    // Em produção o banco é criado/atualizado pelas migrations no startup
+    if (Environment.GetEnvironmentVariable("APPLY_MIGRATIONS") == "true")
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        // Retry cobre o banco do Azure acordando da pausa automática
+        await dbContext.Database.CreateExecutionStrategy().ExecuteAsync(() => dbContext.Database.MigrateAsync());
+    }
+
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
     var usuarioRepository = scope.ServiceProvider.GetRequiredService<IRepositoryGenerics<Usuario>>();
@@ -278,7 +290,13 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    var adminEmail = "admin@kivo.com";
+    // Em produção, defina ADMIN_EMAIL e ADMIN_PASSWORD para não usar as credenciais padrão do README
+    var adminEmail = Environment.GetEnvironmentVariable("ADMIN_EMAIL") is { Length: > 0 } envAdminEmail
+        ? envAdminEmail
+        : "admin@kivo.com";
+    var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD") is { Length: > 0 } envAdminPassword
+        ? envAdminPassword
+        : "Admin@123456";
     var adminUser = await userManager.FindByEmailAsync(adminEmail);
 
     if (adminUser == null)
@@ -290,7 +308,7 @@ using (var scope = app.Services.CreateScope())
             EmailConfirmed = true
         };
 
-        var result = await userManager.CreateAsync(newAdmin, "Admin@123456");
+        var result = await userManager.CreateAsync(newAdmin, adminPassword);
 
         if (result.Succeeded)
         {

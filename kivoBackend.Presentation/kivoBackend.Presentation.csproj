@@ -27,4 +27,9 @@
     <ProjectReference Include="..\kivoBackend.Core\kivoBackend.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Credencial local do Firebase nunca vai no pacote publicado (em produção vem de FIREBASE_CREDENTIALS_JSON) -->
+    <Content Update="firebase-key.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
 </Project>
