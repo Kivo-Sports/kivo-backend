@@ -31,6 +31,7 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<Ingresso> Ingressos { get; set; }
         public DbSet<Notificacao> Notificacoes { get; set; }
         public DbSet<Post> Posts { get; set; }
+        public DbSet<TipoDeficiencia> TiposDeficiencia { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -171,7 +172,18 @@ namespace kivoBackend.Infrastructure.Data
                 .HasForeignKey(i => i.IngressoLoteId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // (Aproveitamos para definir a precisão decimal e tirar os avisos/warnings do terminal)
+            modelBuilder.Entity<Ingresso>()
+                .HasOne(i => i.TipoDeficiencia)
+                .WithMany()
+                .HasForeignKey(i => i.TipoDeficienciaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TipoDeficiencia>().HasData(
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.NenhumaId, Descricao = "Nenhuma" },
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.AuditivaId, Descricao = "Pessoa com deficiência auditiva" },
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.CadeiranteId, Descricao = "Cadeirante" }
+            );
+
             modelBuilder.Entity<Ingresso>()
                 .Property(i => i.PrecoPago)
                 .HasPrecision(18, 2);

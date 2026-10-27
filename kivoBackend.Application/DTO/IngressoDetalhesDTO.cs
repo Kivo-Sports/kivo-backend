@@ -22,5 +22,7 @@ namespace kivoBackend.Application.DTO
         public string PixCopiaCola { get; set; } = string.Empty;
         public string NomeTitular { get; set; } = string.Empty;
         public string CpfTitular { get; set; } = string.Empty;
+        public Guid TipoDeficienciaId { get; set; }
+        public string TipoDeficienciaDescricao { get; set; } = string.Empty;
     }
 }
