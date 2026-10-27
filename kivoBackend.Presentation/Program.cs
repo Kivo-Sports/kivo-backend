@@ -7,6 +7,7 @@ using kivoBackend.Core.Interfaces;
 using kivoBackend.Infrastructure.Data;
 using kivoBackend.Infrastructure.Repositories;
 using kivoBackend.Presentation.Auth;
+using kivoBackend.Presentation.Documentation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -131,32 +132,7 @@ builder.Services.AddCors(options =>
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "JWT Authorization header usando o esquema Bearer. Exemplo: \"Bearer {token}\""
-    });
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
-        }
-    });
-});
+builder.Services.AddSwaggerGen(KivoOpenApi.Configure);
 
 // DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
