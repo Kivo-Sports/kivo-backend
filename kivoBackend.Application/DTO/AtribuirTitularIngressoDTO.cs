@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace kivoBackend.Application.DTO
@@ -10,5 +11,8 @@ namespace kivoBackend.Application.DTO
         [Required]
         [StringLength(14, MinimumLength = 11, ErrorMessage = "Informe um CPF válido.")]
         public string Cpf { get; set; } = string.Empty;
+
+        [Required]
+        public Guid TipoDeficienciaId { get; set; }
     }
 }
