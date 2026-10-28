@@ -13,6 +13,7 @@ namespace kivoBackend.Presentation.Controller
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
+    [TypeFilter(typeof(UsuarioResponsabilidadeFilter))]
     public class TimeController : ControllerBase
     {
         private readonly ITimeService _timeService;
@@ -62,6 +63,7 @@ namespace kivoBackend.Presentation.Controller
                 {
                     return Ok(todosOsTimes.Select(t => MapearParaDto(t)));
                 }
+                if (usuario.EnumCargo != EnumCargo.OrganizadorTime) return Forbid();
                 var organizador = usuario.OrganizadorTime;
                 if (organizador == null)
                     return BadRequest(new { message = "Perfil de Organizador de Time não encontrado." });
@@ -194,6 +196,12 @@ namespace kivoBackend.Presentation.Controller
 
                 if (!await PodeAlterarTime(time)) return Forbid();
 
+                if (!time.Ativo)
+                {
+                    if (!await _usuarioService.ResponsavelValido(time.OrganizadorTimeId, EnumCargo.OrganizadorTime, permitirAdmin: true))
+                        return Conflict(new { code = "invalid_owner", message = "Reatribua o time a um responsável ativo antes de reativá-lo." });
+                }
+
                 // Ao DESATIVAR, bloquear se o time participa de campeonato com
                 // inscrições abertas ou em andamento (evita quebrar campeonatos ativos).
                 if (time.Ativo)
@@ -243,6 +251,8 @@ namespace kivoBackend.Presentation.Controller
                 var time = await _timeService.ObterPorId(id);
                 if (time == null) return NotFound("Time não encontrado.");
 
+                if (!await _usuarioService.ResponsavelValido(dto.NovoOrganizadorTimeId, EnumCargo.OrganizadorTime))
+                    return Conflict(new { code = "invalid_owner", message = "Selecione um organizador de time ativo." });
                 time.OrganizadorTimeId = dto.NovoOrganizadorTimeId;
                 await _timeService.Atualizar(time);
                 return Ok(MapearParaDto(time));
@@ -253,13 +263,13 @@ namespace kivoBackend.Presentation.Controller
         private async Task<Guid?> ObterOrganizadorTimeIdParaCriacao(Guid organizadorTimeIdDoDto)
         {
             if (_currentUser.IsAdmin)
-                return organizadorTimeIdDoDto == Guid.Empty ? null : organizadorTimeIdDoDto;
+                return await _usuarioService.ResponsavelValido(organizadorTimeIdDoDto, EnumCargo.OrganizadorTime) ? organizadorTimeIdDoDto : null;
 
             if (!_currentUser.UserId.HasValue)
                 return null;
 
             var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
-            return usuario.OrganizadorTime?.Id;
+            return usuario.EnumCargo == EnumCargo.OrganizadorTime ? usuario.OrganizadorTime?.Id : null;
         }
 
         private async Task<bool> PodeAlterarTime(Time time)
@@ -271,7 +281,7 @@ namespace kivoBackend.Presentation.Controller
                 return false;
 
             var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
-            return usuario.OrganizadorTime?.Id == time.OrganizadorTimeId;
+            return usuario.EnumCargo == EnumCargo.OrganizadorTime && usuario.OrganizadorTime?.Id == time.OrganizadorTimeId;
         }
     }
 }

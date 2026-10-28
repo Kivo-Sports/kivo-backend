@@ -10,6 +10,7 @@ namespace kivoBackend.Presentation.Controller
 {
     [ApiController]
     [Route("api/[controller]")]
+    [TypeFilter(typeof(UsuarioResponsabilidadeFilter))]
     public class CampeonatoController : ControllerBase
     {
         private readonly ICampeonatoService _campeonatoService;
@@ -137,8 +138,12 @@ namespace kivoBackend.Presentation.Controller
                     dto.LogoUrl = await _storageService.UploadFileAsync(stream, logo.FileName, logo.ContentType);
                 }
 
+                var eraHistorico = campeonato.EnumStatusCampeonato is EnumStatusCampeonato.Finalizado or EnumStatusCampeonato.Cancelado;
                 var ehAdmin = User.IsInRole("Administrador");
                 var resultado = await _campeonatoService.EditarCampeonato(id, dto, ehAdmin);
+                if (eraHistorico && resultado.EnumStatusCampeonato is not (EnumStatusCampeonato.Finalizado or EnumStatusCampeonato.Cancelado) &&
+                    !await _usuarioService.ResponsavelValido(resultado.OrganizadorCampeonatoId, EnumCargo.OrganizadorCampeonato, permitirAdmin: true))
+                    return Conflict(new { code = "invalid_owner", message = "Reatribua o campeonato a um responsável ativo antes de reativá-lo." });
                 return Ok(MapearParaDto(resultado));
             }
             catch (Exception ex)
@@ -260,6 +265,9 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                var campeonato = await _campeonatoService.ObterCampeonatoPorId(id);
+                if (!await _usuarioService.ResponsavelValido(campeonato.OrganizadorCampeonatoId, EnumCargo.OrganizadorCampeonato, permitirAdmin: true))
+                    return Conflict(new { code = "invalid_owner", message = "Reatribua o campeonato a um responsável ativo antes de reativá-lo." });
                 await _campeonatoService.DescancelarCampeonato(id);
                 return Ok("Campeonato reativado com sucesso.");
             }
@@ -272,6 +280,8 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
+                if (!await _usuarioService.ResponsavelValido(dto.NovoOrganizadorCampeonatoId, EnumCargo.OrganizadorCampeonato))
+                    return Conflict(new { code = "invalid_owner", message = "Selecione um organizador de campeonato ativo." });
                 await _campeonatoService.ReatribuirCampeonato(id, dto.NovoOrganizadorCampeonatoId);
                 return Ok("Campeonato reatribuído com sucesso.");
             }
@@ -394,13 +404,13 @@ namespace kivoBackend.Presentation.Controller
         private async Task<Guid?> ObterOrganizadorCampeonatoIdParaCriacao(Guid organizadorCampeonatoIdDoDto)
         {
             if (_currentUser.IsAdmin)
-                return organizadorCampeonatoIdDoDto == Guid.Empty ? null : organizadorCampeonatoIdDoDto;
+                return await _usuarioService.ResponsavelValido(organizadorCampeonatoIdDoDto, EnumCargo.OrganizadorCampeonato) ? organizadorCampeonatoIdDoDto : null;
 
             if (!_currentUser.UserId.HasValue)
                 return null;
 
             var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
-            return usuario.OrganizadorCampeonato?.Id;
+            return usuario.EnumCargo == EnumCargo.OrganizadorCampeonato ? usuario.OrganizadorCampeonato?.Id : null;
         }
 
         private async Task<Guid?> ObterOrganizadorTimeIdAtual()
@@ -409,7 +419,7 @@ namespace kivoBackend.Presentation.Controller
                 return null;
 
             var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
-            return usuario.OrganizadorTime?.Id;
+            return usuario.EnumCargo == EnumCargo.OrganizadorTime ? usuario.OrganizadorTime?.Id : null;
         }
 
         private async Task<bool> PodeAlterarCampeonato(Guid campeonatoId)
@@ -427,7 +437,7 @@ namespace kivoBackend.Presentation.Controller
                 return false;
 
             var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
-            return usuario.OrganizadorCampeonato?.Id == campeonato.OrganizadorCampeonatoId;
+            return usuario.EnumCargo == EnumCargo.OrganizadorCampeonato && usuario.OrganizadorCampeonato?.Id == campeonato.OrganizadorCampeonatoId;
         }
 
         private static bool PeriodoCampeonatoValido(DateTime dataInicio, DateTime dataFim)

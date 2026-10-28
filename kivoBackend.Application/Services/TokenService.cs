@@ -28,6 +28,7 @@ namespace kivoBackend.Application.Services
                 new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
                 new Claim(ClaimTypes.Email, identityUser.Email ?? ""),
                 new Claim("Cargo", usuario.EnumCargo.ToString()),
+                new Claim(UsuarioSessionValidation.VersionClaim, usuario.VersaoSessao.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 

@@ -19,6 +19,8 @@ namespace kivoBackend.Core.Entities
         public DateTime DataNascimento { get; set; }
         public EnumCargo EnumCargo { get; set; }
         public bool Ativo { get; set; }
+        public EnumEstadoAdministrativo EstadoAdministrativo { get; set; }
+        public int VersaoSessao { get; set; } = 1;
         public DateTime CriadoEm { get; set; }
         public Torcedor Torcedor { get; set; }
         public OrganizadorTime OrganizadorTime { get; set; }

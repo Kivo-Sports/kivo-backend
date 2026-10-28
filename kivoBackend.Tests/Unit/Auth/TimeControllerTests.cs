@@ -67,7 +67,7 @@ public class TimeControllerTests
     }
 
     [Fact]
-    public async Task GetAllOrganizador_OrganizadorSemPerfil_RetornaBadRequest()
+    public async Task GetAllOrganizador_CargoSemPermissao_RetornaForbidden()
     {
         var userId = Guid.NewGuid();
         var usuarios = new FakeUsuarioService();
@@ -76,7 +76,7 @@ public class TimeControllerTests
             new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(userId));
         controller.ControllerContext = FakeHttpContext(userId);
 
-        Assert.IsType<BadRequestObjectResult>(await controller.GetAllOrganizador());
+        Assert.IsType<ForbidResult>(await controller.GetAllOrganizador());
     }
 
     [Fact]
@@ -228,10 +228,12 @@ public class TimeControllerTests
     {
         var time = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = Guid.NewGuid(), Nome = "A", Cidade = "SP", Estado = "SP" };
         var times = new FakeTimeService { Current = time };
-        var controller = new TimeController(times, new FakeUsuarioService(), new FakeStorageService(),
-            new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(Guid.NewGuid(), isAdmin: true));
-
+        var usuarios = new FakeUsuarioService();
         var novoOrganizadorId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        usuarios.Users[userId] = UsuarioOrganizadorTime(userId, novoOrganizadorId);
+        var controller = new TimeController(times, usuarios, new FakeStorageService(),
+            new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(Guid.NewGuid(), isAdmin: true));
         var result = Assert.IsType<OkObjectResult>(await controller.Reatribuir(time.Id, new ReatribuirTimeDTO { NovoOrganizadorTimeId = novoOrganizadorId }));
         var dto = Assert.IsType<ListarTimeDto>(result.Value);
         Assert.Equal(novoOrganizadorId, dto.OrganizadorTimeId);
