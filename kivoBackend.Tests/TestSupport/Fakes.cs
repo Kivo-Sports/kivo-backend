@@ -109,6 +109,11 @@ public class FakeCampeonatoRepository : EmptyRepo<Campeonato>, IRepositoryCampeo
 
 public sealed class FakeUsuarioService : IUsuarioService
 {
+    public Task<kivoBackend.Application.DTO.GestaoUsuarioPagina> ListarGestao(kivoBackend.Application.DTO.GestaoUsuarioFiltro filtro) => throw new NotSupportedException();
+    public Task AlterarEstadoAdministrativo(Guid id, Guid autorId, string acao) => ThrowOnAtivarConta != null ? throw ThrowOnAtivarConta : Task.CompletedTask;
+    public Task AlterarCargoAdministrativo(Guid id, Guid autorId, kivoBackend.Application.DTO.AlterarCargoUsuarioDTO dto) => throw new NotSupportedException();
+    public Task<bool> ResponsavelValido(Guid id, EnumCargo cargo, bool permitirAdmin = false) => Task.FromResult(Users.Values.Any(u => u.Ativo && (u.EnumCargo == cargo || permitirAdmin && u.EnumCargo == EnumCargo.Administrador) && (cargo == EnumCargo.OrganizadorTime ? u.OrganizadorTime?.Id == id : u.OrganizadorCampeonato?.Id == id)));
+
     public Dictionary<Guid, Usuario> Users { get; } = new();
     public Dictionary<string, Usuario> UsersByCpf { get; } = new();
     public bool RemoveCalled { get; private set; }

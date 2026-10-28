@@ -182,8 +182,10 @@ public class CampeonatoControllerTests
     {
         var campeonato = Campeonato(Guid.NewGuid());
         campeonato.EnumStatusCampeonato = EnumStatusCampeonato.Cancelado;
-        var (controller, _, _) = Build(campeonato, Guid.NewGuid(), isAdmin: true);
-
+        var usuarios = new FakeUsuarioService();
+        var userId = Guid.NewGuid();
+        usuarios.Users[userId] = UsuarioOrganizadorCampeonato(userId, campeonato.OrganizadorCampeonatoId);
+        var (controller, _, _) = Build(campeonato, Guid.NewGuid(), isAdmin: true, usuarios: usuarios);
         Assert.IsType<OkObjectResult>(await controller.Descancelar(campeonato.Id));
     }
 
@@ -193,15 +195,18 @@ public class CampeonatoControllerTests
         var campeonato = Campeonato(Guid.NewGuid()); // Rascunho
         var (controller, _, _) = Build(campeonato, Guid.NewGuid(), isAdmin: true);
 
-        Assert.IsType<BadRequestObjectResult>(await controller.Descancelar(campeonato.Id));
+        Assert.IsType<ConflictObjectResult>(await controller.Descancelar(campeonato.Id));
     }
 
     [Fact]
     public async Task Reatribuir_Admin_AtualizaOrganizador()
     {
         var campeonato = Campeonato(Guid.NewGuid());
-        var (controller, campeonatos, _) = Build(campeonato, Guid.NewGuid(), isAdmin: true);
         var novoOrgId = Guid.NewGuid();
+        var usuarios = new FakeUsuarioService();
+        var userId = Guid.NewGuid();
+        usuarios.Users[userId] = UsuarioOrganizadorCampeonato(userId, novoOrgId);
+        var (controller, campeonatos, _) = Build(campeonato, Guid.NewGuid(), isAdmin: true, usuarios: usuarios);
 
         Assert.IsType<OkObjectResult>(await controller.Reatribuir(campeonato.Id, new ReatribuirCampeonatoDTO { NovoOrganizadorCampeonatoId = novoOrgId }));
         Assert.Equal(novoOrgId, (await campeonatos.ObterPorId(campeonato.Id))!.OrganizadorCampeonatoId);
