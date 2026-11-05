@@ -35,7 +35,7 @@ public class OpenApiDocumentationTests
             var operations = document.Paths.SelectMany(path => path.Value.Operations
                 .Select(operation => (Path: path.Key, Method: operation.Key, Operation: operation.Value))).ToArray();
 
-            Assert.Equal(96, operations.Length);
+            Assert.Equal(99, operations.Length);
             Assert.Equal(operations.Length, operations.Select(item => item.Operation.OperationId).Distinct().Count());
             Assert.All(operations, item =>
             {

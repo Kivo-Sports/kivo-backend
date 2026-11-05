@@ -890,6 +890,11 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<int>("EnumCargo")
                         .HasColumnType("int");
 
+                    b.Property<int>("EstadoAdministrativo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -897,6 +902,11 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<string>("Telefone")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("VersaoSessao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.HasKey("Id");
 

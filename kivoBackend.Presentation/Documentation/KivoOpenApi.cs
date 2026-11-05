@@ -167,6 +167,11 @@ public sealed class KivoOperationFilter : IOperationFilter
 
     private static string ParameterDescription(string name) => name.ToLowerInvariant() switch
     {
+        "page" => "Página da listagem, iniciando em 1.",
+        "pagesize" => "Quantidade por página: padrão 20, máximo 100.",
+        "busca" => "Busca parcial por nome ou e-mail (máximo 200 caracteres).",
+        "cargo" => "Perfil atual: Administrador, Torcedor, OrganizadorTime ou OrganizadorCampeonato (valor do enum).",
+        "situacao" => "Situação: ativo, inativo (legado), bloqueado ou excluido. Omitir para todas.",
         "inicio" => "Primeiro dia do período (inclusivo), em America/Sao_Paulo. Omitir para não limitar o início.",
         "fim" => "Último dia do período (inclusivo), em America/Sao_Paulo; deve ser igual ou posterior ao início.",
         "esporteid" => "ID da modalidade; no relatório administrativo não filtra os dados de usuários.",

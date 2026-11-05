@@ -179,6 +179,12 @@ builder.Services.AddAuthentication(options =>
 
     options.Events = new JwtBearerEvents
     {
+        OnTokenValidated = async context =>
+        {
+            var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+            if (!await UsuarioSessionValidation.Valida(db, context.Principal))
+                context.Fail("Sessão inválida ou revogada.");
+        },
         OnChallenge = context =>
         {
             context.HandleResponse();

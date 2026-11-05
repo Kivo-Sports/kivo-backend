@@ -38,6 +38,9 @@ namespace kivoBackend.Infrastructure.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<Usuario>().Property(u => u.EstadoAdministrativo).HasDefaultValue(kivoBackend.Core.Enums.EnumEstadoAdministrativo.Normal);
+            modelBuilder.Entity<Usuario>().Property(u => u.VersaoSessao).HasDefaultValue(1);
+
             // Configuração de unico CPF
             modelBuilder.Entity<Usuario>()
                 .HasIndex(u => u.Cpf)

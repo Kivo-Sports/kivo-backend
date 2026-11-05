@@ -87,6 +87,8 @@ internal static class KivoExamples
         return new OpenApiString(key switch
         {
             "nome" => "Pessoa Exemplo",
+            "acao" => "bloquear",
+            "situacao" => "ativo",
             "email" or "identificador" or "chavepix" => "pessoa@example.com",
             "senha" or "senhatual" or "senhaatual" => "Exemplo@123",
             "novasenha" => "NovaSenha@123",

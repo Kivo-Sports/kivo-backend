@@ -38,7 +38,7 @@ namespace kivoBackend.Presentation.Controller
             {
                 var organizadores = await _organizadorCampeonatoRepository.ObterComIncludes(o => o.Usuario);
                 var retorno = organizadores
-                    .Where(o => o.Usuario != null)
+                    .Where(o => o.Usuario != null && o.Usuario.Ativo && o.Usuario.EstadoAdministrativo == EnumEstadoAdministrativo.Normal && o.Usuario.EnumCargo == EnumCargo.OrganizadorCampeonato)
                     .Select(o => new { o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
                 return Ok(retorno);
             }
@@ -53,7 +53,7 @@ namespace kivoBackend.Presentation.Controller
             {
                 var organizadores = await _organizadorTimeRepository.ObterComIncludes(o => o.Usuario);
                 var retorno = organizadores
-                    .Where(o => o.Usuario != null)
+                    .Where(o => o.Usuario != null && o.Usuario.Ativo && o.Usuario.EstadoAdministrativo == EnumEstadoAdministrativo.Normal && o.Usuario.EnumCargo == EnumCargo.OrganizadorTime)
                     .Select(o => new { o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
                 return Ok(retorno);
             }
@@ -419,6 +419,7 @@ namespace kivoBackend.Presentation.Controller
             return dto;
         }
 
+        [TypeFilter(typeof(UsuarioResponsabilidadeFilter))]
         [HttpDelete("{id}")]
         [Authorize]
         public async Task<IActionResult> Delete(Guid id)
@@ -428,9 +429,13 @@ namespace kivoBackend.Presentation.Controller
                 var acesso = ValidarAcessoAoUsuario(id);
                 if (acesso != null) return acesso;
 
-                await _usuarioService.RemoverUsuario(id);
+                if (_currentUser.IsAdmin)
+                    await _usuarioService.AlterarEstadoAdministrativo(id, _currentUser.UserId!.Value, "excluir");
+                else
+                    await _usuarioService.RemoverUsuario(id);
                 return NoContent();
             }
+            catch (GestaoUsuarioException ex) { return Conflict(new { code = ex.Code, message = ex.Message }); }
             catch (KeyNotFoundException)
             {
                 return NotFound();
@@ -474,19 +479,52 @@ namespace kivoBackend.Presentation.Controller
             }
         }
 
+        [TypeFilter(typeof(UsuarioResponsabilidadeFilter))]
         [HttpPatch("{id}/reativar")]
         [Authorize(Roles = "Administrador")]
         public async Task<IActionResult> Reativar(Guid id)
         {
             try
             {
-                await _usuarioService.AtivarConta(id);
+                if (!_currentUser.UserId.HasValue) return Unauthorized();
+                var usuario = await _usuarioService.ObterUsuarioPorId(id);
+                var acao = usuario.EstadoAdministrativo switch { EnumEstadoAdministrativo.Bloqueado => "desbloquear", EnumEstadoAdministrativo.Excluido => "restaurar", _ => "reativar" };
+                await _usuarioService.AlterarEstadoAdministrativo(id, _currentUser.UserId.Value, acao);
                 return Ok("Conta reativada com sucesso.");
             }
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
+        }
+
+        [Authorize(Roles = "Administrador")]
+        [HttpGet("gestao")]
+        public async Task<IActionResult> ListarGestao([FromQuery] GestaoUsuarioFiltro filtro)
+        {
+            try { return Ok(await _usuarioService.ListarGestao(filtro)); }
+            catch (ArgumentException ex) { return BadRequest(new { code = "invalid_filter", message = ex.Message }); }
+        }
+
+        [Authorize(Roles = "Administrador")]
+        [TypeFilter(typeof(UsuarioResponsabilidadeFilter))]
+        [HttpPatch("{id}/gestao")]
+        public async Task<IActionResult> AlterarEstado(Guid id, [FromBody] GestaoUsuarioAcao dto)
+            => await ExecutarGestao(() => _usuarioService.AlterarEstadoAdministrativo(id, _currentUser.UserId!.Value, dto.Acao));
+
+        [Authorize(Roles = "Administrador")]
+        [TypeFilter(typeof(UsuarioResponsabilidadeFilter))]
+        [HttpPatch("{id}/cargo")]
+        public async Task<IActionResult> AlterarCargo(Guid id, [FromBody] AlterarCargoUsuarioDTO dto)
+            => await ExecutarGestao(() => _usuarioService.AlterarCargoAdministrativo(id, _currentUser.UserId!.Value, dto));
+
+        private async Task<IActionResult> ExecutarGestao(Func<Task> executar)
+        {
+            if (!_currentUser.UserId.HasValue) return Unauthorized();
+            try { await executar(); return NoContent(); }
+            catch (GestaoUsuarioException ex) { return Conflict(new { code = ex.Code, message = ex.Message, impedimentos = ex.Impedimentos }); }
+            catch (KeyNotFoundException ex) { return NotFound(new { code = "not_found", message = ex.Message }); }
+            catch (ArgumentException ex) { return BadRequest(new { code = "invalid_data", message = ex.Message }); }
         }
 
         private IActionResult? ValidarAcessoAoUsuario(Guid targetUserId)
