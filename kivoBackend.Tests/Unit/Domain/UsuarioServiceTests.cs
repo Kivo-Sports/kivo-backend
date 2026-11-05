@@ -46,6 +46,16 @@ public class UsuarioServiceTests
         Ativo = ativo,
     };
 
+    [Fact]
+    public async Task ConfirmarReativacao_AdministradorNaoPodeUsarCodigoAntigo()
+    {
+        var usuario = NovoUsuario(EnumCargo.Administrador, ativo: false);
+        var (service, _, _, _, _, _, codes, _) = CriarServico(usuario);
+        var code = await codes.GerarCodigoAsync(usuario.Id, VerificationCodeType.AccountReactivation, 5);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ConfirmarReativacao(usuario.Email, code));
+        Assert.False(usuario.Ativo);
+    }
+
     // ---------- CriarUsuario ----------
 
     [Fact]

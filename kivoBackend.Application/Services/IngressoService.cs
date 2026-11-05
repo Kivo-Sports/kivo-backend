@@ -16,6 +16,7 @@ namespace kivoBackend.Application.Services
         private readonly IRepositoryGenerics<Usuario> _usuarioRepository;
         private readonly IAsaasService _asaasService;
         private readonly INotificacaoService _notificacaoService;
+        private readonly IRepositoryGenerics<TipoDeficiencia> _tipoDeficienciaRepository;
 
         public IngressoService(
             IRepositoryGenerics<Ingresso> ingressoRepo,
@@ -24,7 +25,8 @@ namespace kivoBackend.Application.Services
             IRepositoryGenerics<Time> timeRepo,
             IRepositoryGenerics<Usuario> usuarioRepo,
             IAsaasService asaasService,
-            INotificacaoService notificacaoService)
+            INotificacaoService notificacaoService,
+            IRepositoryGenerics<TipoDeficiencia> tipoDeficienciaRepo)
         {
             _ingressoRepository = ingressoRepo;
             _loteRepository = loteRepo;
@@ -33,6 +35,7 @@ namespace kivoBackend.Application.Services
             _usuarioRepository = usuarioRepo;
             _asaasService = asaasService;
             _notificacaoService = notificacaoService;
+            _tipoDeficienciaRepository = tipoDeficienciaRepo;
         }
 
         public async Task<CompraIngressosResponseDTO> ComprarIngressosAsync(Guid usuarioId, RealizarCompraDTO compraDTO)
@@ -71,6 +74,8 @@ namespace kivoBackend.Application.Services
                 customerId, valorTotal, descricao, Guid.NewGuid().ToString());
             var dadosPix = await _asaasService.ObterQrCodePixAsync(cobranca.Id);
             var ingressosGerados = new List<IngressoDetalhesDTO>();
+            // Titular/deficiência ainda não foram definidos nesta etapa (ver AtribuirTitularAsync).
+            var tipoDeficienciaPadrao = await _tipoDeficienciaRepository.ObterPorId(TipoDeficienciaSeed.NenhumaId);
 
             foreach (var (lote, quantidade) in itens)
             {
@@ -90,7 +95,7 @@ namespace kivoBackend.Application.Services
                     };
 
                     await _ingressoRepository.Adicionar(novoIngresso);
-                    ingressosGerados.Add(MapearParaDto(novoIngresso, lote.NomeLote, nomePartida, dataPartida, localPartida));
+                    ingressosGerados.Add(MapearParaDto(novoIngresso, lote.NomeLote, nomePartida, dataPartida, localPartida, tipoDeficienciaPadrao?.Descricao ?? string.Empty));
                 }
             }
 
@@ -251,6 +256,8 @@ namespace kivoBackend.Application.Services
                 i.UsuarioId == usuarioId &&
                 i.StatusIngresso != EnumStatusIngresso.Cancelado &&
                 i.StatusIngresso != EnumStatusIngresso.EstornoPendente);
+            var tiposDeficiencia = (await _tipoDeficienciaRepository.ObterTodos())
+                .ToDictionary(t => t.Id, t => t.Descricao);
             var dtos = new List<IngressoDetalhesDTO>();
 
             foreach (var ingresso in ingressos)
@@ -260,7 +267,8 @@ namespace kivoBackend.Application.Services
                     ? await ObterDadosPartidaAsync(lote.PartidaId)
                     : ("Partida Desconhecida", DateTime.MinValue, "Local não informado");
 
-                dtos.Add(MapearParaDto(ingresso, lote?.NomeLote ?? "Lote", nomePartida, dataPartida, localPartida));
+                tiposDeficiencia.TryGetValue(ingresso.TipoDeficienciaId, out var tipoDeficienciaDescricao);
+                dtos.Add(MapearParaDto(ingresso, lote?.NomeLote ?? "Lote", nomePartida, dataPartida, localPartida, tipoDeficienciaDescricao ?? string.Empty));
             }
 
             return dtos;
@@ -291,8 +299,13 @@ namespace kivoBackend.Application.Services
             if (ingressosDaCompra.Any(i => i.Id != ingresso.Id && LimparCpf(i.CpfTitular) == cpfLimpo))
                 throw new InvalidOperationException("Este CPF já foi atribuído a outro ingresso desta compra.");
 
+            var tipoDeficiencia = await _tipoDeficienciaRepository.ObterPorId(dto.TipoDeficienciaId);
+            if (tipoDeficiencia == null)
+                throw new Exception("Opção de deficiência inválida.");
+
             ingresso.NomeTitular = dto.Nome.Trim();
             ingresso.CpfTitular = cpfLimpo;
+            ingresso.TipoDeficienciaId = tipoDeficiencia.Id;
             await _ingressoRepository.Atualizar(ingresso);
 
             await _notificacaoService.CriarNotificacaoAsync(
@@ -451,7 +464,7 @@ namespace kivoBackend.Application.Services
             return (nomeConfronto, partida.DataHora ?? DateTime.MinValue, local);
         }
 
-        private IngressoDetalhesDTO MapearParaDto(Ingresso ingresso, string nomeLote, string nomePartida, DateTime dataPartida, string localPartida)
+        private IngressoDetalhesDTO MapearParaDto(Ingresso ingresso, string nomeLote, string nomePartida, DateTime dataPartida, string localPartida, string tipoDeficienciaDescricao)
         {
             bool qrCodeLiberado = (ingresso.StatusIngresso == EnumStatusIngresso.Pago || ingresso.StatusIngresso == EnumStatusIngresso.Utilizado)
                 && !string.IsNullOrWhiteSpace(ingresso.NomeTitular);
@@ -470,7 +483,9 @@ namespace kivoBackend.Application.Services
                 QrCodeBase64 = qrCodeLiberado ? GerarQrCodeBase64(ingresso.CodigoValidacao) : string.Empty,
                 PixCopiaCola = string.Empty,
                 NomeTitular = ingresso.NomeTitular ?? string.Empty,
-                CpfTitular = ingresso.CpfTitular ?? string.Empty
+                CpfTitular = ingresso.CpfTitular ?? string.Empty,
+                TipoDeficienciaId = ingresso.TipoDeficienciaId,
+                TipoDeficienciaDescricao = tipoDeficienciaDescricao
             };
         }
 

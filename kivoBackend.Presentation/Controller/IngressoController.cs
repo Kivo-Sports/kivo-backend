@@ -194,7 +194,7 @@ namespace kivoBackend.Presentation.Controller
                 return null;
 
             var usuario = await _usuarioService.ObterUsuarioPorId(_currentUser.UserId.Value);
-            return usuario.OrganizadorCampeonato?.Id;
+            return usuario.EnumCargo == kivoBackend.Core.Enums.EnumCargo.OrganizadorCampeonato ? usuario.OrganizadorCampeonato?.Id : null;
         }
 
         private IIngressoService IngressoService()

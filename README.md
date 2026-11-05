@@ -27,7 +27,7 @@ Este repositório contém o **backend** da plataforma, desenvolvido em **.NET 8*
 | ---------------------- | ----------------------------------------------------------------------- |
 | Framework              | [.NET 8](https://dotnet.microsoft.com/)                                 |
 | Linguagem              | [C#](https://docs.microsoft.com/en-us/dotnet/csharp/)                   |
-| Banco de Dados         | [SQL Server](https://www.microsoft.com/sql-server/) (LocalDB)           |
+| Banco de Dados         | [SQL Server](https://www.microsoft.com/sql-server/) (instância local ou Azure SQL) |
 | ORM                    | [Entity Framework Core 8](https://docs.microsoft.com/ef/core/)          |
 | Autenticação           | [ASP.NET Core Identity](https://docs.microsoft.com/aspnet/identity/)    |
 | Pagamentos (Pix)       | [Asaas API](https://www.asaas.com/) (Sandbox/Homologação)               |
@@ -38,7 +38,7 @@ Este repositório contém o **backend** da plataforma, desenvolvido em **.NET 8*
 
 ## 🗂 Estrutura do Projeto
 
-O projeto segue a arquitetura **Clean Architecture** em 4 camadas:
+O projeto é organizado em quatro camadas (Presentation, Application, Core e Infrastructure):
 
 ```
 kivoBackend/
@@ -47,7 +47,7 @@ kivoBackend/
 │   ├── appsettings.json                # Configurações de produção
 │   ├── appsettings.Development.json    # Configurações de desenvolvimento
 │   ├── kivoBackend.Presentation.http   # Testes HTTP via REST Client
-│   └── Controllers/                    # Endpoints da API
+│   └── Controller/                    # Endpoints da API
 │
 ├── kivoBackend.Application/            # Business logic e DTOs
 │   ├── Services/                       # Implementação de serviços
@@ -91,28 +91,52 @@ kivoBackend/
 
 ### Pré-requisitos
 
-- .NET 8 SDK
-- SQL Server (LocalDB ou instância)
-- Visual Studio com suporte ao .NET 8 ou VS Code
+- .NET 8 SDK, com runtime ASP.NET Core 8.
+- SQL Server acessível. No macOS, o Compose existente usa Azure SQL Edge; LocalDB é uma alternativa exclusiva do Windows.
+- Docker/Compose apenas se for usar o banco local em container.
+- CLI `dotnet-ef` 8.x para migrações (`dotnet tool install --global dotnet-ef --version "8.*"` se ainda não instalada).
+- SMTP para códigos de conta/senha; Asaas Sandbox para compras; credenciais de storage para upload de imagens. Build e testes com fakes não exigem esses serviços.
 
-### Instalação
+### Preparar e executar
 
 ```bash
-# Clone o repositório
-git clone https://github.com/kivo-sports/kivo-backend.git
+git clone https://github.com/Kivo-Sports/kivo-backend.git
 cd kivo-backend
-
-# Restaure as dependências
+cp .env.example .env
+# Edite .env: conexão, senha do banco, JWT e integrações usadas nos seus fluxos.
 dotnet restore
-
-# Aplique as migrações do banco de dados
-dotnet ef database update --project kivoBackend.Infrastructure --startup-project kivoBackend.Presentation
-
-# Execute o servidor
-dotnet run --project kivoBackend.Presentation
 ```
 
-Acesse a documentação da API em `http://localhost:5211/swagger` (ou `https://localhost:7273/swagger`). O Swagger é disponibilizado somente no ambiente `Development`.
+Mantenha um único `.env` efetivo. O runtime procura o arquivo a partir do diretório de execução, subindo até encontrar o primeiro; um `.env` em `kivoBackend.Presentation/` pode ter precedência sobre o da raiz. O carregador aplica os valores encontrados às variáveis do processo. Se já houver arquivos locais, compare as configurações antes de consolidá-los; não descarte credenciais ou configurações sem conferir.
+
+Se precisar do banco em Docker, confira primeiro o container existente e reutilize-o:
+
+```bash
+docker ps -a --filter name=kivo-sqlserver
+# Somente se não houver outro banco saudável já configurado:
+docker compose up -d sqlserver
+docker compose ps
+```
+
+`MSSQL_SA_PASSWORD` e a senha da `DB_CONNECTION_STRING` precisam coincidir. O volume `kivo-sqlserver-data` guarda os dados; não remova o volume para resolver problemas de configuração.
+
+A factory de design-time do EF lê `DB_CONNECTION_STRING` do ambiente ou de `kivoBackend.Presentation/.env`; ela não carrega automaticamente o `.env` da raiz. Antes do comando de migração, exporte a mesma conexão configurada no seu `.env` (exemplo para bash/zsh):
+
+```bash
+export DB_CONNECTION_STRING='Server=localhost,1433;Database=KivoDb;User Id=sa;Password=<mesma-senha-do-env>;TrustServerCertificate=True;'
+dotnet ef database update --project kivoBackend.Infrastructure --startup-project kivoBackend.Presentation
+dotnet run --project kivoBackend.Presentation --launch-profile http
+```
+
+No PowerShell, a atribuição equivalente é `$env:DB_CONNECTION_STRING = 'sua-conexao'`. Migrações alteram o banco indicado: confira servidor e nome do banco antes de aplicar.
+
+- API local: `http://localhost:5211`.
+- Swagger UI: `http://localhost:5211/swagger`.
+- Documento OpenAPI: `http://localhost:5211/swagger/v1/swagger.json`.
+- Saúde do processo: `http://localhost:5211/health` (não verifica banco ou integrações).
+- Perfil HTTPS opcional: `dotnet run --project kivoBackend.Presentation --launch-profile https`, em `https://localhost:7273`; requer certificado de desenvolvimento confiável.
+
+O startup consulta o banco para preparar papéis e o administrador. Configure `ADMIN_EMAIL` e `ADMIN_PASSWORD` antes da primeira execução em ambiente compartilhado; os fallbacks do código destinam-se apenas a desenvolvimento. Use os valores configurados para fazer login.
 
 ---
 
@@ -138,7 +162,7 @@ cp .env.example .env
 DB_CONNECTION_STRING=Server=localhost\SQLEXPRESS;Database=KivoDb;Trusted_Connection=True;TrustServerCertificate=True;
 
 # JWT
-JWT_KEY=sua_chave_super_secreta_aqui
+JWT_KEY=dev-only-change-me-minimum-32-characters
 JWT_ISSUER=kivoBackend
 JWT_AUDIENCE=kivoFrontEnd
 
@@ -185,10 +209,14 @@ ASPNETCORE_ENVIRONMENT=Development
 | `GOOGLE_APPLICATION_CREDENTIALS` | Caminho das credenciais de serviço do Firebase | `/caminho/credenciais.json` |
 | `CORS_ORIGINS` | Origens permitidas (separadas por vírgula) | `http://localhost:3000,http://localhost:3001` |
 | `ASPNETCORE_ENVIRONMENT` | Ambiente de execução | `Development` ou `Production` |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Administrador preparado no primeiro startup | Definir valores próprios em ambientes compartilhados |
+| `FIREBASE_CREDENTIALS_JSON` | JSON da conta de serviço em cloud, alternativa ao arquivo local | Configurar no provedor sem versionar |
+| `APPLY_MIGRATIONS` | `true` aplica migrações no startup; padrão sem aplicação automática | Habilitar somente no fluxo de deploy planejado |
+| `ENABLE_SWAGGER` | `true` expõe Swagger fora de Development | Definir conforme o ambiente |
 
 ### 🔒 Segurança
 
-- ✅ `.env` está no `.gitignore` — **nunca será commitado**
+- `.env` está no `.gitignore`; confira o diff antes de publicar para não incluir segredos por outros arquivos ou por `git add -f`.
 - ✅ Cada desenvolvedor tem seu próprio `.env` local
 - ✅ Em produção, configure variáveis de ambiente do servidor (Azure App Service, Docker, VPS, etc)
 - ✅ `.env.example` é compartilhado com a equipe (sem valores sensíveis)
@@ -216,20 +244,17 @@ az webapp config appsettings set --resource-group MyGroup --name MyApp \
   ASAAS_API_KEY="..."
 ```
 
-**Docker:**
-```dockerfile
-ENV DB_CONNECTION_STRING="..."
-ENV JWT_KEY="..."
-ENV ASAAS_API_KEY="..."
-```
+**Docker:** injete variáveis em tempo de execução por um arquivo de ambiente privado ou pelo gerenciador de segredos. Não grave credenciais em `Dockerfile`, imagem ou arquivo versionado.
 
 **Linux/VPS:**
 ```bash
 export DB_CONNECTION_STRING="..."
 export JWT_KEY="..."
 export ASAAS_API_KEY="..."
-dotnet run
+dotnet run --project kivoBackend.Presentation
 ```
+
+Não publique arquivos `.env` ou credenciais Firebase junto do pacote. Configure os valores no ambiente de destino.
 
 ---
 
@@ -285,7 +310,7 @@ Depois do pagamento, o comprador atribui o titular pelo endpoint `PUT /api/Ingre
 
 ### 🌐 Como Testar o Webhook em Desenvolvimento Local (Túnel Cloudflare)
 
-Como o Asaas precisa notificar uma URL pública na internet, utilizamos o túnel da Cloudflare para encaminhar as requisições até o `localhost:5211`:
+Como o Asaas precisa notificar uma URL pública na internet, pode-se usar um túnel da Cloudflare para encaminhar as requisições até o `localhost:5211`:
 
 1. Inicie a API no Visual Studio (garantindo que suba na porta `5211`).
 2. Abra o terminal e execute o túnel:
@@ -399,24 +424,75 @@ open coverage-report/index.html   # macOS
 # xdg-open coverage-report/index.html   # Linux
 ```
 
-Para começar do zero (útil depois de mudanças grandes na suíte, evita misturar resultados de
-execuções antigas):
+Use um diretório de resultados novo em cada execução e aponte o ReportGenerator apenas para essa rodada, evitando agregar relatórios antigos. A cobertura deve informar o commit, o comando, os totais de linhas e as exclusões; um percentual alto não substitui uma suíte aprovada.
 
-```bash
-find . -type d -name TestResults -prune -exec rm -rf {} +
-rm -rf coverage-report
-dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
-reportgenerator -reports:"**/coverage.cobertura.xml" -targetdir:"coverage-report" -reporttypes:"Html;TextSummary"
-```
-
-O estado atual da cobertura (baseline vs. atual, por área, gaps conhecidos e por quê) está
-documentado em [`KIVO_BACKEND_TEST_COVERAGE_REPORT.md`](./KIVO_BACKEND_TEST_COVERAGE_REPORT.md).
+As exclusões atuais estão versionadas em `coverlet.runsettings`. Revisões de DTOs com comportamento executável devem reavaliar o escopo; não acrescente exclusões apenas para elevar o percentual.
 
 ---
 
-## Documentação
+## Documentação da API
 
-> 📚 Documentação completa disponível em `/swagger` após iniciar a aplicação
+A página `/swagger` reúne todas as operações em grupos por controller, com resumo, descrição, parâmetros, corpos, respostas e exemplos. O arquivo `/swagger/v1/swagger.json` permite importar a mesma documentação em clientes HTTP.
+
+| Grupo | Conteúdo |
+| --- | --- |
+| Auth | Login, recuperação/alteração de senha e reativação por código |
+| Usuario | Cadastro, consulta, edição, desativação e perfis organizadores/admin |
+| Campeonato / Time / Esporte | Gestão esportiva, estados, responsáveis e convites |
+| Partida | Geração, classificação, chaveamento, agenda, placar e operações administrativas |
+| Ingresso / IngressoLote | Lotes, compra Pix, carteira, titularidade, portaria e estorno |
+| TipoDeficiencia | Catálogo para necessidade de acessibilidade do titular |
+| Favorito / Post / Notificacao | Favoritos, timeline, notícias e notificações |
+| Relatorio | Indicadores por perfil e filtros administrativos |
+| Webhook / Health | Eventos Asaas, disponibilidade do webhook e saúde do processo |
+
+### Usar os exemplos
+
+1. Cadastre um usuário ou use uma conta do seu ambiente e execute `POST /api/auth/login`.
+2. No botão **Authorize** do Swagger, cole apenas o token; a ferramenta acrescenta `Bearer` ao header.
+3. Substitua IDs, CPF e email fictícios pelos dados do seu cenário. Os exemplos não são registros instalados, credenciais válidas ou pagamentos reais. O CPF sequencial de exemplo serve apenas para demonstrar o formato; use CPF de teste único no seu ambiente.
+4. Para `multipart/form-data`, preencha os campos e escolha o arquivo pelo seletor quando necessário; o exemplo JSON representa os campos, não o conteúdo binário.
+5. Requisições de compra podem criar cobranças; use Sandbox e não repita automaticamente a compra como mecanismo de conferência. A confirmação consulta o provedor ou chega por webhook.
+
+Exemplo de login (dados sintéticos; requer uma conta correspondente no ambiente):
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{ "identificador": "pessoa@example.com", "senha": "Exemplo@123" }
+```
+
+Exemplo de compra após obter IDs válidos do catálogo de lotes:
+
+```http
+POST /api/Ingresso/comprar
+Authorization: Bearer <token-do-comprador>
+Content-Type: application/json
+
+{ "itens": [{ "ingressoLoteId": "11111111-1111-4111-8111-111111111111", "quantidade": 1 }] }
+```
+
+A resposta contém `asaasPaymentId`, `valorTotal`, `pixCopiaCola`, `qrCodeBase64` e `ingressos`. Os exemplos completos de requisição, resposta e erros estão na operação correspondente do Swagger.
+
+### Formatos e limites atuais
+
+- Enums são numéricos nos contratos tipados; campos explicitamente mapeados para texto (como `cargo`, status/formato de campeonato e fase em alguns DTOs) seguem o schema da operação.
+- Datas usam ISO 8601. Filtros de relatórios representam dias inclusivos em `America/Sao_Paulo`; valores monetários são decimais em reais (BRL).
+- Retornos de erro não são uniformes: algumas actions enviam texto, outras `{ "message": "..." }`; falhas de binding/validação podem usar `ValidationProblemDetails`. O OpenAPI preserva essas diferenças.
+- Os requisitos de JWT e papéis exibidos seguem os atributos atuais. Regras de propriedade continuam descritas por operação; o catálogo não modifica permissões.
+- O webhook público atual responde `200` inclusive para payload inválido ou falha de processamento, portanto esse status não comprova mudança no banco. A documentação não acrescenta autenticação de webhook.
+- `/health` só comprova que o processo HTTP respondeu. A infraestrutura de monitoramento e os serviços externos devem ser conferidos nos ambientes correspondentes.
+
+A configuração e o catálogo explícito estão em `kivoBackend.Presentation/Documentation/`. Ao adicionar/alterar uma action, atualize seu resumo, descrição, respostas e exemplos. A geração do Swagger acusa uma action que ainda não esteja no catálogo.
+
+---
+
+## CI/CD e execução em nuvem
+
+O workflow versionado em `.github/workflows/` usa .NET 8 e Azure App Service. PRs para `develop`/`master` executam build e testes. Push em `master` ou execução manual também publica e faz smoke test de `/health`; o histórico e os artefatos ficam no GitHub Actions.
+
+O deploy usa `AZURE_WEBAPP_PUBLISH_PROFILE` como secret e `AZURE_WEBAPP_NAME` como variável do repositório. Banco, JWT, SMTP, Firebase e Asaas são configurados no App Service. Confira os filtros de caminho e gatilhos no YAML: mudanças somente em Markdown podem não disparar o workflow. Essa configuração atual não declara três ambientes isolados.
 
 ---
 
@@ -443,7 +519,7 @@ chore: atualiza Entity Framework
 ### Branches
 
 ```
-main          → produção
+master        → produção (backend)
 develop       → desenvolvimento
 feat/nome     → novas funcionalidades
 fix/nome      → correções
@@ -473,7 +549,7 @@ dotnet ef migrations add NomeDaMigracao --project kivoBackend.Infrastructure --s
 dotnet ef database update --project kivoBackend.Infrastructure --startup-project kivoBackend.Presentation
 ```
 
-### Remover última migration
+### Remover última migration ainda não aplicada
 
 ```bash
 dotnet ef migrations remove --project kivoBackend.Infrastructure --startup-project kivoBackend.Presentation

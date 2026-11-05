@@ -23,6 +23,31 @@ public class SecurityAuthorizationTests
     private readonly Guid _orgCampA = Guid.NewGuid();
     private readonly Guid _orgCampB = Guid.NewGuid();
 
+    [Theory]
+    [InlineData(EnumCargo.Administrador, EnumEstadoAdministrativo.Normal)]
+    [InlineData(EnumCargo.OrganizadorTime, EnumEstadoAdministrativo.Bloqueado)]
+    public async Task Time_AdminPodeEditarEDesativarRecursoDeResponsavelPromovidoOuBloqueado(EnumCargo cargo, EnumEstadoAdministrativo estado)
+    {
+        var owner = UsuarioOrganizadorTime(_userB, _orgTimeB);
+        owner.EnumCargo = cargo; owner.EstadoAdministrativo = estado;
+        var usuarios = new FakeUsuarioService(); usuarios.Users[_userB] = owner;
+        var time = new Time { Id = Guid.NewGuid(), Nome = "Time", Cidade = "Cidade", Estado = "SC", OrganizadorTimeId = _orgTimeB, Ativo = true };
+        var controller = new TimeController(new FakeTimeService { Current = time }, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(_userA, isAdmin: true));
+        Assert.IsType<OkObjectResult>(await controller.Put(time.Id, new AtualizarTimeDto { Nome = "Atualizado", Cidade = "Cidade", Estado = "SC" }, null));
+        Assert.IsType<OkObjectResult>(await controller.ToggleStatus(time.Id));
+        Assert.False(time.Ativo);
+    }
+
+    [Fact]
+    public async Task Time_PerfilHistoricoNaoConcedeGestaoAposTrocaParaTorcedor()
+    {
+        var owner = UsuarioOrganizadorTime(_userA, _orgTimeA); owner.EnumCargo = EnumCargo.Torcedor;
+        var usuarios = new FakeUsuarioService(); usuarios.Users[_userA] = owner;
+        var time = new Time { Id = Guid.NewGuid(), Nome = "Time", Cidade = "Cidade", Estado = "SC", OrganizadorTimeId = _orgTimeA, Ativo = true };
+        var controller = new TimeController(new FakeTimeService { Current = time }, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(_userA));
+        Assert.IsType<ForbidResult>(await controller.Put(time.Id, new AtualizarTimeDto { Nome = "Atualizado", Cidade = "Cidade", Estado = "SC" }, null));
+    }
+
     [Fact]
     public async Task Usuario_UserA_EditUserB_ReturnsForbidden()
     {
