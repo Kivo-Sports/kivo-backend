@@ -305,7 +305,8 @@ public class IngressoServiceTests
             new InMemoryRepo<Usuario>(),
             new InMemoryRepo<Campeonato>(campeonato),
             new FakeAsaasService(),
-            notificacoes);
+            notificacoes,
+            new InMemoryRepo<TipoDeficiencia>());
         return (service, ingresso, notificacoes);
     }
 
