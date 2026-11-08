@@ -259,7 +259,9 @@ public sealed class FakeIngressoService : IIngressoService
 {
     public CompraIngressosResponseDTO CompraResult { get; set; } = new();
     public List<IngressoDetalhesDTO> MeusIngressosResult { get; set; } = new();
-    public bool ValidarPortariaResult { get; set; } = true;
+    public ValidacaoPortariaDTO ValidarPortariaResult { get; set; } = new() { NomeTitular = "Fulano" };
+    public Exception? ThrowOnValidarPortaria { get; set; }
+    public (string Codigo, Guid? OrganizadorCampeonatoId, bool EhAdministrador)? LastValidarPortaria { get; private set; }
     public bool ConfirmarPagamentoResult { get; set; } = true;
     public bool ProcessarWebhookResult { get; set; } = true;
     public Exception? ThrowOnComprar { get; set; }
@@ -275,13 +277,25 @@ public sealed class FakeIngressoService : IIngressoService
         return Task.FromResult(CompraResult);
     }
     public Task<List<IngressoDetalhesDTO>> ObterMeusIngressosAsync(Guid usuarioId) => Task.FromResult(MeusIngressosResult);
-    public Task<bool> ValidarIngressosNaPortariaAsync(string codigoValidacao) => Task.FromResult(ValidarPortariaResult);
+    public Task<ValidacaoPortariaDTO> ValidarIngressosNaPortariaAsync(string codigoValidacao, Guid? organizadorCampeonatoId, bool ehAdministrador)
+    {
+        LastValidarPortaria = (codigoValidacao, organizadorCampeonatoId, ehAdministrador);
+        if (ThrowOnValidarPortaria != null) throw ThrowOnValidarPortaria;
+        return Task.FromResult(ValidarPortariaResult);
+    }
     public Task<bool> ConfirmarPagamentoAsync(Guid ingressoId)
     {
         if (ThrowOnConfirmarPagamento != null) throw ThrowOnConfirmarPagamento;
         return Task.FromResult(ConfirmarPagamentoResult);
     }
-    public Task<bool> ProcessarWebhookAsaasAsync(string asaasPaymentId, string evento) => Task.FromResult(ProcessarWebhookResult);
+    public Exception? ThrowOnProcessarWebhook { get; set; }
+    public int ProcessarWebhookChamadas { get; private set; }
+    public Task<bool> ProcessarWebhookAsaasAsync(string asaasPaymentId, string evento)
+    {
+        ProcessarWebhookChamadas++;
+        if (ThrowOnProcessarWebhook != null) throw ThrowOnProcessarWebhook;
+        return Task.FromResult(ProcessarWebhookResult);
+    }
     public Task AtribuirTitularAsync(Guid compradorId, Guid ingressoId, AtribuirTitularIngressoDTO dto)
     {
         if (ThrowOnAtribuirTitular != null) throw ThrowOnAtribuirTitular;

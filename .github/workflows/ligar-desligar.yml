@@ -1,0 +1,192 @@
+# Liga ou desliga a Kivo em produção (API no Azure e/ou front na Vercel) com um clique:
+# Actions > "Ligar/Desligar Kivo" > Run workflow.
+#
+# - API: "desligar" publica um app_offline.htm no App Service (o ASP.NET para e responde 503 com a página
+#   de manutenção); "ligar" remove o arquivo. Usa o mesmo secret do deploy (AZURE_WEBAPP_PUBLISH_PROFILE).
+#   Um novo deploy na master também religa a API, porque substitui os arquivos publicados.
+# - Front: pausa/retoma o projeto na Vercel (enquanto pausado, o domínio não serve o site).
+#
+# Configuração no GitHub (Settings > Secrets and variables > Actions):
+#   Secret   AZURE_WEBAPP_PUBLISH_PROFILE  (o mesmo do deploy)
+#   Secret   VERCEL_TOKEN                  token criado em vercel.com/account/settings/tokens (escopo do time kivo)
+#   Variable VERCEL_PROJECT_ID             prj_TNjHa6qgvNLQTYiELupqunwxccJJ
+#   Variable VERCEL_TEAM_ID                team_3Uvlh9ZWeaxfLm7Y8xU9ZvLk
+name: Ligar/Desligar Kivo
+
+on:
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: 'Ligar ou desligar'
+        type: choice
+        options: [desligar, ligar]
+        required: true
+      alvo:
+        description: 'O que ligar/desligar'
+        type: choice
+        options: [tudo, api, front]
+        default: tudo
+        required: true
+
+permissions:
+  contents: read
+
+# Nunca rodar dois liga/desliga ao mesmo tempo
+concurrency:
+  group: ligar-desligar-kivo
+  cancel-in-progress: false
+
+jobs:
+  api:
+    name: API (Azure)
+    if: inputs.alvo == 'tudo' || inputs.alvo == 'api'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Ler credenciais do perfil de publicação
+        id: kudu
+        env:
+          PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        run: |
+          if [ -z "$PUBLISH_PROFILE" ]; then
+            echo "::error::Secret AZURE_WEBAPP_PUBLISH_PROFILE não configurado (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          perfis = ET.fromstring(os.environ["PUBLISH_PROFILE"]).findall("publishProfile")
+          perfil = next(p for p in perfis if p.get("publishMethod") in ("ZipDeploy", "MSDeploy"))
+          senha = perfil.get("userPWD")
+          print(f"::add-mask::{senha}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as saida:
+              saida.write(f"scm={perfil.get('publishUrl').split(':')[0]}\n")
+              saida.write(f"app_url={perfil.get('destinationAppUrl')}\n")
+          with open(os.environ["GITHUB_ENV"], "a") as ambiente:
+              ambiente.write(f"KUDU_USER={perfil.get('userName')}\n")
+              ambiente.write(f"KUDU_PASS={senha}\n")
+          PY
+
+      - name: Desligar (página de manutenção)
+        if: inputs.acao == 'desligar'
+        env:
+          SCM: ${{ steps.kudu.outputs.scm }}
+        run: |
+          cat > app_offline.htm <<'HTML'
+          <!doctype html>
+          <html lang="pt-BR">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Kivo Sports em manutenção</title>
+            <style>
+              body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b1220; color: #e5e7eb; font-family: system-ui, sans-serif; }
+              main { max-width: 32rem; padding: 2rem; text-align: center; }
+              h1 { margin: 0 0 .75rem; font-size: 1.5rem; color: #fff; }
+              p { margin: 0; line-height: 1.5; color: #9ca3af; }
+            </style>
+          </head>
+          <body>
+            <main>
+              <h1>Kivo Sports em manutenção</h1>
+              <p>A API está temporariamente desligada. Volte daqui a pouco.</p>
+            </main>
+          </body>
+          </html>
+          HTML
+          status=$(curl -sS -o resposta.txt -w '%{http_code}' -u "$KUDU_USER:$KUDU_PASS" \
+            -X PUT -H "If-Match: *" --data-binary @app_offline.htm \
+            "https://$SCM/api/vfs/site/wwwroot/app_offline.htm")
+          if [ "$status" != "201" ] && [ "$status" != "204" ] && [ "$status" != "200" ]; then
+            echo "::error::Kudu respondeu HTTP $status ao publicar o app_offline.htm"
+            cat resposta.txt
+            exit 1
+          fi
+          echo "app_offline.htm publicado (HTTP $status)"
+
+      - name: Ligar (remover página de manutenção)
+        if: inputs.acao == 'ligar'
+        env:
+          SCM: ${{ steps.kudu.outputs.scm }}
+        run: |
+          status=$(curl -sS -o resposta.txt -w '%{http_code}' -u "$KUDU_USER:$KUDU_PASS" \
+            -X DELETE -H "If-Match: *" \
+            "https://$SCM/api/vfs/site/wwwroot/app_offline.htm")
+          case "$status" in
+            200|204) echo "app_offline.htm removido (HTTP $status)" ;;
+            404) echo "A API já estava ligada (não havia app_offline.htm)" ;;
+            *) echo "::error::Kudu respondeu HTTP $status ao remover o app_offline.htm"; cat resposta.txt; exit 1 ;;
+          esac
+
+      # Ao ligar, o primeiro start pode levar alguns minutos (plano F1 frio + banco acordando da pausa)
+      - name: Conferir estado da API
+        env:
+          APP_URL: ${{ steps.kudu.outputs.app_url }}
+          ACAO: ${{ inputs.acao }}
+        run: |
+          if [ "$ACAO" = "desligar" ]; then esperado=503; else esperado=200; fi
+          for i in $(seq 1 20); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "$APP_URL/health" || true)
+            if [ "$status" = "$esperado" ]; then
+              echo "API respondeu HTTP $status como esperado ($ACAO)"
+              exit 0
+            fi
+            echo "Tentativa $i/20: HTTP $status (esperado $esperado), nova tentativa em 15s"
+            sleep 15
+          done
+          echo "::error::A API não chegou no estado esperado ($ACAO). Confira o App Service no portal do Azure."
+          exit 1
+
+  front:
+    name: Front (Vercel)
+    if: inputs.alvo == 'tudo' || inputs.alvo == 'front'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Pausar ou retomar o projeto na Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+          ACAO: ${{ inputs.acao }}
+        run: |
+          faltando=0
+          [ -z "$VERCEL_TOKEN" ] && { echo "::error::Secret VERCEL_TOKEN não configurado."; faltando=1; }
+          [ -z "$PROJECT_ID" ] && { echo "::error::Variável VERCEL_PROJECT_ID não configurada."; faltando=1; }
+          [ -z "$TEAM_ID" ] && { echo "::error::Variável VERCEL_TEAM_ID não configurada."; faltando=1; }
+          [ "$faltando" = 1 ] && exit 1
+
+          if [ "$ACAO" = "desligar" ]; then endpoint=pause; else endpoint=unpause; fi
+          status=$(curl -sS -o resposta.json -w '%{http_code}' -X POST \
+            "https://api.vercel.com/v1/projects/$PROJECT_ID/$endpoint?teamId=$TEAM_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json")
+          if [ "$status" != "200" ]; then
+            echo "::error::A Vercel respondeu HTTP $status ao fazer $endpoint"
+            cat resposta.json
+            exit 1
+          fi
+          echo "Projeto na Vercel: $endpoint concluído"
+
+  resumo:
+    name: Resumo
+    needs: [api, front]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resumo
+        env:
+          ACAO: ${{ inputs.acao }}
+          ALVO: ${{ inputs.alvo }}
+          API: ${{ needs.api.result }}
+          FRONT: ${{ needs.front.result }}
+        run: |
+          {
+            echo "### Kivo: $ACAO ($ALVO)"
+            echo ""
+            echo "| Parte | Resultado |"
+            echo "|---|---|"
+            echo "| API (Azure) | $API |"
+            echo "| Front (Vercel) | $FRONT |"
+          } >> "$GITHUB_STEP_SUMMARY"

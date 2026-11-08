@@ -1,4 +1,5 @@
 using kivoBackend.Application.DTO;
+using kivoBackend.Application.Exceptions;
 using kivoBackend.Core.Entities;
 using kivoBackend.Presentation.Controller;
 using kivoBackend.Tests.TestSupport;
@@ -109,11 +110,68 @@ public class IngressoControllerTests
     }
 
     [Fact]
-    public async Task ValidarPortaria_CodigoValido_RetornaOk()
+    public async Task ValidarPortaria_CodigoValido_RetornaOkComTitular()
     {
-        var controller = Build(ingressos: new FakeIngressoService(), isAdmin: true);
+        var ingressos = new FakeIngressoService();
+        var controller = Build(ingressos: ingressos, isAdmin: true);
+
+        var ok = Assert.IsType<OkObjectResult>(await controller.ValidarPortaria("ABC123"));
+        Assert.Equal("Fulano", Assert.IsType<ValidacaoPortariaDTO>(ok.Value).NomeTitular);
+        Assert.Equal(("ABC123", (Guid?)null, true), ingressos.LastValidarPortaria);
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_Organizador_RepassaSeuPerfilParaOServico()
+    {
+        var userId = Guid.NewGuid();
+        var organizadorId = Guid.NewGuid();
+        var usuarios = new FakeUsuarioService();
+        usuarios.Users[userId] = UsuarioOrganizadorCampeonato(userId, organizadorId);
+        var ingressos = new FakeIngressoService();
+        var controller = Build(ingressos: ingressos, usuarios: usuarios, currentUserId: userId);
 
         Assert.IsType<OkObjectResult>(await controller.ValidarPortaria("ABC123"));
+        Assert.Equal(("ABC123", (Guid?)organizadorId, false), ingressos.LastValidarPortaria);
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_OrganizadorSemPerfil_Retorna403SemChamarServico()
+    {
+        var userId = Guid.NewGuid();
+        var usuarios = new FakeUsuarioService();
+        usuarios.Users[userId] = UsuarioTorcedor(userId);
+        var ingressos = new FakeIngressoService();
+        var controller = Build(ingressos: ingressos, usuarios: usuarios, currentUserId: userId);
+
+        Assert.IsType<ForbidResult>(await controller.ValidarPortaria("ABC123"));
+        Assert.Null(ingressos.LastValidarPortaria);
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_JaUtilizado_Retorna409()
+    {
+        var ingressos = new FakeIngressoService { ThrowOnValidarPortaria = new IngressoJaUtilizadoException("Fulano", DateTime.UtcNow) };
+        var controller = Build(ingressos: ingressos, isAdmin: true);
+
+        Assert.IsType<ConflictObjectResult>(await controller.ValidarPortaria("ABC123"));
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_IngressoDeOutroOrganizador_Retorna403()
+    {
+        var ingressos = new FakeIngressoService { ThrowOnValidarPortaria = new UnauthorizedAccessException("Não é seu.") };
+        var controller = Build(ingressos: ingressos, isAdmin: true);
+
+        Assert.IsType<ForbidResult>(await controller.ValidarPortaria("ABC123"));
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_CodigoInexistente_Retorna404()
+    {
+        var ingressos = new FakeIngressoService { ThrowOnValidarPortaria = new KeyNotFoundException("Ingresso inválido.") };
+        var controller = Build(ingressos: ingressos, isAdmin: true);
+
+        Assert.IsType<NotFoundObjectResult>(await controller.ValidarPortaria("ABC123"));
     }
 
     [Fact]
