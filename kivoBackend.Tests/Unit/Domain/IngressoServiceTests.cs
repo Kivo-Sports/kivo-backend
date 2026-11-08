@@ -30,7 +30,11 @@ public class IngressoServiceTests
             new InMemoryRepo<Usuario>(TestEntities.UsuarioTorcedor(CompradorPadrao)),
             new InMemoryRepo<Campeonato>(),
             asaas,
-            notificacoes);
+            notificacoes,
+            new InMemoryRepo<TipoDeficiencia>(
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.NenhumaId, Descricao = "Nenhuma" },
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.AuditivaId, Descricao = "Pessoa com deficiência auditiva" },
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.CadeiranteId, Descricao = "Cadeirante" }));
         return (service, ingressos, lotes, asaas, notificacoes);
     }
 
@@ -257,10 +261,16 @@ public class IngressoServiceTests
         var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = comprador, StatusIngresso = EnumStatusIngresso.Pago };
         await ingressos.Adicionar(ingresso);
 
-        await service.AtribuirTitularAsync(comprador, ingresso.Id, new AtribuirTitularIngressoDTO { Nome = "Fulano de Tal", Cpf = "123.456.789-00" });
+        await service.AtribuirTitularAsync(comprador, ingresso.Id, new AtribuirTitularIngressoDTO
+        {
+            Nome = "Fulano de Tal",
+            Cpf = "123.456.789-00",
+            TipoDeficienciaId = TipoDeficienciaSeed.AuditivaId,
+        });
 
         Assert.Equal("Fulano de Tal", ingresso.NomeTitular);
         Assert.Equal("12345678900", ingresso.CpfTitular);
+        Assert.Equal(TipoDeficienciaSeed.AuditivaId, ingresso.TipoDeficienciaId);
         Assert.Contains(notificacoes.Criadas, n => n.UsuarioId == comprador);
     }
 

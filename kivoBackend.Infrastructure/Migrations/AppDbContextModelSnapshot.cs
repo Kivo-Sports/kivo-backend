@@ -506,12 +506,17 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<int>("StatusIngresso")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("TipoDeficienciaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("UsuarioId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IngressoLoteId");
+
+                    b.HasIndex("TipoDeficienciaId");
 
                     b.HasIndex("UsuarioId");
 
@@ -804,6 +809,38 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.ToTable("Times");
                 });
 
+            modelBuilder.Entity("kivoBackend.Core.Entities.TipoDeficiencia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("TiposDeficiencia");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("d1a1b2c3-0001-4000-8000-000000000001"),
+                            Descricao = "Nenhuma"
+                        },
+                        new
+                        {
+                            Id = new Guid("d1a1b2c3-0002-4000-8000-000000000002"),
+                            Descricao = "Pessoa com deficiência auditiva"
+                        },
+                        new
+                        {
+                            Id = new Guid("d1a1b2c3-0003-4000-8000-000000000003"),
+                            Descricao = "Cadeirante"
+                        });
+                });
+
             modelBuilder.Entity("kivoBackend.Core.Entities.Torcedor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -853,6 +890,11 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<int>("EnumCargo")
                         .HasColumnType("int");
 
+                    b.Property<int>("EstadoAdministrativo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -860,6 +902,11 @@ namespace kivoBackend.Infrastructure.Migrations
                     b.Property<string>("Telefone")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("VersaoSessao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.HasKey("Id");
 
@@ -1032,6 +1079,12 @@ namespace kivoBackend.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("kivoBackend.Core.Entities.TipoDeficiencia", "TipoDeficiencia")
+                        .WithMany()
+                        .HasForeignKey("TipoDeficienciaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("kivoBackend.Core.Entities.Usuario", "Usuario")
                         .WithMany()
                         .HasForeignKey("UsuarioId")
@@ -1039,6 +1092,8 @@ namespace kivoBackend.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("IngressoLote");
+
+                    b.Navigation("TipoDeficiencia");
 
                     b.Navigation("Usuario");
                 });

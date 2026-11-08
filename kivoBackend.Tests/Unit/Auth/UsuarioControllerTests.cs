@@ -349,18 +349,21 @@ public class UsuarioControllerTests
     [Fact]
     public async Task Reativar_ContaInativa_RetornaOk()
     {
-        var controller = Build(new FakeUsuarioService(), isAdmin: true);
-
-        Assert.IsType<OkObjectResult>(await controller.Reativar(Guid.NewGuid()));
+        var usuarios = new FakeUsuarioService();
+        var id = Guid.NewGuid();
+        usuarios.Users[id] = UsuarioTorcedor(id);
+        var controller = Build(usuarios, currentUserId: Guid.NewGuid(), isAdmin: true);
+        Assert.IsType<OkObjectResult>(await controller.Reativar(id));
     }
 
     [Fact]
     public async Task Reativar_ServicoLanca_RetornaBadRequest()
     {
         var usuarios = new FakeUsuarioService { ThrowOnAtivarConta = new InvalidOperationException("Esta conta já está ativa.") };
-        var controller = Build(usuarios, isAdmin: true);
-
-        Assert.IsType<BadRequestObjectResult>(await controller.Reativar(Guid.NewGuid()));
+        var id = Guid.NewGuid();
+        usuarios.Users[id] = UsuarioTorcedor(id);
+        var controller = Build(usuarios, currentUserId: Guid.NewGuid(), isAdmin: true);
+        Assert.IsType<BadRequestObjectResult>(await controller.Reativar(id));
     }
 
     // ---------- Admin-only listings ----------
