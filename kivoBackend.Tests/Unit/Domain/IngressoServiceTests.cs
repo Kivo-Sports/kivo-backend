@@ -1,4 +1,5 @@
 using kivoBackend.Application.DTO;
+using kivoBackend.Application.Exceptions;
 using kivoBackend.Application.Services;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
@@ -27,6 +28,7 @@ public class IngressoServiceTests
             new InMemoryRepo<Partida>(),
             new InMemoryTimeRepo(),
             new InMemoryRepo<Usuario>(TestEntities.UsuarioTorcedor(CompradorPadrao)),
+            new InMemoryRepo<Campeonato>(),
             asaas,
             notificacoes);
         return (service, ingressos, lotes, asaas, notificacoes);
@@ -264,56 +266,135 @@ public class IngressoServiceTests
 
     // ─── ValidarIngressosNaPortariaAsync ─────────────────────────────────────
 
+    private static readonly Guid OrganizadorDono = Guid.NewGuid();
+
+    /// <summary>Monta lote → partida → campeonato do <see cref="OrganizadorDono"/> e um ingresso com o código "ABC123".</summary>
+    private static (IngressoService service, Ingresso ingresso, FakeNotificacaoService notificacoes) NovoCenarioPortaria(
+        EnumStatusIngresso status = EnumStatusIngresso.Pago, string? nomeTitular = "Fulano de Tal")
+    {
+        var campeonato = new Campeonato { Id = Guid.NewGuid(), OrganizadorCampeonatoId = OrganizadorDono };
+        var partida = new Partida { Id = Guid.NewGuid(), CampeonatoId = campeonato.Id, Local = "Estádio Municipal" };
+        var lote = NovoLote();
+        lote.PartidaId = partida.Id;
+        var ingresso = new Ingresso
+        {
+            IngressoLoteId = lote.Id,
+            UsuarioId = Guid.NewGuid(),
+            StatusIngresso = status,
+            CodigoValidacao = "ABC123",
+            NomeTitular = nomeTitular,
+            CpfTitular = "12345678900",
+            DataUso = status == EnumStatusIngresso.Utilizado ? DateTime.UtcNow.AddMinutes(-5) : null,
+        };
+        var notificacoes = new FakeNotificacaoService();
+        var service = new IngressoService(
+            new InMemoryRepo<Ingresso>(ingresso),
+            new InMemoryRepo<IngressoLote>(lote),
+            new InMemoryRepo<Partida>(partida),
+            new InMemoryTimeRepo(),
+            new InMemoryRepo<Usuario>(),
+            new InMemoryRepo<Campeonato>(campeonato),
+            new FakeAsaasService(),
+            notificacoes);
+        return (service, ingresso, notificacoes);
+    }
+
     [Fact]
     public async Task ValidarPortaria_CodigoInexistente_Rejeita()
     {
         var (service, _, _, _, _) = NovoService();
 
-        var ex = await Assert.ThrowsAsync<Exception>(() => service.ValidarIngressosNaPortariaAsync("CODIGO-INEXISTENTE"));
+        var ex = await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ValidarIngressosNaPortariaAsync("CODIGO-INEXISTENTE", null, true));
         Assert.Contains("inválido ou não encontrado", ex.Message);
     }
 
     [Fact]
-    public async Task ValidarPortaria_JaUtilizado_Rejeita()
+    public async Task ValidarPortaria_JaUtilizado_RejeitaInformandoTitular()
     {
-        var lote = NovoLote();
-        var (service, ingressos, _, _, _) = NovoService(lote);
-        var ingresso = new Ingresso { IngressoLoteId = lote.Id, StatusIngresso = EnumStatusIngresso.Utilizado, CodigoValidacao = "ABC123", DataUso = DateTime.UtcNow };
-        await ingressos.Adicionar(ingresso);
+        var (service, _, _) = NovoCenarioPortaria(EnumStatusIngresso.Utilizado);
 
-        var ex = await Assert.ThrowsAsync<Exception>(() => service.ValidarIngressosNaPortariaAsync("ABC123"));
+        var ex = await Assert.ThrowsAsync<IngressoJaUtilizadoException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", OrganizadorDono, false));
         Assert.Contains("já foi utilizado", ex.Message);
+        Assert.Equal("Fulano de Tal", ex.NomeTitular);
+        Assert.NotNull(ex.DataUso);
     }
 
     [Fact]
     public async Task ValidarPortaria_PagoSemTitular_Rejeita()
     {
-        var lote = NovoLote();
-        var (service, ingressos, _, _, _) = NovoService(lote);
-        var ingresso = new Ingresso { IngressoLoteId = lote.Id, StatusIngresso = EnumStatusIngresso.Pago, CodigoValidacao = "ABC123", NomeTitular = null };
-        await ingressos.Adicionar(ingresso);
+        var (service, ingresso, _) = NovoCenarioPortaria(nomeTitular: null);
 
-        var ex = await Assert.ThrowsAsync<Exception>(() => service.ValidarIngressosNaPortariaAsync("ABC123"));
-        Assert.Contains("pagamento e a atribuição do titular são obrigatórios", ex.Message);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", OrganizadorDono, false));
+        Assert.Contains("não tem titular", ex.Message);
+        Assert.Equal(EnumStatusIngresso.Pago, ingresso.StatusIngresso);
+    }
+
+    [Theory]
+    [InlineData(EnumStatusIngresso.Pendente, "pagamento")]
+    [InlineData(EnumStatusIngresso.Cancelado, "cancelado")]
+    [InlineData(EnumStatusIngresso.EstornoPendente, "estorno")]
+    public async Task ValidarPortaria_StatusQueNaoLiberaEntrada_Rejeita(EnumStatusIngresso status, string trecho)
+    {
+        var (service, ingresso, _) = NovoCenarioPortaria(status);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", OrganizadorDono, false));
+        Assert.Contains(trecho, ex.Message);
+        Assert.Equal(status, ingresso.StatusIngresso);
     }
 
     [Fact]
-    public async Task ValidarPortaria_PagoComTitular_MarcaUtilizadoUmaUnicaVez()
+    public async Task ValidarPortaria_OrganizadorDeOutroCampeonato_RejeitaSemMarcarComoUsado()
     {
-        var lote = NovoLote();
-        var (service, ingressos, _, _, notificacoes) = NovoService(lote);
-        var usuarioId = Guid.NewGuid();
-        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = usuarioId, StatusIngresso = EnumStatusIngresso.Pago, CodigoValidacao = "ABC123", NomeTitular = "Fulano" };
-        await ingressos.Adicionar(ingresso);
+        var (service, ingresso, _) = NovoCenarioPortaria();
 
-        var primeira = await service.ValidarIngressosNaPortariaAsync("ABC123");
-        Assert.True(primeira);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", Guid.NewGuid(), false));
+        Assert.Equal(EnumStatusIngresso.Pago, ingresso.StatusIngresso);
+        Assert.Null(ingresso.DataUso);
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_OrganizadorDeOutroCampeonato_NaoDescobreQueJaFoiUsado()
+    {
+        var (service, _, _) = NovoCenarioPortaria(EnumStatusIngresso.Utilizado);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", Guid.NewGuid(), false));
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_OrganizadorSemPerfil_Rejeita()
+    {
+        var (service, _, _) = NovoCenarioPortaria();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", null, false));
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_OrganizadorDono_MarcaUtilizadoUmaUnicaVez()
+    {
+        var (service, ingresso, notificacoes) = NovoCenarioPortaria();
+
+        var resultado = await service.ValidarIngressosNaPortariaAsync(" abc123 ", OrganizadorDono, false);
+        Assert.Equal("Fulano de Tal", resultado.NomeTitular);
+        Assert.Equal("***.456.789-**", resultado.CpfTitularMascarado);
+        Assert.Equal("Arquibancada", resultado.NomeLote);
+        Assert.Equal("Estádio Municipal", resultado.LocalPartida);
         Assert.Equal(EnumStatusIngresso.Utilizado, ingresso.StatusIngresso);
-        Assert.Contains(notificacoes.Criadas, n => n.UsuarioId == usuarioId && n.Tipo == EnumTipoNotificacao.IngressoUtilizado);
+        Assert.NotNull(ingresso.DataUso);
+        Assert.Contains(notificacoes.Criadas, n => n.UsuarioId == ingresso.UsuarioId && n.Tipo == EnumTipoNotificacao.IngressoUtilizado);
 
-        // Segunda tentativa com o mesmo codigo deve falhar (ja utilizado).
-        var ex = await Assert.ThrowsAsync<Exception>(() => service.ValidarIngressosNaPortariaAsync("ABC123"));
-        Assert.Contains("já foi utilizado", ex.Message);
+        // Segunda leitura do mesmo QR Code deve ser barrada como já utilizada.
+        var ex = await Assert.ThrowsAsync<IngressoJaUtilizadoException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", OrganizadorDono, false));
+        Assert.Equal("Fulano de Tal", ex.NomeTitular);
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_Administrador_ValidaIngressoDeQualquerCampeonato()
+    {
+        var (service, ingresso, _) = NovoCenarioPortaria();
+
+        var resultado = await service.ValidarIngressosNaPortariaAsync("ABC123", null, true);
+        Assert.Equal("Fulano de Tal", resultado.NomeTitular);
+        Assert.Equal(EnumStatusIngresso.Utilizado, ingresso.StatusIngresso);
     }
 
     // ─── ProcessarWebhookAsaasAsync ──────────────────────────────────────────

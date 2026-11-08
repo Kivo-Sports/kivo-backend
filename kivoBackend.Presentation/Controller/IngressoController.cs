@@ -1,4 +1,5 @@
 ﻿using kivoBackend.Application.DTO;
+using kivoBackend.Application.Exceptions;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Presentation.Auth;
 using Microsoft.AspNetCore.Authorization;
@@ -119,8 +120,25 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
-                await IngressoService().ValidarIngressosNaPortariaAsync(codigo);
-                return Ok(new { message = "Ingresso validado com sucesso! Entrada liberada." });
+                // Admin valida qualquer ingresso; organizador só os das partidas dos campeonatos dele
+                var organizadorCampeonatoId = await ObterOrganizadorCampeonatoIdAtual();
+                if (!_currentUser.IsAdmin && organizadorCampeonatoId == null)
+                    return Forbid();
+
+                var resultado = await IngressoService().ValidarIngressosNaPortariaAsync(codigo, organizadorCampeonatoId, _currentUser.IsAdmin);
+                return Ok(resultado);
+            }
+            catch (IngressoJaUtilizadoException ex)
+            {
+                return Conflict(new { message = ex.Message, nomeTitular = ex.NomeTitular, dataUso = ex.DataUso });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
             {
