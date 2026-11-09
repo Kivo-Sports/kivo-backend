@@ -47,8 +47,11 @@ namespace kivoBackend.Presentation.Controller
             if (identityUser == null || usuarioKivo == null)
                 return Unauthorized(new { message = "Usuário não encontrado ou inválido." });
 
+            if (usuarioKivo.EstadoAdministrativo != kivoBackend.Core.Enums.EnumEstadoAdministrativo.Normal)
+                return Unauthorized(new { code = "account_restricted", message = "Conta restrita pela administração. Entre em contato com um administrador." });
+
             if (!usuarioKivo.Ativo)
-                return Unauthorized(new { message = "Esta conta está desativada." });
+                return Unauthorized(new { code = "account_inactive", message = "Esta conta está desativada." });
 
             var loginValido = await _userManager.CheckPasswordAsync(identityUser, loginDto.Senha);
             if (!loginValido)

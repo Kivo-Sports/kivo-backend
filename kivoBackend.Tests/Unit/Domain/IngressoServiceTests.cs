@@ -1,4 +1,5 @@
 using kivoBackend.Application.DTO;
+using kivoBackend.Application.Exceptions;
 using kivoBackend.Application.Services;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
@@ -27,8 +28,13 @@ public class IngressoServiceTests
             new InMemoryRepo<Partida>(),
             new InMemoryTimeRepo(),
             new InMemoryRepo<Usuario>(TestEntities.UsuarioTorcedor(CompradorPadrao)),
+            new InMemoryRepo<Campeonato>(),
             asaas,
-            notificacoes);
+            notificacoes,
+            new InMemoryRepo<TipoDeficiencia>(
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.NenhumaId, Descricao = "Nenhuma" },
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.AuditivaId, Descricao = "Pessoa com deficiência auditiva" },
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.CadeiranteId, Descricao = "Cadeirante" }));
         return (service, ingressos, lotes, asaas, notificacoes);
     }
 
@@ -255,65 +261,151 @@ public class IngressoServiceTests
         var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = comprador, StatusIngresso = EnumStatusIngresso.Pago };
         await ingressos.Adicionar(ingresso);
 
-        await service.AtribuirTitularAsync(comprador, ingresso.Id, new AtribuirTitularIngressoDTO { Nome = "Fulano de Tal", Cpf = "123.456.789-00" });
+        await service.AtribuirTitularAsync(comprador, ingresso.Id, new AtribuirTitularIngressoDTO
+        {
+            Nome = "Fulano de Tal",
+            Cpf = "123.456.789-00",
+            TipoDeficienciaId = TipoDeficienciaSeed.AuditivaId,
+        });
 
         Assert.Equal("Fulano de Tal", ingresso.NomeTitular);
         Assert.Equal("12345678900", ingresso.CpfTitular);
+        Assert.Equal(TipoDeficienciaSeed.AuditivaId, ingresso.TipoDeficienciaId);
         Assert.Contains(notificacoes.Criadas, n => n.UsuarioId == comprador);
     }
 
     // ─── ValidarIngressosNaPortariaAsync ─────────────────────────────────────
+
+    private static readonly Guid OrganizadorDono = Guid.NewGuid();
+
+    /// <summary>Monta lote → partida → campeonato do <see cref="OrganizadorDono"/> e um ingresso com o código "ABC123".</summary>
+    private static (IngressoService service, Ingresso ingresso, FakeNotificacaoService notificacoes) NovoCenarioPortaria(
+        EnumStatusIngresso status = EnumStatusIngresso.Pago, string? nomeTitular = "Fulano de Tal")
+    {
+        var campeonato = new Campeonato { Id = Guid.NewGuid(), OrganizadorCampeonatoId = OrganizadorDono };
+        var partida = new Partida { Id = Guid.NewGuid(), CampeonatoId = campeonato.Id, Local = "Estádio Municipal" };
+        var lote = NovoLote();
+        lote.PartidaId = partida.Id;
+        var ingresso = new Ingresso
+        {
+            IngressoLoteId = lote.Id,
+            UsuarioId = Guid.NewGuid(),
+            StatusIngresso = status,
+            CodigoValidacao = "ABC123",
+            NomeTitular = nomeTitular,
+            CpfTitular = "12345678900",
+            DataUso = status == EnumStatusIngresso.Utilizado ? DateTime.UtcNow.AddMinutes(-5) : null,
+        };
+        var notificacoes = new FakeNotificacaoService();
+        var service = new IngressoService(
+            new InMemoryRepo<Ingresso>(ingresso),
+            new InMemoryRepo<IngressoLote>(lote),
+            new InMemoryRepo<Partida>(partida),
+            new InMemoryTimeRepo(),
+            new InMemoryRepo<Usuario>(),
+            new InMemoryRepo<Campeonato>(campeonato),
+            new FakeAsaasService(),
+            notificacoes,
+            new InMemoryRepo<TipoDeficiencia>());
+        return (service, ingresso, notificacoes);
+    }
 
     [Fact]
     public async Task ValidarPortaria_CodigoInexistente_Rejeita()
     {
         var (service, _, _, _, _) = NovoService();
 
-        var ex = await Assert.ThrowsAsync<Exception>(() => service.ValidarIngressosNaPortariaAsync("CODIGO-INEXISTENTE"));
+        var ex = await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ValidarIngressosNaPortariaAsync("CODIGO-INEXISTENTE", null, true));
         Assert.Contains("inválido ou não encontrado", ex.Message);
     }
 
     [Fact]
-    public async Task ValidarPortaria_JaUtilizado_Rejeita()
+    public async Task ValidarPortaria_JaUtilizado_RejeitaInformandoTitular()
     {
-        var lote = NovoLote();
-        var (service, ingressos, _, _, _) = NovoService(lote);
-        var ingresso = new Ingresso { IngressoLoteId = lote.Id, StatusIngresso = EnumStatusIngresso.Utilizado, CodigoValidacao = "ABC123", DataUso = DateTime.UtcNow };
-        await ingressos.Adicionar(ingresso);
+        var (service, _, _) = NovoCenarioPortaria(EnumStatusIngresso.Utilizado);
 
-        var ex = await Assert.ThrowsAsync<Exception>(() => service.ValidarIngressosNaPortariaAsync("ABC123"));
+        var ex = await Assert.ThrowsAsync<IngressoJaUtilizadoException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", OrganizadorDono, false));
         Assert.Contains("já foi utilizado", ex.Message);
+        Assert.Equal("Fulano de Tal", ex.NomeTitular);
+        Assert.NotNull(ex.DataUso);
     }
 
     [Fact]
     public async Task ValidarPortaria_PagoSemTitular_Rejeita()
     {
-        var lote = NovoLote();
-        var (service, ingressos, _, _, _) = NovoService(lote);
-        var ingresso = new Ingresso { IngressoLoteId = lote.Id, StatusIngresso = EnumStatusIngresso.Pago, CodigoValidacao = "ABC123", NomeTitular = null };
-        await ingressos.Adicionar(ingresso);
+        var (service, ingresso, _) = NovoCenarioPortaria(nomeTitular: null);
 
-        var ex = await Assert.ThrowsAsync<Exception>(() => service.ValidarIngressosNaPortariaAsync("ABC123"));
-        Assert.Contains("pagamento e a atribuição do titular são obrigatórios", ex.Message);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", OrganizadorDono, false));
+        Assert.Contains("não tem titular", ex.Message);
+        Assert.Equal(EnumStatusIngresso.Pago, ingresso.StatusIngresso);
+    }
+
+    [Theory]
+    [InlineData(EnumStatusIngresso.Pendente, "pagamento")]
+    [InlineData(EnumStatusIngresso.Cancelado, "cancelado")]
+    [InlineData(EnumStatusIngresso.EstornoPendente, "estorno")]
+    public async Task ValidarPortaria_StatusQueNaoLiberaEntrada_Rejeita(EnumStatusIngresso status, string trecho)
+    {
+        var (service, ingresso, _) = NovoCenarioPortaria(status);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", OrganizadorDono, false));
+        Assert.Contains(trecho, ex.Message);
+        Assert.Equal(status, ingresso.StatusIngresso);
     }
 
     [Fact]
-    public async Task ValidarPortaria_PagoComTitular_MarcaUtilizadoUmaUnicaVez()
+    public async Task ValidarPortaria_OrganizadorDeOutroCampeonato_RejeitaSemMarcarComoUsado()
     {
-        var lote = NovoLote();
-        var (service, ingressos, _, _, notificacoes) = NovoService(lote);
-        var usuarioId = Guid.NewGuid();
-        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = usuarioId, StatusIngresso = EnumStatusIngresso.Pago, CodigoValidacao = "ABC123", NomeTitular = "Fulano" };
-        await ingressos.Adicionar(ingresso);
+        var (service, ingresso, _) = NovoCenarioPortaria();
 
-        var primeira = await service.ValidarIngressosNaPortariaAsync("ABC123");
-        Assert.True(primeira);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", Guid.NewGuid(), false));
+        Assert.Equal(EnumStatusIngresso.Pago, ingresso.StatusIngresso);
+        Assert.Null(ingresso.DataUso);
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_OrganizadorDeOutroCampeonato_NaoDescobreQueJaFoiUsado()
+    {
+        var (service, _, _) = NovoCenarioPortaria(EnumStatusIngresso.Utilizado);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", Guid.NewGuid(), false));
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_OrganizadorSemPerfil_Rejeita()
+    {
+        var (service, _, _) = NovoCenarioPortaria();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", null, false));
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_OrganizadorDono_MarcaUtilizadoUmaUnicaVez()
+    {
+        var (service, ingresso, notificacoes) = NovoCenarioPortaria();
+
+        var resultado = await service.ValidarIngressosNaPortariaAsync(" abc123 ", OrganizadorDono, false);
+        Assert.Equal("Fulano de Tal", resultado.NomeTitular);
+        Assert.Equal("***.456.789-**", resultado.CpfTitularMascarado);
+        Assert.Equal("Arquibancada", resultado.NomeLote);
+        Assert.Equal("Estádio Municipal", resultado.LocalPartida);
         Assert.Equal(EnumStatusIngresso.Utilizado, ingresso.StatusIngresso);
-        Assert.Contains(notificacoes.Criadas, n => n.UsuarioId == usuarioId && n.Tipo == EnumTipoNotificacao.IngressoUtilizado);
+        Assert.NotNull(ingresso.DataUso);
+        Assert.Contains(notificacoes.Criadas, n => n.UsuarioId == ingresso.UsuarioId && n.Tipo == EnumTipoNotificacao.IngressoUtilizado);
 
-        // Segunda tentativa com o mesmo codigo deve falhar (ja utilizado).
-        var ex = await Assert.ThrowsAsync<Exception>(() => service.ValidarIngressosNaPortariaAsync("ABC123"));
-        Assert.Contains("já foi utilizado", ex.Message);
+        // Segunda leitura do mesmo QR Code deve ser barrada como já utilizada.
+        var ex = await Assert.ThrowsAsync<IngressoJaUtilizadoException>(() => service.ValidarIngressosNaPortariaAsync("ABC123", OrganizadorDono, false));
+        Assert.Equal("Fulano de Tal", ex.NomeTitular);
+    }
+
+    [Fact]
+    public async Task ValidarPortaria_Administrador_ValidaIngressoDeQualquerCampeonato()
+    {
+        var (service, ingresso, _) = NovoCenarioPortaria();
+
+        var resultado = await service.ValidarIngressosNaPortariaAsync("ABC123", null, true);
+        Assert.Equal("Fulano de Tal", resultado.NomeTitular);
+        Assert.Equal(EnumStatusIngresso.Utilizado, ingresso.StatusIngresso);
     }
 
     // ─── ProcessarWebhookAsaasAsync ──────────────────────────────────────────
@@ -340,7 +432,8 @@ public class IngressoServiceTests
     public async Task ProcessarWebhookAsaasAsync_IngressosPendentes_MarcaPagosEDecrementaLoteENotifica()
     {
         var lote = NovoLote(quantidadeDisponivel: 5);
-        var (service, ingressos, lotes, _, notificacoes) = NovoService(lote);
+        var (service, ingressos, lotes, asaas, notificacoes) = NovoService(lote);
+        asaas.StatusCobranca = "RECEIVED";
         var usuarioId = Guid.NewGuid();
         var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = usuarioId, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.Pendente, DataCompra = DateTime.UtcNow.AddDays(-3) };
         await ingressos.Adicionar(ingresso);
@@ -373,6 +466,28 @@ public class IngressoServiceTests
         Assert.Null(ingresso.DataPagamento);
     }
 
+    [Theory]
+    [InlineData("PENDING")]
+    [InlineData("OVERDUE")]
+    [InlineData("REFUNDED")]
+    public async Task ProcessarWebhookAsaasAsync_PagamentoNaoConfirmadoNoAsaas_NaoMarcaPago(string statusNoAsaas)
+    {
+        // Webhook forjado: o comprador conhece o próprio AsaasPaymentId e chama a API sem ter pago
+        var lote = NovoLote(quantidadeDisponivel: 5);
+        var (service, ingressos, lotes, asaas, notificacoes) = NovoService(lote);
+        asaas.StatusCobranca = statusNoAsaas;
+        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.Pendente };
+        await ingressos.Adicionar(ingresso);
+
+        var resultado = await service.ProcessarWebhookAsaasAsync("pay_1", "PAYMENT_RECEIVED");
+
+        Assert.False(resultado);
+        Assert.Equal(EnumStatusIngresso.Pendente, ingresso.StatusIngresso);
+        Assert.Null(ingresso.DataPagamento);
+        Assert.Equal(5, (await lotes.ObterPorId(lote.Id))!.QuantidadeDisponivel);
+        Assert.Empty(notificacoes.Criadas);
+    }
+
     // ─── ObterMeusIngressosAsync ─────────────────────────────────────────────
 
     [Fact]
@@ -396,7 +511,8 @@ public class IngressoServiceTests
     public async Task ProcessarWebhookAsaasAsync_EstornoConfirmado_CancelaIngressosERestauraEstoqueUmaVez()
     {
         var lote = NovoLote(quantidadeDisponivel: 8);
-        var (service, ingressos, lotes, _, _) = NovoService(lote);
+        var (service, ingressos, lotes, asaas, _) = NovoService(lote);
+        asaas.StatusCobranca = "REFUNDED";
         var ingresso1 = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
         var ingresso2 = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
         await ingressos.Adicionar(ingresso1);
@@ -410,10 +526,27 @@ public class IngressoServiceTests
     }
 
     [Fact]
+    public async Task ProcessarWebhookAsaasAsync_EstornoNaoConfirmadoNoAsaas_MantemEstornoPendente()
+    {
+        var lote = NovoLote(quantidadeDisponivel: 8);
+        var (service, ingressos, lotes, asaas, _) = NovoService(lote);
+        asaas.StatusCobranca = "RECEIVED";
+        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
+        await ingressos.Adicionar(ingresso);
+
+        var resultado = await service.ProcessarWebhookAsaasAsync("pay_1", "PAYMENT_REFUNDED");
+
+        Assert.False(resultado);
+        Assert.Equal(EnumStatusIngresso.EstornoPendente, ingresso.StatusIngresso);
+        Assert.Equal(8, (await lotes.ObterPorId(lote.Id))!.QuantidadeDisponivel);
+    }
+
+    [Fact]
     public async Task ProcessarWebhookAsaasAsync_EstornoRecusado_RestauraIngressoPagoSemAlterarEstoque()
     {
         var lote = NovoLote(quantidadeDisponivel: 8);
-        var (service, ingressos, lotes, _, _) = NovoService(lote);
+        var (service, ingressos, lotes, asaas, _) = NovoService(lote);
+        asaas.StatusCobranca = "RECEIVED";
         var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
         await ingressos.Adicionar(ingresso);
 
@@ -421,6 +554,22 @@ public class IngressoServiceTests
 
         Assert.Equal(EnumStatusIngresso.Pago, ingresso.StatusIngresso);
         Assert.Equal(8, (await lotes.ObterPorId(lote.Id))!.QuantidadeDisponivel);
+    }
+
+    [Fact]
+    public async Task ProcessarWebhookAsaasAsync_RecusaForjadaAposEstornoDevolvido_NaoReativaIngresso()
+    {
+        // O dinheiro já voltou para o comprador; um "estorno recusado" forjado não pode devolver o ingresso
+        var lote = NovoLote(quantidadeDisponivel: 8);
+        var (service, ingressos, _, asaas, _) = NovoService(lote);
+        asaas.StatusCobranca = "REFUNDED";
+        var ingresso = new Ingresso { IngressoLoteId = lote.Id, UsuarioId = CompradorPadrao, AsaasPaymentId = "pay_1", StatusIngresso = EnumStatusIngresso.EstornoPendente };
+        await ingressos.Adicionar(ingresso);
+
+        var resultado = await service.ProcessarWebhookAsaasAsync("pay_1", "PAYMENT_REFUND_DENIED");
+
+        Assert.False(resultado);
+        Assert.Equal(EnumStatusIngresso.EstornoPendente, ingresso.StatusIngresso);
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-﻿using kivoBackend.Application.Interfaces;
+using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
 using kivoBackend.Core.Interfaces;
@@ -11,8 +11,12 @@ using System.Threading.Tasks;
 
 namespace kivoBackend.Application.Services
 {
-    public class UsuarioService : ServiceGenerics<Usuario>, IUsuarioService
+    public partial class UsuarioService : ServiceGenerics<Usuario>, IUsuarioService
     {
+        private readonly IAppDbContext? _db;
+        private readonly IUsuarioGestaoTransacao? _transacao;
+        private readonly IRepositoryGenerics<OrganizadorCampeonato>? _organizadorCampeonatoRepository;
+        private readonly IRepositoryGenerics<OrganizadorTime>? _organizadorTimeRepository;
         private readonly IRepositoryGenerics<Usuario> _repositoryGenerics;
         private readonly IRepositoryUsuario _usuarioRepository;
         private readonly UserManager<IdentityUser> _userManager;
@@ -23,9 +27,14 @@ namespace kivoBackend.Application.Services
 
         public UsuarioService(IRepositoryGenerics<Usuario> repositoryGenerics, IRepositoryUsuario usuarioRepository,
             UserManager<IdentityUser> userManager, IEmailService emailService, IRepositoryGenerics<CodigoReativacao> codigoRepository,
-            IVerificationCodeService verificationCodeService, INotificacaoService notificacaoService)
+            IVerificationCodeService verificationCodeService, INotificacaoService notificacaoService, IAppDbContext? db = null, IUsuarioGestaoTransacao? transacao = null,
+            IRepositoryGenerics<OrganizadorCampeonato>? organizadorCampeonatoRepository = null, IRepositoryGenerics<OrganizadorTime>? organizadorTimeRepository = null)
             : base(repositoryGenerics)
         {
+            _db = db;
+            _transacao = transacao;
+            _organizadorCampeonatoRepository = organizadorCampeonatoRepository;
+            _organizadorTimeRepository = organizadorTimeRepository;
             _repositoryGenerics = repositoryGenerics;
             _usuarioRepository = usuarioRepository;
             _userManager = userManager;
@@ -43,6 +52,7 @@ namespace kivoBackend.Application.Services
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
+            GarantirSemRestricao(usuario);
             if (usuario.Ativo)
             {
                 throw new InvalidOperationException("Esta conta já está ativa.");
@@ -54,6 +64,7 @@ namespace kivoBackend.Application.Services
                 await _userManager.SetLockoutEndDateAsync(identityUser, null);
             }
             usuario.Ativo = true;
+            usuario.VersaoSessao++;
             await _repositoryGenerics.Atualizar(usuario);
         }
 
@@ -136,6 +147,7 @@ namespace kivoBackend.Application.Services
                 throw new InvalidOperationException("Esta conta já está Desativada.");
             }
             usuario.Ativo = false;
+            usuario.VersaoSessao++;
             await _repositoryGenerics.Atualizar(usuario);
         }
 
@@ -315,11 +327,13 @@ namespace kivoBackend.Application.Services
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
+            GarantirSemRestricao(usuario);
             if (usuario.EnumCargo == EnumCargo.Administrador)
             {
                 throw new InvalidOperationException("Contas de administrador não podem ser reativadas via email. Use o painel de controle de admins.");
             }
 
+            GarantirSemRestricao(usuario);
             if (usuario.Ativo)
             {
                 throw new InvalidOperationException("Esta conta já está ativa.");
@@ -345,17 +359,27 @@ namespace kivoBackend.Application.Services
         /// </summary>
         public async Task ConfirmarReativacao(string email, string codigo)
         {
+            if (_transacao == null) { await ConfirmarReativacaoInterno(email, codigo); return; }
+            await _transacao.Executar(async () => { await ConfirmarReativacaoInterno(email, codigo); return true; });
+        }
+
+        private async Task ConfirmarReativacaoInterno(string email, string codigo)
+        {
             var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
             if (usuario == null)
             {
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
+            GarantirSemRestricao(usuario);
+            if (usuario.EnumCargo == EnumCargo.Administrador)
+                throw new InvalidOperationException("Contas administrativas exigem reativação por administrador.");
             if (usuario.Ativo)
             {
                 throw new InvalidOperationException("Esta conta já está ativa.");
             }
 
+            GarantirSemRestricao(usuario);
             bool valido = await _verificationCodeService.ValidarCodigoAsync(
                 usuario.Id,
                 codigo,
@@ -396,6 +420,7 @@ namespace kivoBackend.Application.Services
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
+            GarantirSemRestricao(usuario);
             var codigo = await _verificationCodeService.GerarCodigoAsync(
                 usuario.Id,
                 VerificationCodeType.PasswordReset,
@@ -416,12 +441,19 @@ namespace kivoBackend.Application.Services
         /// </summary>
         public async Task ConfirmarRecuperacaoSenha(string email, string codigo, string novaSenha)
         {
+            if (_transacao == null) { await ConfirmarRecuperacaoSenhaInterno(email, codigo, novaSenha); return; }
+            await _transacao.Executar(async () => { await ConfirmarRecuperacaoSenhaInterno(email, codigo, novaSenha); return true; });
+        }
+
+        private async Task ConfirmarRecuperacaoSenhaInterno(string email, string codigo, string novaSenha)
+        {
             var usuario = await _usuarioRepository.ObterUsuarioPorEmail(email);
             if (usuario == null)
             {
                 throw new KeyNotFoundException("Usuário não encontrado.");
             }
 
+            GarantirSemRestricao(usuario);
             bool valido = await _verificationCodeService.ValidarCodigoAsync(
                 usuario.Id,
                 codigo,

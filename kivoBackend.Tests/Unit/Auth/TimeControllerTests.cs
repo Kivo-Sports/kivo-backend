@@ -22,7 +22,7 @@ public class TimeControllerTests
     {
         var time = new Time { Id = Guid.NewGuid(), Nome = "A", Cidade = "SP", Estado = "SP" };
         var controller = new TimeController(new FakeTimeService { Current = time }, new FakeUsuarioService(),
-            new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(Guid.NewGuid()));
+            new FakeStorageService(), new FakeCurrentUser(Guid.NewGuid()));
 
         var result = Assert.IsType<OkObjectResult>(await controller.GetAll());
         Assert.NotNull(result.Value);
@@ -32,7 +32,7 @@ public class TimeControllerTests
     public async Task GetById_Inexistente_RetornaNotFound()
     {
         var controller = new TimeController(new FakeTimeService(), new FakeUsuarioService(),
-            new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(Guid.NewGuid()));
+            new FakeStorageService(), new FakeCurrentUser(Guid.NewGuid()));
 
         Assert.IsType<NotFoundObjectResult>(await controller.GetById(Guid.NewGuid()));
     }
@@ -42,7 +42,7 @@ public class TimeControllerTests
     {
         var time = new Time { Id = Guid.NewGuid(), Nome = "A", Cidade = "SP", Estado = "SP" };
         var controller = new TimeController(new FakeTimeService { Current = time }, new FakeUsuarioService(),
-            new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(Guid.NewGuid()));
+            new FakeStorageService(), new FakeCurrentUser(Guid.NewGuid()));
 
         var result = Assert.IsType<OkObjectResult>(await controller.GetById(time.Id));
         var dto = Assert.IsType<ListarTimeDto>(result.Value);
@@ -59,7 +59,7 @@ public class TimeControllerTests
         usuarios.Users[adminId] = admin;
         var time = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = Guid.NewGuid(), Nome = "A", Cidade = "SP", Estado = "SP" };
         var controller = new TimeController(new FakeTimeService { Current = time }, usuarios,
-            new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(adminId, isAdmin: true));
+            new FakeStorageService(), new FakeCurrentUser(adminId, isAdmin: true));
         controller.ControllerContext = FakeHttpContext(adminId, "Administrador");
 
         var result = Assert.IsType<OkObjectResult>(await controller.GetAllOrganizador());
@@ -67,16 +67,16 @@ public class TimeControllerTests
     }
 
     [Fact]
-    public async Task GetAllOrganizador_OrganizadorSemPerfil_RetornaBadRequest()
+    public async Task GetAllOrganizador_CargoSemPermissao_RetornaForbidden()
     {
         var userId = Guid.NewGuid();
         var usuarios = new FakeUsuarioService();
         usuarios.Users[userId] = UsuarioTorcedor(userId); // sem OrganizadorTime
         var controller = new TimeController(new FakeTimeService(), usuarios,
-            new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(userId));
+            new FakeStorageService(), new FakeCurrentUser(userId));
         controller.ControllerContext = FakeHttpContext(userId);
 
-        Assert.IsType<BadRequestObjectResult>(await controller.GetAllOrganizador());
+        Assert.IsType<ForbidResult>(await controller.GetAllOrganizador());
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class TimeControllerTests
         usuarios.Users[userId] = UsuarioOrganizadorTime(userId, orgTimeId);
         var meuTime = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = orgTimeId, Nome = "Meu", Cidade = "SP", Estado = "SP" };
         var controller = new TimeController(new FakeTimeService { Current = meuTime }, usuarios,
-            new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(userId));
+            new FakeStorageService(), new FakeCurrentUser(userId));
         controller.ControllerContext = FakeHttpContext(userId);
 
         var result = Assert.IsType<OkObjectResult>(await controller.GetAllOrganizador());
@@ -104,7 +104,7 @@ public class TimeControllerTests
         usuarios.Users[userId] = UsuarioOrganizadorTime(userId, orgTimeId);
         var time = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = orgTimeId, Nome = "Antigo", Cidade = "SP", Estado = "SP" };
         var times = new FakeTimeService { Current = time };
-        var controller = new TimeController(times, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(userId));
+        var controller = new TimeController(times, usuarios, new FakeStorageService(), new FakeCurrentUser(userId));
 
         var result = Assert.IsType<OkObjectResult>(await controller.Put(time.Id, AtualizarDto(), null));
         var dto = Assert.IsType<ListarTimeDto>(result.Value);
@@ -118,7 +118,7 @@ public class TimeControllerTests
         var userId = Guid.NewGuid();
         var usuarios = new FakeUsuarioService();
         usuarios.Users[userId] = UsuarioOrganizadorTime(userId, Guid.NewGuid());
-        var controller = new TimeController(new FakeTimeService(), usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(userId));
+        var controller = new TimeController(new FakeTimeService(), usuarios, new FakeStorageService(), new FakeCurrentUser(userId));
 
         var result = await controller.Post(new CriarTimeDto { EsporteId = Guid.Empty, Nome = "A", Cidade = "SP", Estado = "SP" }, null);
 
@@ -135,7 +135,7 @@ public class TimeControllerTests
         usuarios.Users[userId] = UsuarioOrganizadorTime(userId, orgTimeId);
         var time = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = orgTimeId, EsporteId = esporteOriginal, Nome = "Antigo", Cidade = "SP", Estado = "SP" };
         var times = new FakeTimeService { Current = time };
-        var controller = new TimeController(times, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(userId));
+        var controller = new TimeController(times, usuarios, new FakeStorageService(), new FakeCurrentUser(userId));
 
         var dto = new AtualizarTimeDto { Nome = "Novo", Cidade = "Curitiba", Estado = "PR", EsporteId = Guid.Empty };
         var result = Assert.IsType<OkObjectResult>(await controller.Put(time.Id, dto, null));
@@ -147,7 +147,7 @@ public class TimeControllerTests
     public async Task Put_TimeInexistente_RetornaNotFound()
     {
         var controller = new TimeController(new FakeTimeService(), new FakeUsuarioService(),
-            new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(Guid.NewGuid()));
+            new FakeStorageService(), new FakeCurrentUser(Guid.NewGuid()));
 
         Assert.IsType<NotFoundObjectResult>(await controller.Put(Guid.NewGuid(), AtualizarDto(), null));
     }
@@ -156,7 +156,7 @@ public class TimeControllerTests
     public async Task ToggleStatus_TimeInexistente_RetornaNotFound()
     {
         var controller = new TimeController(new FakeTimeService(), new FakeUsuarioService(),
-            new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(Guid.NewGuid()));
+            new FakeStorageService(), new FakeCurrentUser(Guid.NewGuid()));
 
         Assert.IsType<NotFoundObjectResult>(await controller.ToggleStatus(Guid.NewGuid()));
     }
@@ -170,7 +170,7 @@ public class TimeControllerTests
         usuarios.Users[userId] = UsuarioOrganizadorTime(userId, orgTimeId);
         var time = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = orgTimeId, Nome = "A", Cidade = "SP", Estado = "SP", Ativo = true };
         var times = new FakeTimeService { Current = time };
-        var controller = new TimeController(times, usuarios, new FakeStorageService(), new InMemoryRepo<CampeonatoTime>(), new FakeCurrentUser(userId));
+        var controller = new TimeController(times, usuarios, new FakeStorageService(), new FakeCurrentUser(userId));
 
         var result = Assert.IsType<OkObjectResult>(await controller.ToggleStatus(time.Id));
         var dto = Assert.IsType<ListarTimeDto>(result.Value);
@@ -185,13 +185,8 @@ public class TimeControllerTests
         var usuarios = new FakeUsuarioService();
         usuarios.Users[userId] = UsuarioOrganizadorTime(userId, orgTimeId);
         var time = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = orgTimeId, Nome = "A", Cidade = "SP", Estado = "SP", Ativo = true };
-        var campeonatoEmAndamento = Campeonato(Guid.NewGuid());
-        campeonatoEmAndamento.EnumStatusCampeonato = EnumStatusCampeonato.InscricoesAbertas;
-        campeonatoEmAndamento.DataInicio = DateTime.Today.AddDays(1);
-        campeonatoEmAndamento.DataFim = DateTime.Today.AddDays(10);
-        var vinculo = new CampeonatoTime { Id = Guid.NewGuid(), TimeId = time.Id, CampeonatoId = campeonatoEmAndamento.Id, Campeonato = campeonatoEmAndamento };
-        var times = new FakeTimeService { Current = time };
-        var controller = new TimeController(times, usuarios, new FakeStorageService(), new InMemoryRepo<CampeonatoTime>(vinculo), new FakeCurrentUser(userId));
+        var times = new FakeTimeService { Current = time, ParticipaEmCampeonatoAtivo = true };
+        var controller = new TimeController(times, usuarios, new FakeStorageService(), new FakeCurrentUser(userId));
 
         var result = await controller.ToggleStatus(time.Id);
 
@@ -203,7 +198,7 @@ public class TimeControllerTests
     public async Task Delete_TimeInexistente_RetornaNotFound()
     {
         var controller = new TimeController(new FakeTimeService(), new FakeUsuarioService(),
-            new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(Guid.NewGuid()));
+            new FakeStorageService(), new FakeCurrentUser(Guid.NewGuid()));
 
         Assert.IsType<NotFoundObjectResult>(await controller.Delete(Guid.NewGuid()));
     }
@@ -217,7 +212,7 @@ public class TimeControllerTests
         usuarios.Users[userId] = UsuarioOrganizadorTime(userId, orgTimeId);
         var time = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = orgTimeId, Nome = "A", Cidade = "SP", Estado = "SP" };
         var times = new FakeTimeService { Current = time };
-        var controller = new TimeController(times, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(userId));
+        var controller = new TimeController(times, usuarios, new FakeStorageService(), new FakeCurrentUser(userId));
 
         Assert.IsType<NoContentResult>(await controller.Delete(time.Id));
         Assert.True(times.RemoveCalled);
@@ -228,10 +223,12 @@ public class TimeControllerTests
     {
         var time = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = Guid.NewGuid(), Nome = "A", Cidade = "SP", Estado = "SP" };
         var times = new FakeTimeService { Current = time };
-        var controller = new TimeController(times, new FakeUsuarioService(), new FakeStorageService(),
-            new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(Guid.NewGuid(), isAdmin: true));
-
+        var usuarios = new FakeUsuarioService();
         var novoOrganizadorId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        usuarios.Users[userId] = UsuarioOrganizadorTime(userId, novoOrganizadorId);
+        var controller = new TimeController(times, usuarios, new FakeStorageService(),
+            new FakeCurrentUser(Guid.NewGuid(), isAdmin: true));
         var result = Assert.IsType<OkObjectResult>(await controller.Reatribuir(time.Id, new ReatribuirTimeDTO { NovoOrganizadorTimeId = novoOrganizadorId }));
         var dto = Assert.IsType<ListarTimeDto>(result.Value);
         Assert.Equal(novoOrganizadorId, dto.OrganizadorTimeId);
@@ -242,7 +239,7 @@ public class TimeControllerTests
     public async Task Reatribuir_TimeInexistente_RetornaNotFound()
     {
         var controller = new TimeController(new FakeTimeService(), new FakeUsuarioService(), new FakeStorageService(),
-            new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(Guid.NewGuid(), isAdmin: true));
+            new FakeCurrentUser(Guid.NewGuid(), isAdmin: true));
 
         Assert.IsType<NotFoundObjectResult>(await controller.Reatribuir(Guid.NewGuid(), new ReatribuirTimeDTO { NovoOrganizadorTimeId = Guid.NewGuid() }));
     }

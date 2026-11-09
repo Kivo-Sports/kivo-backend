@@ -1,11 +1,12 @@
-﻿using kivoBackend.Core.Entities;
+using kivoBackend.Application.Interfaces;
+using kivoBackend.Core.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace kivoBackend.Infrastructure.Data
 {
-    public class AppDbContext : IdentityDbContext<IdentityUser>
+    public class AppDbContext : IdentityDbContext<IdentityUser>, IAppDbContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options)
             : base(options)
@@ -31,11 +32,15 @@ namespace kivoBackend.Infrastructure.Data
         public DbSet<Ingresso> Ingressos { get; set; }
         public DbSet<Notificacao> Notificacoes { get; set; }
         public DbSet<Post> Posts { get; set; }
+        public DbSet<TipoDeficiencia> TiposDeficiencia { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Usuario>().Property(u => u.EstadoAdministrativo).HasDefaultValue(kivoBackend.Core.Enums.EnumEstadoAdministrativo.Normal);
+            modelBuilder.Entity<Usuario>().Property(u => u.VersaoSessao).HasDefaultValue(1);
 
             // Configuração de unico CPF
             modelBuilder.Entity<Usuario>()
@@ -171,7 +176,18 @@ namespace kivoBackend.Infrastructure.Data
                 .HasForeignKey(i => i.IngressoLoteId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // (Aproveitamos para definir a precisão decimal e tirar os avisos/warnings do terminal)
+            modelBuilder.Entity<Ingresso>()
+                .HasOne(i => i.TipoDeficiencia)
+                .WithMany()
+                .HasForeignKey(i => i.TipoDeficienciaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TipoDeficiencia>().HasData(
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.NenhumaId, Descricao = "Nenhuma" },
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.AuditivaId, Descricao = "Pessoa com deficiência auditiva" },
+                new TipoDeficiencia { Id = TipoDeficienciaSeed.CadeiranteId, Descricao = "Cadeirante" }
+            );
+
             modelBuilder.Entity<Ingresso>()
                 .Property(i => i.PrecoPago)
                 .HasPrecision(18, 2);

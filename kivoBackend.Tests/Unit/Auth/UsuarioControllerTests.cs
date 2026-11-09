@@ -10,10 +10,8 @@ namespace kivoBackend.Tests.Unit.Auth;
 
 public class UsuarioControllerTests
 {
-    private static UsuarioController Build(FakeUsuarioService usuarios, Guid? currentUserId = null, bool isAdmin = false,
-        EmptyRepo<OrganizadorCampeonato>? orgCampRepo = null, EmptyRepo<OrganizadorTime>? orgTimeRepo = null)
-        => new(usuarios, orgCampRepo ?? new EmptyRepo<OrganizadorCampeonato>(), orgTimeRepo ?? new EmptyRepo<OrganizadorTime>(),
-               new FakeCurrentUser(currentUserId, isAdmin));
+    private static UsuarioController Build(FakeUsuarioService usuarios, Guid? currentUserId = null, bool isAdmin = false)
+        => new(usuarios, new FakeCurrentUser(currentUserId, isAdmin));
 
     private static EnderecoDto NovoEndereco() => new() { Cep = "01000-000", Rua = "Rua A", Numero = "1", Cidade = "SP", Estado = "SP", Pais = "Brasil" };
 
@@ -349,18 +347,21 @@ public class UsuarioControllerTests
     [Fact]
     public async Task Reativar_ContaInativa_RetornaOk()
     {
-        var controller = Build(new FakeUsuarioService(), isAdmin: true);
-
-        Assert.IsType<OkObjectResult>(await controller.Reativar(Guid.NewGuid()));
+        var usuarios = new FakeUsuarioService();
+        var id = Guid.NewGuid();
+        usuarios.Users[id] = UsuarioTorcedor(id);
+        var controller = Build(usuarios, currentUserId: Guid.NewGuid(), isAdmin: true);
+        Assert.IsType<OkObjectResult>(await controller.Reativar(id));
     }
 
     [Fact]
     public async Task Reativar_ServicoLanca_RetornaBadRequest()
     {
         var usuarios = new FakeUsuarioService { ThrowOnAtivarConta = new InvalidOperationException("Esta conta já está ativa.") };
-        var controller = Build(usuarios, isAdmin: true);
-
-        Assert.IsType<BadRequestObjectResult>(await controller.Reativar(Guid.NewGuid()));
+        var id = Guid.NewGuid();
+        usuarios.Users[id] = UsuarioTorcedor(id);
+        var controller = Build(usuarios, currentUserId: Guid.NewGuid(), isAdmin: true);
+        Assert.IsType<BadRequestObjectResult>(await controller.Reativar(id));
     }
 
     // ---------- Admin-only listings ----------
@@ -368,23 +369,24 @@ public class UsuarioControllerTests
     [Fact]
     public async Task GetOrganizadoresCampeonato_RetornaListaMapeada()
     {
-        var usuario = UsuarioOrganizadorCampeonato(Guid.NewGuid(), Guid.NewGuid());
-        var organizador = usuario.OrganizadorCampeonato!;
-        organizador.Usuario = usuario;
-        var controllerComDados = new UsuarioController(new FakeUsuarioService(), new InMemoryRepo<OrganizadorCampeonato>(organizador), new EmptyRepo<OrganizadorTime>(), new FakeCurrentUser(Guid.NewGuid(), isAdmin: true));
+        var usuarios = new FakeUsuarioService();
+        var dto = new OrganizadorResumoDTO { Id = Guid.NewGuid(), Nome = "Ana", Email = "ana@test.com" };
+        usuarios.OrganizadoresCampeonato.Add(dto);
+        var controller = Build(usuarios, currentUserId: Guid.NewGuid(), isAdmin: true);
 
-        var result = Assert.IsType<OkObjectResult>(await controllerComDados.GetOrganizadoresCampeonato());
-        Assert.NotNull(result.Value);
+        var result = Assert.IsType<OkObjectResult>(await controller.GetOrganizadoresCampeonato());
+        Assert.Same(dto, Assert.Single(Assert.IsAssignableFrom<IEnumerable<OrganizadorResumoDTO>>(result.Value)));
     }
 
     [Fact]
     public async Task GetOrganizadoresTime_RetornaListaMapeada()
     {
-        var usuario = UsuarioOrganizadorTime(Guid.NewGuid(), Guid.NewGuid());
-        var organizador = new OrganizadorTime { Id = usuario.OrganizadorTime!.Id, UsuarioId = usuario.Id, Usuario = usuario };
-        var controller = new UsuarioController(new FakeUsuarioService(), new EmptyRepo<OrganizadorCampeonato>(), new InMemoryRepo<OrganizadorTime>(organizador), new FakeCurrentUser(Guid.NewGuid(), isAdmin: true));
+        var usuarios = new FakeUsuarioService();
+        var dto = new OrganizadorResumoDTO { Id = Guid.NewGuid(), Nome = "Bia", Email = "bia@test.com" };
+        usuarios.OrganizadoresTime.Add(dto);
+        var controller = Build(usuarios, currentUserId: Guid.NewGuid(), isAdmin: true);
 
         var result = Assert.IsType<OkObjectResult>(await controller.GetOrganizadoresTime());
-        Assert.NotNull(result.Value);
+        Assert.Same(dto, Assert.Single(Assert.IsAssignableFrom<IEnumerable<OrganizadorResumoDTO>>(result.Value)));
     }
 }

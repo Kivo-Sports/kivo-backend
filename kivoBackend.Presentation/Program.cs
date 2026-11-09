@@ -4,9 +4,12 @@ using kivoBackend.Application.Services;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
 using kivoBackend.Core.Interfaces;
+using kivoBackend.Infrastructure.Auth;
 using kivoBackend.Infrastructure.Data;
+using kivoBackend.Infrastructure.Transactions;
 using kivoBackend.Infrastructure.Repositories;
 using kivoBackend.Presentation.Auth;
+using kivoBackend.Presentation.Documentation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -131,32 +134,7 @@ builder.Services.AddCors(options =>
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "JWT Authorization header usando o esquema Bearer. Exemplo: \"Bearer {token}\""
-    });
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
-        }
-    });
-});
+builder.Services.AddSwaggerGen(KivoOpenApi.Configure);
 
 // DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -203,6 +181,12 @@ builder.Services.AddAuthentication(options =>
 
     options.Events = new JwtBearerEvents
     {
+        OnTokenValidated = async context =>
+        {
+            var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+            if (!await UsuarioSessionValidation.Valida(db, context.Principal))
+                context.Fail("Sessão inválida ou revogada.");
+        },
         OnChallenge = context =>
         {
             context.HandleResponse();
@@ -222,6 +206,8 @@ builder.Services.AddAuthentication(options =>
 // Generic Repository / Service / Dependency Injection
 builder.Services.AddScoped(typeof(IRepositoryGenerics<>), typeof(RepositoryGenerics<>));
 builder.Services.AddScoped(typeof(IServiceGenerics<>), typeof(ServiceGenerics<>));
+builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+builder.Services.AddScoped<IUsuarioGestaoTransacao, UsuarioGestaoTransacao>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IRepositoryUsuario, RepositoryUsuario>();
 builder.Services.AddScoped<TokenService>();

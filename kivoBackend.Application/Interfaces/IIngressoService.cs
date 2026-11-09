@@ -11,7 +11,7 @@ namespace kivoBackend.Application.Interfaces
     {
         Task<CompraIngressosResponseDTO> ComprarIngressosAsync(Guid usuarioId, RealizarCompraDTO compraDTO);
         Task <List<IngressoDetalhesDTO>> ObterMeusIngressosAsync(Guid usuarioId);
-        Task<bool> ValidarIngressosNaPortariaAsync(string codigoValidacao);
+        Task<ValidacaoPortariaDTO> ValidarIngressosNaPortariaAsync(string codigoValidacao, Guid? organizadorCampeonatoId, bool ehAdministrador);
         Task<bool> ConfirmarPagamentoAsync(Guid ingressoId);
         Task<bool> ProcessarWebhookAsaasAsync(string asaasPaymentId, string evento);
         Task AtribuirTitularAsync(Guid compradorId, Guid ingressoId, AtribuirTitularIngressoDTO dto);

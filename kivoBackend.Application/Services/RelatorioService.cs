@@ -2,7 +2,6 @@ using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
-using kivoBackend.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace kivoBackend.Application.Services;
@@ -18,10 +17,10 @@ public class RelatorioService : IRelatorioService
 {
     private static readonly TimeZoneInfo FusoRelatorio = ObterFusoSaoPaulo();
 
-    private readonly AppDbContext _context;
+    private readonly IAppDbContext _context;
     private readonly TimeProvider _relogio;
 
-    public RelatorioService(AppDbContext context, TimeProvider? relogio = null)
+    public RelatorioService(IAppDbContext context, TimeProvider? relogio = null)
     {
         _context = context;
         _relogio = relogio ?? TimeProvider.System;
@@ -97,10 +96,23 @@ public class RelatorioService : IRelatorioService
     public async Task<RelatorioAdministrativoDTO> ObterAdministrativoAsync(FiltroRelatorioAdministrativoDTO filtro)
     {
         ValidarPeriodo(filtro);
-        // Usuários não pertencem a um esporte, então a base de usuários é sempre global.
-        var usuarios = await _context.Usuarios.AsNoTracking().ToListAsync();
+        var periodo = CriarPeriodo(filtro);
 
-        var campeonatosQuery = _context.Campeonatos.AsNoTracking().Include(x => x.Esporte).AsQueryable();
+        // Usuários não pertencem a um esporte, então a base de usuários é sempre global.
+        // Contagens e agrupamentos rodam no banco (COUNT / GROUP BY), sem carregar a tabela de usuários.
+        var usuarios = _context.Usuarios.AsNoTracking();
+        var usuariosTotais = await usuarios.CountAsync();
+        // CriadoEm é gravado em hora local (DateTime.Now), por isso compara direto com o dia local.
+        var novosUsuariosQuery = usuarios;
+        if (periodo.InicioLocal is DateTime inicioLocal) novosUsuariosQuery = novosUsuariosQuery.Where(x => x.CriadoEm >= inicioLocal);
+        if (periodo.FimLocalExclusivo is DateTime fimLocal) novosUsuariosQuery = novosUsuariosQuery.Where(x => x.CriadoEm < fimLocal);
+        var novosUsuarios = await novosUsuariosQuery.CountAsync();
+        var usuariosPorCargo = await usuarios
+            .GroupBy(x => x.EnumCargo)
+            .Select(g => new { Cargo = g.Key, Quantidade = g.Count() })
+            .ToListAsync();
+
+        var campeonatosQuery = _context.Campeonatos.AsNoTracking();
         var timesQuery = _context.Times.AsNoTracking().AsQueryable();
         if (filtro.EsporteId.HasValue)
         {
@@ -112,7 +124,11 @@ public class RelatorioService : IRelatorioService
         var campeonatoIds = campeonatos.Select(x => x.Id).ToHashSet();
         var partidas = await _context.Partidas.AsNoTracking().Where(x => campeonatoIds.Contains(x.CampeonatoId)).ToListAsync();
         var times = await timesQuery.ToListAsync();
-        var periodo = CriarPeriodo(filtro);
+        var campeonatosPorEsporte = await campeonatosQuery
+            .GroupBy(x => x.Esporte.Nome)
+            .Select(g => new ItemQuantidadeDTO { Nome = g.Key ?? "Sem esporte", Quantidade = g.Count() })
+            .OrderByDescending(x => x.Quantidade)
+            .ToListAsync();
         var financeiro = await CarregarFinanceiroAsync(partidas, periodo, AgoraLocal);
 
         return new RelatorioAdministrativoDTO
@@ -120,9 +136,8 @@ public class RelatorioService : IRelatorioService
             Inicio = filtro.Inicio,
             Fim = filtro.Fim,
             EsporteId = filtro.EsporteId,
-            UsuariosTotais = usuarios.Count,
-            // CriadoEm é gravado em hora local (DateTime.Now), por isso compara direto com o dia local.
-            NovosUsuarios = usuarios.Count(x => NoPeriodo(x.CriadoEm, periodo)),
+            UsuariosTotais = usuariosTotais,
+            NovosUsuarios = novosUsuarios,
             // Situação atual (não depende do período): status/ativo não têm histórico de datas.
             CampeonatosTotais = campeonatos.Count,
             CampeonatosEmAndamento = campeonatos.Count(x => x.EnumStatusCampeonato == EnumStatusCampeonato.EmAndamento),
@@ -130,8 +145,9 @@ public class RelatorioService : IRelatorioService
             TimesAtivos = times.Count(x => x.Ativo),
             ResumoFinanceiro = CriarResumo(financeiro, periodo),
             VendasPorDia = CriarSerieVendas(financeiro.ConfirmadosComData, x => x.DataPagamento!.Value),
-            UsuariosPorPerfil = usuarios.GroupBy(x => x.EnumCargo.ToString()).Select(x => new ItemQuantidadeDTO { Nome = x.Key, Quantidade = x.Count() }).OrderBy(x => x.Nome).ToList(),
-            CampeonatosPorEsporte = campeonatos.GroupBy(x => x.Esporte?.Nome ?? "Sem esporte").Select(x => new ItemQuantidadeDTO { Nome = x.Key, Quantidade = x.Count() }).OrderByDescending(x => x.Quantidade).ToList()
+            // O banco devolve uma linha por cargo; aqui só o nome do enum vira texto.
+            UsuariosPorPerfil = usuariosPorCargo.Select(x => new ItemQuantidadeDTO { Nome = x.Cargo.ToString(), Quantidade = x.Quantidade }).OrderBy(x => x.Nome).ToList(),
+            CampeonatosPorEsporte = campeonatosPorEsporte
         };
     }
 

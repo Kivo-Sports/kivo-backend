@@ -109,6 +109,15 @@ public class FakeCampeonatoRepository : EmptyRepo<Campeonato>, IRepositoryCampeo
 
 public sealed class FakeUsuarioService : IUsuarioService
 {
+    public Task<kivoBackend.Application.DTO.GestaoUsuarioPagina> ListarGestao(kivoBackend.Application.DTO.GestaoUsuarioFiltro filtro) => throw new NotSupportedException();
+    public Task AlterarEstadoAdministrativo(Guid id, Guid autorId, string acao) => ThrowOnAtivarConta != null ? throw ThrowOnAtivarConta : Task.CompletedTask;
+    public Task AlterarCargoAdministrativo(Guid id, Guid autorId, kivoBackend.Application.DTO.AlterarCargoUsuarioDTO dto) => throw new NotSupportedException();
+    public List<kivoBackend.Application.DTO.OrganizadorResumoDTO> OrganizadoresCampeonato { get; } = new();
+    public List<kivoBackend.Application.DTO.OrganizadorResumoDTO> OrganizadoresTime { get; } = new();
+    public Task<IEnumerable<kivoBackend.Application.DTO.OrganizadorResumoDTO>> ListarOrganizadoresCampeonatoAtivos() => Task.FromResult<IEnumerable<kivoBackend.Application.DTO.OrganizadorResumoDTO>>(OrganizadoresCampeonato);
+    public Task<IEnumerable<kivoBackend.Application.DTO.OrganizadorResumoDTO>> ListarOrganizadoresTimeAtivos() => Task.FromResult<IEnumerable<kivoBackend.Application.DTO.OrganizadorResumoDTO>>(OrganizadoresTime);
+    public Task<bool> ResponsavelValido(Guid id, EnumCargo cargo, bool permitirAdmin = false) => Task.FromResult(Users.Values.Any(u => u.Ativo && (u.EnumCargo == cargo || permitirAdmin && u.EnumCargo == EnumCargo.Administrador) && (cargo == EnumCargo.OrganizadorTime ? u.OrganizadorTime?.Id == id : u.OrganizadorCampeonato?.Id == id)));
+
     public Dictionary<Guid, Usuario> Users { get; } = new();
     public Dictionary<string, Usuario> UsersByCpf { get; } = new();
     public bool RemoveCalled { get; private set; }
@@ -167,6 +176,8 @@ public sealed class FakeTimeService : ITimeService
     public Time? Added { get; private set; }
     public bool UpdateCalled { get; private set; }
     public bool RemoveCalled { get; private set; }
+    public bool ParticipaEmCampeonatoAtivo { get; init; }
+    public Task<bool> ParticipaDeCampeonatoAtivo(Guid timeId) => Task.FromResult(ParticipaEmCampeonatoAtivo);
     public Task<IEnumerable<Time>> ObterTodos() => Task.FromResult<IEnumerable<Time>>(Current == null ? Array.Empty<Time>() : new[] { Current });
     public Task<Time?> ObterPorId(Guid id) => Task.FromResult(Current);
     public Task<Time> Adicionar(Time entidade) { Added = entidade; return Task.FromResult(entidade); }
@@ -254,7 +265,9 @@ public sealed class FakeIngressoService : IIngressoService
 {
     public CompraIngressosResponseDTO CompraResult { get; set; } = new();
     public List<IngressoDetalhesDTO> MeusIngressosResult { get; set; } = new();
-    public bool ValidarPortariaResult { get; set; } = true;
+    public ValidacaoPortariaDTO ValidarPortariaResult { get; set; } = new() { NomeTitular = "Fulano" };
+    public Exception? ThrowOnValidarPortaria { get; set; }
+    public (string Codigo, Guid? OrganizadorCampeonatoId, bool EhAdministrador)? LastValidarPortaria { get; private set; }
     public bool ConfirmarPagamentoResult { get; set; } = true;
     public bool ProcessarWebhookResult { get; set; } = true;
     public Exception? ThrowOnComprar { get; set; }
@@ -270,13 +283,25 @@ public sealed class FakeIngressoService : IIngressoService
         return Task.FromResult(CompraResult);
     }
     public Task<List<IngressoDetalhesDTO>> ObterMeusIngressosAsync(Guid usuarioId) => Task.FromResult(MeusIngressosResult);
-    public Task<bool> ValidarIngressosNaPortariaAsync(string codigoValidacao) => Task.FromResult(ValidarPortariaResult);
+    public Task<ValidacaoPortariaDTO> ValidarIngressosNaPortariaAsync(string codigoValidacao, Guid? organizadorCampeonatoId, bool ehAdministrador)
+    {
+        LastValidarPortaria = (codigoValidacao, organizadorCampeonatoId, ehAdministrador);
+        if (ThrowOnValidarPortaria != null) throw ThrowOnValidarPortaria;
+        return Task.FromResult(ValidarPortariaResult);
+    }
     public Task<bool> ConfirmarPagamentoAsync(Guid ingressoId)
     {
         if (ThrowOnConfirmarPagamento != null) throw ThrowOnConfirmarPagamento;
         return Task.FromResult(ConfirmarPagamentoResult);
     }
-    public Task<bool> ProcessarWebhookAsaasAsync(string asaasPaymentId, string evento) => Task.FromResult(ProcessarWebhookResult);
+    public Exception? ThrowOnProcessarWebhook { get; set; }
+    public int ProcessarWebhookChamadas { get; private set; }
+    public Task<bool> ProcessarWebhookAsaasAsync(string asaasPaymentId, string evento)
+    {
+        ProcessarWebhookChamadas++;
+        if (ThrowOnProcessarWebhook != null) throw ThrowOnProcessarWebhook;
+        return Task.FromResult(ProcessarWebhookResult);
+    }
     public Task AtribuirTitularAsync(Guid compradorId, Guid ingressoId, AtribuirTitularIngressoDTO dto)
     {
         if (ThrowOnAtribuirTitular != null) throw ThrowOnAtribuirTitular;

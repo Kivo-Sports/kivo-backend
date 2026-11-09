@@ -20,5 +20,7 @@ namespace kivoBackend.Core.Entities
         public string? AsaasPaymentId { get; set; }
         public string? NomeTitular { get; set; }
         public string? CpfTitular { get; set; }
+        public Guid TipoDeficienciaId { get; set; } = TipoDeficienciaSeed.NenhumaId;
+        public virtual TipoDeficiencia TipoDeficiencia { get; set; } = null!;
     }
 }

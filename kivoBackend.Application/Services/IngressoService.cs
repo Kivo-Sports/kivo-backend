@@ -1,4 +1,5 @@
 ﻿using kivoBackend.Application.DTO;
+using kivoBackend.Application.Exceptions;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
@@ -14,8 +15,10 @@ namespace kivoBackend.Application.Services
         private readonly IRepositoryGenerics<Partida> _partidaRepository;
         private readonly IRepositoryGenerics<Time> _timeRepository;
         private readonly IRepositoryGenerics<Usuario> _usuarioRepository;
+        private readonly IRepositoryGenerics<Campeonato> _campeonatoRepository;
         private readonly IAsaasService _asaasService;
         private readonly INotificacaoService _notificacaoService;
+        private readonly IRepositoryGenerics<TipoDeficiencia> _tipoDeficienciaRepository;
 
         public IngressoService(
             IRepositoryGenerics<Ingresso> ingressoRepo,
@@ -23,16 +26,20 @@ namespace kivoBackend.Application.Services
             IRepositoryGenerics<Partida> partidaRepo,
             IRepositoryGenerics<Time> timeRepo,
             IRepositoryGenerics<Usuario> usuarioRepo,
+            IRepositoryGenerics<Campeonato> campeonatoRepo,
             IAsaasService asaasService,
-            INotificacaoService notificacaoService)
+            INotificacaoService notificacaoService,
+            IRepositoryGenerics<TipoDeficiencia> tipoDeficienciaRepo)
         {
             _ingressoRepository = ingressoRepo;
             _loteRepository = loteRepo;
             _partidaRepository = partidaRepo;
             _timeRepository = timeRepo;
             _usuarioRepository = usuarioRepo;
+            _campeonatoRepository = campeonatoRepo;
             _asaasService = asaasService;
             _notificacaoService = notificacaoService;
+            _tipoDeficienciaRepository = tipoDeficienciaRepo;
         }
 
         public async Task<CompraIngressosResponseDTO> ComprarIngressosAsync(Guid usuarioId, RealizarCompraDTO compraDTO)
@@ -71,6 +78,8 @@ namespace kivoBackend.Application.Services
                 customerId, valorTotal, descricao, Guid.NewGuid().ToString());
             var dadosPix = await _asaasService.ObterQrCodePixAsync(cobranca.Id);
             var ingressosGerados = new List<IngressoDetalhesDTO>();
+            // Titular/deficiência ainda não foram definidos nesta etapa (ver AtribuirTitularAsync).
+            var tipoDeficienciaPadrao = await _tipoDeficienciaRepository.ObterPorId(TipoDeficienciaSeed.NenhumaId);
 
             foreach (var (lote, quantidade) in itens)
             {
@@ -90,7 +99,7 @@ namespace kivoBackend.Application.Services
                     };
 
                     await _ingressoRepository.Adicionar(novoIngresso);
-                    ingressosGerados.Add(MapearParaDto(novoIngresso, lote.NomeLote, nomePartida, dataPartida, localPartida));
+                    ingressosGerados.Add(MapearParaDto(novoIngresso, lote.NomeLote, nomePartida, dataPartida, localPartida, tipoDeficienciaPadrao?.Descricao ?? string.Empty));
                 }
             }
 
@@ -124,6 +133,14 @@ namespace kivoBackend.Application.Services
                 .ToList();
 
             if (!ingressos.Any())
+                return false;
+
+            if (!ingressosPendentes.Any())
+                return true;
+
+            // O webhook é público e o comprador conhece o AsaasPaymentId: só marca como pago se o Asaas confirmar
+            var statusAsaas = await _asaasService.ConsultarStatusCobrancaAsync(asaasPaymentId);
+            if (!EstaPagoNoAsaas(statusAsaas))
                 return false;
 
             var dataPagamento = DateTime.UtcNow;
@@ -210,9 +227,7 @@ namespace kivoBackend.Application.Services
             {
                 var statusAsaas = await _asaasService.ConsultarStatusCobrancaAsync(ingresso.AsaasPaymentId);
 
-                bool estaPagoNoAsaas = statusAsaas == "RECEIVED" || statusAsaas == "CONFIRMED" || statusAsaas == "DONE";
-
-                if (!estaPagoNoAsaas)
+                if (!EstaPagoNoAsaas(statusAsaas))
                 {
                     throw new InvalidOperationException($"O pagamento deste ingresso ainda não foi confirmado no Asaas (Status atual: {statusAsaas}). O ingresso permanece Pendente.");
                 }
@@ -251,6 +266,8 @@ namespace kivoBackend.Application.Services
                 i.UsuarioId == usuarioId &&
                 i.StatusIngresso != EnumStatusIngresso.Cancelado &&
                 i.StatusIngresso != EnumStatusIngresso.EstornoPendente);
+            var tiposDeficiencia = (await _tipoDeficienciaRepository.ObterTodos())
+                .ToDictionary(t => t.Id, t => t.Descricao);
             var dtos = new List<IngressoDetalhesDTO>();
 
             foreach (var ingresso in ingressos)
@@ -260,7 +277,8 @@ namespace kivoBackend.Application.Services
                     ? await ObterDadosPartidaAsync(lote.PartidaId)
                     : ("Partida Desconhecida", DateTime.MinValue, "Local não informado");
 
-                dtos.Add(MapearParaDto(ingresso, lote?.NomeLote ?? "Lote", nomePartida, dataPartida, localPartida));
+                tiposDeficiencia.TryGetValue(ingresso.TipoDeficienciaId, out var tipoDeficienciaDescricao);
+                dtos.Add(MapearParaDto(ingresso, lote?.NomeLote ?? "Lote", nomePartida, dataPartida, localPartida, tipoDeficienciaDescricao ?? string.Empty));
             }
 
             return dtos;
@@ -291,8 +309,13 @@ namespace kivoBackend.Application.Services
             if (ingressosDaCompra.Any(i => i.Id != ingresso.Id && LimparCpf(i.CpfTitular) == cpfLimpo))
                 throw new InvalidOperationException("Este CPF já foi atribuído a outro ingresso desta compra.");
 
+            var tipoDeficiencia = await _tipoDeficienciaRepository.ObterPorId(dto.TipoDeficienciaId);
+            if (tipoDeficiencia == null)
+                throw new Exception("Opção de deficiência inválida.");
+
             ingresso.NomeTitular = dto.Nome.Trim();
             ingresso.CpfTitular = cpfLimpo;
+            ingresso.TipoDeficienciaId = tipoDeficiencia.Id;
             await _ingressoRepository.Atualizar(ingresso);
 
             await _notificacaoService.CriarNotificacaoAsync(
@@ -305,35 +328,85 @@ namespace kivoBackend.Application.Services
             );
         }
 
-        public async Task<bool> ValidarIngressosNaPortariaAsync(string codigoValidacao)
+        public async Task<ValidacaoPortariaDTO> ValidarIngressosNaPortariaAsync(string codigoValidacao, Guid? organizadorCampeonatoId, bool ehAdministrador)
         {
-            var ingressos = await _ingressoRepository.Buscar(i => i.CodigoValidacao == codigoValidacao);
-            var ingresso = ingressos.FirstOrDefault();
+            // O QR Code carrega só o código; leitores de câmera às vezes trazem espaços ou letras minúsculas
+            var codigo = (codigoValidacao ?? string.Empty).Trim().ToUpperInvariant();
+            var ingresso = string.IsNullOrEmpty(codigo)
+                ? null
+                : (await _ingressoRepository.Buscar(i => i.CodigoValidacao == codigo)).FirstOrDefault();
 
             if (ingresso == null)
-                throw new Exception("Ingresso inválido ou não encontrado.");
+                throw new KeyNotFoundException("Ingresso inválido ou não encontrado.");
+
+            var lote = await _loteRepository.ObterPorId(ingresso.IngressoLoteId);
+
+            // A posse vem antes de qualquer outra checagem: um organizador não pode descobrir
+            // o status de ingressos de campeonatos que não são dele.
+            if (!ehAdministrador)
+            {
+                var partida = lote != null ? await _partidaRepository.ObterPorId(lote.PartidaId) : null;
+                var campeonato = partida != null ? await _campeonatoRepository.ObterPorId(partida.CampeonatoId) : null;
+
+                if (organizadorCampeonatoId == null || campeonato == null || campeonato.OrganizadorCampeonatoId != organizadorCampeonatoId)
+                    throw new UnauthorizedAccessException("Este ingresso não é de nenhuma partida dos seus campeonatos.");
+            }
 
             if (ingresso.StatusIngresso == EnumStatusIngresso.Utilizado)
-                throw new Exception($"Este ingresso já foi utilizado em {ingresso.DataUso:dd/MM/yyyy HH:mm}.");
+                throw new IngressoJaUtilizadoException(ingresso.NomeTitular, ingresso.DataUso);
 
-            if (ingresso.StatusIngresso != EnumStatusIngresso.Pago || string.IsNullOrWhiteSpace(ingresso.NomeTitular))
-                throw new Exception("Este ingresso não está válido para entrada. O pagamento e a atribuição do titular são obrigatórios.");
+            switch (ingresso.StatusIngresso)
+            {
+                case EnumStatusIngresso.Pendente:
+                    throw new InvalidOperationException("O pagamento deste ingresso ainda não foi confirmado. Entrada não liberada.");
+                case EnumStatusIngresso.Cancelado:
+                    throw new InvalidOperationException("Este ingresso foi cancelado (estornado) e não libera entrada.");
+                case EnumStatusIngresso.EstornoPendente:
+                    throw new InvalidOperationException("Este ingresso está com estorno em andamento e não libera entrada.");
+            }
+
+            if (ingresso.StatusIngresso != EnumStatusIngresso.Pago)
+                throw new InvalidOperationException("Este ingresso não está válido para entrada.");
+
+            if (string.IsNullOrWhiteSpace(ingresso.NomeTitular))
+                throw new InvalidOperationException("Este ingresso ainda não tem titular. O comprador precisa atribuir o titular no Kivo antes da entrada.");
 
             ingresso.StatusIngresso = EnumStatusIngresso.Utilizado;
             ingresso.DataUso = DateTime.UtcNow;
 
             await _ingressoRepository.Atualizar(ingresso);
 
+            var (nomePartida, dataPartida, localPartida) = await ObterDadosPartidaAsync(lote?.PartidaId);
+
             await _notificacaoService.CriarNotificacaoAsync(
                 ingresso.UsuarioId,
                 "Ingresso Validado na Entrada ✅",
-                $"Seu ingresso acabou de ser utilizado para entrada no evento em {ingresso.DataUso:dd/MM/yyyy HH:mm}.",
+                $"O ingresso de {ingresso.NomeTitular} para {nomePartida} acabou de ser validado na portaria. Bom jogo!",
                 EnumTipoNotificacao.IngressoUtilizado,
-                link: null,
+                link: "/meus-ingressos",
                 enviarEmail: false
             );
 
-            return true;
+            return new ValidacaoPortariaDTO
+            {
+                Message = "Ingresso validado! Entrada liberada.",
+                IngressoId = ingresso.Id,
+                NomeTitular = ingresso.NomeTitular,
+                CpfTitularMascarado = MascararCpf(ingresso.CpfTitular),
+                NomeLote = lote?.NomeLote ?? string.Empty,
+                NomePartida = nomePartida,
+                DataPartida = dataPartida == DateTime.MinValue ? null : dataPartida,
+                LocalPartida = localPartida,
+                DataUso = ingresso.DataUso.Value,
+            };
+        }
+
+        private static string MascararCpf(string? cpf)
+        {
+            var digitos = LimparCpf(cpf);
+            return digitos.Length == 11
+                ? $"***.{digitos.Substring(3, 3)}.{digitos.Substring(6, 3)}-**"
+                : string.Empty;
         }
 
         private async Task<bool> FinalizarEstornoAsync(string asaasPaymentId)
@@ -341,6 +414,13 @@ namespace kivoBackend.Application.Services
             var ingressos = (await _ingressoRepository.Buscar(i => i.AsaasPaymentId == asaasPaymentId))
                 .Where(i => i.StatusIngresso == EnumStatusIngresso.EstornoPendente)
                 .ToList();
+
+            if (!ingressos.Any())
+                return true;
+
+            // Confirma no Asaas que o dinheiro foi mesmo devolvido antes de cancelar os ingressos
+            if (await _asaasService.ConsultarStatusCobrancaAsync(asaasPaymentId) != "REFUNDED")
+                return false;
 
             foreach (var ingresso in ingressos)
             {
@@ -364,6 +444,13 @@ namespace kivoBackend.Application.Services
                 .Where(i => i.StatusIngresso == EnumStatusIngresso.EstornoPendente)
                 .ToList();
 
+            if (!ingressos.Any())
+                return true;
+
+            // Sem essa checagem, quem já recebeu o estorno poderia forjar um "recusado" e reativar o ingresso
+            if (!EstaPagoNoAsaas(await _asaasService.ConsultarStatusCobrancaAsync(asaasPaymentId)))
+                return false;
+
             foreach (var ingresso in ingressos)
             {
                 // O Asaas recusou o estorno: a cobrança original segue recebida e o ingresso continua válido.
@@ -373,6 +460,9 @@ namespace kivoBackend.Application.Services
 
             return true;
         }
+
+        private static bool EstaPagoNoAsaas(string statusAsaas)
+            => statusAsaas == "RECEIVED" || statusAsaas == "CONFIRMED" || statusAsaas == "DONE";
 
         private static List<ItemCompraIngressoDTO> NormalizarItensCompra(RealizarCompraDTO compraDTO)
         {
@@ -451,7 +541,7 @@ namespace kivoBackend.Application.Services
             return (nomeConfronto, partida.DataHora ?? DateTime.MinValue, local);
         }
 
-        private IngressoDetalhesDTO MapearParaDto(Ingresso ingresso, string nomeLote, string nomePartida, DateTime dataPartida, string localPartida)
+        private IngressoDetalhesDTO MapearParaDto(Ingresso ingresso, string nomeLote, string nomePartida, DateTime dataPartida, string localPartida, string tipoDeficienciaDescricao)
         {
             bool qrCodeLiberado = (ingresso.StatusIngresso == EnumStatusIngresso.Pago || ingresso.StatusIngresso == EnumStatusIngresso.Utilizado)
                 && !string.IsNullOrWhiteSpace(ingresso.NomeTitular);
@@ -470,7 +560,9 @@ namespace kivoBackend.Application.Services
                 QrCodeBase64 = qrCodeLiberado ? GerarQrCodeBase64(ingresso.CodigoValidacao) : string.Empty,
                 PixCopiaCola = string.Empty,
                 NomeTitular = ingresso.NomeTitular ?? string.Empty,
-                CpfTitular = ingresso.CpfTitular ?? string.Empty
+                CpfTitular = ingresso.CpfTitular ?? string.Empty,
+                TipoDeficienciaId = ingresso.TipoDeficienciaId,
+                TipoDeficienciaDescricao = tipoDeficienciaDescricao
             };
         }
 
