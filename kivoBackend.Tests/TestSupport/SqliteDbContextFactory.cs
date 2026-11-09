@@ -1,6 +1,7 @@
 using kivoBackend.Infrastructure.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace kivoBackend.Tests.TestSupport;
 
@@ -32,11 +33,13 @@ public sealed class SqliteDbContextFactory : IDisposable
         return new SqliteDbContextFactory(connection);
     }
 
-    public AppDbContext NewContext()
+    /// <param name="logSql">Opcional: recebe o SQL de cada comando, para testes que verificam a tradução da consulta.</param>
+    public AppDbContext NewContext(Action<string>? logSql = null)
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite(_connection)
-            .Options;
+        var builder = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(_connection);
+        if (logSql != null)
+            builder.LogTo(logSql, new[] { DbLoggerCategory.Database.Command.Name }, LogLevel.Information);
+        var options = builder.Options;
         var context = new AppDbContext(options);
         context.Database.EnsureCreated();
         return context;

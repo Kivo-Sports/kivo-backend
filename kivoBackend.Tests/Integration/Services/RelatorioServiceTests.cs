@@ -122,6 +122,26 @@ public class RelatorioServiceTests
     }
 
     [Fact]
+    public async Task ObterAdministrativo_AgrupamentosDoDashboard_SaoExecutadosNoBanco()
+    {
+        using var db = SqliteDbContextFactory.Create();
+        var comandos = new List<string>();
+        await using var context = db.NewContext(comandos.Add);
+        await SemearDuasModalidadesAsync(context);
+        comandos.Clear();
+
+        var relatorio = await NovoServico(context).ObterAdministrativoAsync(new FiltroRelatorioAdministrativoDTO());
+
+        // TCC-07 (a): perfis e campeonatos por esporte chegam já agregados pelo banco (GROUP BY),
+        // sem materializar a tabela de usuários ou de campeonatos para agrupar em memória.
+        Assert.Contains(comandos, sql => sql.Contains("GROUP BY") && sql.Contains("\"EnumCargo\""));
+        Assert.Contains(comandos, sql => sql.Contains("GROUP BY") && sql.Contains("\"Esportes\""));
+        Assert.Equal(new[] { ("OrganizadorCampeonato", 1), ("OrganizadorTime", 1), ("Torcedor", 1) },
+            relatorio.UsuariosPorPerfil.Select(x => (x.Nome, x.Quantidade)).ToArray());
+        Assert.Equal(new[] { 1, 1 }, relatorio.CampeonatosPorEsporte.Select(x => x.Quantidade).ToArray());
+    }
+
+    [Fact]
     public async Task ObterAdministrativo_ComEsporte_FiltraCampeonatosPartidasTimesEVendas()
     {
         using var db = SqliteDbContextFactory.Create();
