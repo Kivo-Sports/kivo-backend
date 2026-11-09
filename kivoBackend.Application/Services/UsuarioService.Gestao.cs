@@ -1,4 +1,5 @@
 using kivoBackend.Application.DTO;
+using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
 using Microsoft.AspNetCore.Identity;
@@ -14,7 +15,8 @@ public partial class UsuarioService
             throw new InvalidOperationException("Conta restrita pela administração. Entre em contato com um administrador.");
     }
 
-    private kivoBackend.Infrastructure.Data.AppDbContext Db => _db ?? throw new InvalidOperationException("Contexto transacional obrigatório.");
+    private IAppDbContext Db => _db ?? throw new InvalidOperationException("Contexto transacional obrigatório.");
+    private IUsuarioGestaoTransacao Transacao => _transacao ?? throw new InvalidOperationException("Contexto transacional obrigatório.");
     private static GestaoUsuarioException Conflito(string code, string msg, object? impedimentos = null) => new(code, msg, impedimentos);
     private static void ConferirIdentity(IdentityResult result)
     {
@@ -74,7 +76,7 @@ public partial class UsuarioService
         ConferirIdentity(await _userManager.UpdateSecurityStampAsync(identity));
     }
 
-    public Task AlterarEstadoAdministrativo(Guid id, Guid autorId, string acao) => UsuarioGestaoTransaction.Executar(Db, async () =>
+    public Task AlterarEstadoAdministrativo(Guid id, Guid autorId, string acao) => Transacao.Executar(async () =>
     {
         await ValidarAutor(autorId);
         var usuario = await Db.Usuarios.SingleOrDefaultAsync(u => u.Id == id) ?? throw new KeyNotFoundException("Usuário não encontrado.");
@@ -96,7 +98,7 @@ public partial class UsuarioService
         return true;
     });
 
-    public Task AlterarCargoAdministrativo(Guid id, Guid autorId, AlterarCargoUsuarioDTO dto) => UsuarioGestaoTransaction.Executar(Db, async () =>
+    public Task AlterarCargoAdministrativo(Guid id, Guid autorId, AlterarCargoUsuarioDTO dto) => Transacao.Executar(async () =>
     {
         await ValidarAutor(autorId);
         if (!Enum.IsDefined(dto.Cargo)) throw new ArgumentException("Cargo inválido.");

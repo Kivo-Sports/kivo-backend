@@ -1,11 +1,12 @@
-﻿using kivoBackend.Core.Entities;
+using kivoBackend.Application.Interfaces;
+using kivoBackend.Core.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace kivoBackend.Infrastructure.Data
 {
-    public class AppDbContext : IdentityDbContext<IdentityUser>
+    public class AppDbContext : IdentityDbContext<IdentityUser>, IAppDbContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options)
             : base(options)

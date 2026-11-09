@@ -1,9 +1,8 @@
-﻿using kivoBackend.Application.Interfaces;
+using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
 using kivoBackend.Core.Interfaces;
 using Microsoft.AspNetCore.Identity;
-using kivoBackend.Infrastructure.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +13,8 @@ namespace kivoBackend.Application.Services
 {
     public partial class UsuarioService : ServiceGenerics<Usuario>, IUsuarioService
     {
-        private readonly AppDbContext? _db;
+        private readonly IAppDbContext? _db;
+        private readonly IUsuarioGestaoTransacao? _transacao;
         private readonly IRepositoryGenerics<Usuario> _repositoryGenerics;
         private readonly IRepositoryUsuario _usuarioRepository;
         private readonly UserManager<IdentityUser> _userManager;
@@ -25,10 +25,11 @@ namespace kivoBackend.Application.Services
 
         public UsuarioService(IRepositoryGenerics<Usuario> repositoryGenerics, IRepositoryUsuario usuarioRepository,
             UserManager<IdentityUser> userManager, IEmailService emailService, IRepositoryGenerics<CodigoReativacao> codigoRepository,
-            IVerificationCodeService verificationCodeService, INotificacaoService notificacaoService, AppDbContext? db = null)
+            IVerificationCodeService verificationCodeService, INotificacaoService notificacaoService, IAppDbContext? db = null, IUsuarioGestaoTransacao? transacao = null)
             : base(repositoryGenerics)
         {
             _db = db;
+            _transacao = transacao;
             _repositoryGenerics = repositoryGenerics;
             _usuarioRepository = usuarioRepository;
             _userManager = userManager;
@@ -353,8 +354,8 @@ namespace kivoBackend.Application.Services
         /// </summary>
         public async Task ConfirmarReativacao(string email, string codigo)
         {
-            if (_db == null) { await ConfirmarReativacaoInterno(email, codigo); return; }
-            await UsuarioGestaoTransaction.Executar(_db, async () => { await ConfirmarReativacaoInterno(email, codigo); return true; });
+            if (_transacao == null) { await ConfirmarReativacaoInterno(email, codigo); return; }
+            await _transacao.Executar(async () => { await ConfirmarReativacaoInterno(email, codigo); return true; });
         }
 
         private async Task ConfirmarReativacaoInterno(string email, string codigo)
@@ -435,8 +436,8 @@ namespace kivoBackend.Application.Services
         /// </summary>
         public async Task ConfirmarRecuperacaoSenha(string email, string codigo, string novaSenha)
         {
-            if (_db == null) { await ConfirmarRecuperacaoSenhaInterno(email, codigo, novaSenha); return; }
-            await UsuarioGestaoTransaction.Executar(_db, async () => { await ConfirmarRecuperacaoSenhaInterno(email, codigo, novaSenha); return true; });
+            if (_transacao == null) { await ConfirmarRecuperacaoSenhaInterno(email, codigo, novaSenha); return; }
+            await _transacao.Executar(async () => { await ConfirmarRecuperacaoSenhaInterno(email, codigo, novaSenha); return true; });
         }
 
         private async Task ConfirmarRecuperacaoSenhaInterno(string email, string codigo, string novaSenha)

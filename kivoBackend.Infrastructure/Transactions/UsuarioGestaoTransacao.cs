@@ -1,12 +1,20 @@
 using System.Data;
+using kivoBackend.Application.Interfaces;
 using kivoBackend.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace kivoBackend.Application.Services;
+namespace kivoBackend.Infrastructure.Transactions;
 
-public static class UsuarioGestaoTransaction
+public class UsuarioGestaoTransacao : IUsuarioGestaoTransacao
 {
-    public static async Task<T> Executar<T>(AppDbContext db, Func<Task<T>> operacao)
+    private readonly AppDbContext db;
+
+    public UsuarioGestaoTransacao(AppDbContext db)
+    {
+        this.db = db;
+    }
+
+    public async Task<T> Executar<T>(Func<Task<T>> operacao)
     {
         if (db.Database.CurrentTransaction != null) return await operacao();
         var strategy = db.Database.CreateExecutionStrategy();
