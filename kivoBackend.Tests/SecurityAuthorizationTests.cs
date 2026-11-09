@@ -32,7 +32,7 @@ public class SecurityAuthorizationTests
         owner.EnumCargo = cargo; owner.EstadoAdministrativo = estado;
         var usuarios = new FakeUsuarioService(); usuarios.Users[_userB] = owner;
         var time = new Time { Id = Guid.NewGuid(), Nome = "Time", Cidade = "Cidade", Estado = "SC", OrganizadorTimeId = _orgTimeB, Ativo = true };
-        var controller = new TimeController(new FakeTimeService { Current = time }, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(_userA, isAdmin: true));
+        var controller = new TimeController(new FakeTimeService { Current = time }, usuarios, new FakeStorageService(), new FakeCurrentUser(_userA, isAdmin: true));
         Assert.IsType<OkObjectResult>(await controller.Put(time.Id, new AtualizarTimeDto { Nome = "Atualizado", Cidade = "Cidade", Estado = "SC" }, null));
         Assert.IsType<OkObjectResult>(await controller.ToggleStatus(time.Id));
         Assert.False(time.Ativo);
@@ -44,7 +44,7 @@ public class SecurityAuthorizationTests
         var owner = UsuarioOrganizadorTime(_userA, _orgTimeA); owner.EnumCargo = EnumCargo.Torcedor;
         var usuarios = new FakeUsuarioService(); usuarios.Users[_userA] = owner;
         var time = new Time { Id = Guid.NewGuid(), Nome = "Time", Cidade = "Cidade", Estado = "SC", OrganizadorTimeId = _orgTimeA, Ativo = true };
-        var controller = new TimeController(new FakeTimeService { Current = time }, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(_userA));
+        var controller = new TimeController(new FakeTimeService { Current = time }, usuarios, new FakeStorageService(), new FakeCurrentUser(_userA));
         Assert.IsType<ForbidResult>(await controller.Put(time.Id, new AtualizarTimeDto { Nome = "Atualizado", Cidade = "Cidade", Estado = "SC" }, null));
     }
 
@@ -53,8 +53,6 @@ public class SecurityAuthorizationTests
     {
         var controller = new UsuarioController(
             new FakeUsuarioService(),
-            new EmptyRepo<OrganizadorCampeonato>(),
-            new EmptyRepo<OrganizadorTime>(),
             new FakeCurrentUser(_userA));
 
         var result = await controller.EditarTorcedor(_userB, EditarUsuarioDto());
@@ -69,8 +67,6 @@ public class SecurityAuthorizationTests
         usuarios.Users[_userA] = UsuarioTorcedor(_userA);
         var controller = new UsuarioController(
             usuarios,
-            new EmptyRepo<OrganizadorCampeonato>(),
-            new EmptyRepo<OrganizadorTime>(),
             new FakeCurrentUser(_userA));
 
         var result = await controller.EditarTorcedor(_userA, EditarUsuarioDto());
@@ -84,8 +80,6 @@ public class SecurityAuthorizationTests
         var service = new FakeUsuarioService();
         var controller = new UsuarioController(
             service,
-            new EmptyRepo<OrganizadorCampeonato>(),
-            new EmptyRepo<OrganizadorTime>(),
             new FakeCurrentUser(_userA));
 
         var result = await controller.Delete(_userB);
@@ -100,7 +94,7 @@ public class SecurityAuthorizationTests
         var usuarios = new FakeUsuarioService();
         usuarios.Users[_userA] = UsuarioOrganizadorTime(_userA, _orgTimeA);
         var times = new FakeTimeService();
-        var controller = new TimeController(times, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(_userA));
+        var controller = new TimeController(times, usuarios, new FakeStorageService(), new FakeCurrentUser(_userA));
 
         var result = await controller.Post(new CriarTimeDto
         {
@@ -125,7 +119,7 @@ public class SecurityAuthorizationTests
         usuarios.Users[_userB] = UsuarioOrganizadorTime(_userB, _orgTimeB);
         var timeA = new Time { Id = Guid.NewGuid(), OrganizadorTimeId = _orgTimeA, EsporteId = Guid.NewGuid(), Nome = "Time A", Cidade = "Curitiba", Estado = "PR", Ativo = true };
         var times = new FakeTimeService { Current = timeA };
-        var controller = new TimeController(times, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(_userB));
+        var controller = new TimeController(times, usuarios, new FakeStorageService(), new FakeCurrentUser(_userB));
 
         Assert.IsType<ForbidResult>(await controller.Put(timeA.Id, AtualizarTimeDto(), null));
         Assert.IsType<ForbidResult>(await controller.ToggleStatus(timeA.Id));
@@ -156,7 +150,7 @@ public class SecurityAuthorizationTests
         var usuarios = new FakeUsuarioService();
         usuarios.Users[_userA] = UsuarioOrganizadorTime(_userA, _orgTimeA);
         var times = new FakeTimeService();
-        var controller = new TimeController(times, usuarios, new FakeStorageService(), new EmptyRepo<CampeonatoTime>(), new FakeCurrentUser(_userA));
+        var controller = new TimeController(times, usuarios, new FakeStorageService(), new FakeCurrentUser(_userA));
 
         var result = await controller.Post(new CriarTimeDto
         {

@@ -15,6 +15,8 @@ namespace kivoBackend.Application.Services
     {
         private readonly IAppDbContext? _db;
         private readonly IUsuarioGestaoTransacao? _transacao;
+        private readonly IRepositoryGenerics<OrganizadorCampeonato>? _organizadorCampeonatoRepository;
+        private readonly IRepositoryGenerics<OrganizadorTime>? _organizadorTimeRepository;
         private readonly IRepositoryGenerics<Usuario> _repositoryGenerics;
         private readonly IRepositoryUsuario _usuarioRepository;
         private readonly UserManager<IdentityUser> _userManager;
@@ -25,11 +27,14 @@ namespace kivoBackend.Application.Services
 
         public UsuarioService(IRepositoryGenerics<Usuario> repositoryGenerics, IRepositoryUsuario usuarioRepository,
             UserManager<IdentityUser> userManager, IEmailService emailService, IRepositoryGenerics<CodigoReativacao> codigoRepository,
-            IVerificationCodeService verificationCodeService, INotificacaoService notificacaoService, IAppDbContext? db = null, IUsuarioGestaoTransacao? transacao = null)
+            IVerificationCodeService verificationCodeService, INotificacaoService notificacaoService, IAppDbContext? db = null, IUsuarioGestaoTransacao? transacao = null,
+            IRepositoryGenerics<OrganizadorCampeonato>? organizadorCampeonatoRepository = null, IRepositoryGenerics<OrganizadorTime>? organizadorTimeRepository = null)
             : base(repositoryGenerics)
         {
             _db = db;
             _transacao = transacao;
+            _organizadorCampeonatoRepository = organizadorCampeonatoRepository;
+            _organizadorTimeRepository = organizadorTimeRepository;
             _repositoryGenerics = repositoryGenerics;
             _usuarioRepository = usuarioRepository;
             _userManager = userManager;

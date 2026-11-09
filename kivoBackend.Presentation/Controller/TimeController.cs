@@ -19,15 +19,13 @@ namespace kivoBackend.Presentation.Controller
         private readonly ITimeService _timeService;
         private readonly IUsuarioService _usuarioService;
         private readonly IStorageService _storageService;
-        private readonly IRepositoryGenerics<CampeonatoTime> _campeonatoTimeRepository;
         private readonly ICurrentUserService _currentUser;
 
-        public TimeController(ITimeService timeService, IUsuarioService usuarioService, IStorageService storageService, IRepositoryGenerics<CampeonatoTime> campeonatoTimeRepository, ICurrentUserService currentUser)
+        public TimeController(ITimeService timeService, IUsuarioService usuarioService, IStorageService storageService, ICurrentUserService currentUser)
         {
             _timeService = timeService;
             _usuarioService = usuarioService;
             _storageService = storageService;
-            _campeonatoTimeRepository = campeonatoTimeRepository;
             _currentUser = currentUser;
         }
 
@@ -206,14 +204,7 @@ namespace kivoBackend.Presentation.Controller
                 // inscrições abertas ou em andamento (evita quebrar campeonatos ativos).
                 if (time.Ativo)
                 {
-                    var vinculos = await _campeonatoTimeRepository.ObterComIncludes(ct => ct.Campeonato);
-                    var emCampeonatoAtivo = vinculos.Any(ct =>
-                        ct.TimeId == id &&
-                        ct.Campeonato != null &&
-                        (ct.Campeonato.EnumStatusCampeonato == EnumStatusCampeonato.InscricoesAbertas ||
-                         ct.Campeonato.EnumStatusCampeonato == EnumStatusCampeonato.EmAndamento));
-
-                    if (emCampeonatoAtivo)
+                    if (await _timeService.ParticipaDeCampeonatoAtivo(id))
                         return BadRequest("Não é possível desativar este time: ele participa de um campeonato com inscrições abertas ou em andamento.");
                 }
 

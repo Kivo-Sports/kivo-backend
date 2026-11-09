@@ -112,6 +112,10 @@ public sealed class FakeUsuarioService : IUsuarioService
     public Task<kivoBackend.Application.DTO.GestaoUsuarioPagina> ListarGestao(kivoBackend.Application.DTO.GestaoUsuarioFiltro filtro) => throw new NotSupportedException();
     public Task AlterarEstadoAdministrativo(Guid id, Guid autorId, string acao) => ThrowOnAtivarConta != null ? throw ThrowOnAtivarConta : Task.CompletedTask;
     public Task AlterarCargoAdministrativo(Guid id, Guid autorId, kivoBackend.Application.DTO.AlterarCargoUsuarioDTO dto) => throw new NotSupportedException();
+    public List<kivoBackend.Application.DTO.OrganizadorResumoDTO> OrganizadoresCampeonato { get; } = new();
+    public List<kivoBackend.Application.DTO.OrganizadorResumoDTO> OrganizadoresTime { get; } = new();
+    public Task<IEnumerable<kivoBackend.Application.DTO.OrganizadorResumoDTO>> ListarOrganizadoresCampeonatoAtivos() => Task.FromResult<IEnumerable<kivoBackend.Application.DTO.OrganizadorResumoDTO>>(OrganizadoresCampeonato);
+    public Task<IEnumerable<kivoBackend.Application.DTO.OrganizadorResumoDTO>> ListarOrganizadoresTimeAtivos() => Task.FromResult<IEnumerable<kivoBackend.Application.DTO.OrganizadorResumoDTO>>(OrganizadoresTime);
     public Task<bool> ResponsavelValido(Guid id, EnumCargo cargo, bool permitirAdmin = false) => Task.FromResult(Users.Values.Any(u => u.Ativo && (u.EnumCargo == cargo || permitirAdmin && u.EnumCargo == EnumCargo.Administrador) && (cargo == EnumCargo.OrganizadorTime ? u.OrganizadorTime?.Id == id : u.OrganizadorCampeonato?.Id == id)));
 
     public Dictionary<Guid, Usuario> Users { get; } = new();
@@ -172,6 +176,8 @@ public sealed class FakeTimeService : ITimeService
     public Time? Added { get; private set; }
     public bool UpdateCalled { get; private set; }
     public bool RemoveCalled { get; private set; }
+    public bool ParticipaEmCampeonatoAtivo { get; init; }
+    public Task<bool> ParticipaDeCampeonatoAtivo(Guid timeId) => Task.FromResult(ParticipaEmCampeonatoAtivo);
     public Task<IEnumerable<Time>> ObterTodos() => Task.FromResult<IEnumerable<Time>>(Current == null ? Array.Empty<Time>() : new[] { Current });
     public Task<Time?> ObterPorId(Guid id) => Task.FromResult(Current);
     public Task<Time> Adicionar(Time entidade) { Added = entidade; return Task.FromResult(entidade); }

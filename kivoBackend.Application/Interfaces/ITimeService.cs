@@ -9,5 +9,6 @@ namespace kivoBackend.Application.Interfaces
 {
     public interface ITimeService : IServiceGenerics<Time>
     {
+        Task<bool> ParticipaDeCampeonatoAtivo(Guid timeId);
     }
 }

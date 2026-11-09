@@ -15,18 +15,12 @@ namespace kivoBackend.Presentation.Controller
     public class UsuarioController : ControllerBase
     {
         private readonly IUsuarioService _usuarioService;
-        private readonly IRepositoryGenerics<OrganizadorCampeonato> _organizadorCampeonatoRepository;
-        private readonly IRepositoryGenerics<OrganizadorTime> _organizadorTimeRepository;
         private readonly ICurrentUserService _currentUser;
         public UsuarioController(
             IUsuarioService usuarioService,
-            IRepositoryGenerics<OrganizadorCampeonato> organizadorCampeonatoRepository,
-            IRepositoryGenerics<OrganizadorTime> organizadorTimeRepository,
             ICurrentUserService currentUser)
         {
             _usuarioService = usuarioService;
-            _organizadorCampeonatoRepository = organizadorCampeonatoRepository;
-            _organizadorTimeRepository = organizadorTimeRepository;
             _currentUser = currentUser;
         }
 
@@ -36,11 +30,7 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
-                var organizadores = await _organizadorCampeonatoRepository.ObterComIncludes(o => o.Usuario);
-                var retorno = organizadores
-                    .Where(o => o.Usuario != null && o.Usuario.Ativo && o.Usuario.EstadoAdministrativo == EnumEstadoAdministrativo.Normal && o.Usuario.EnumCargo == EnumCargo.OrganizadorCampeonato)
-                    .Select(o => new { o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
-                return Ok(retorno);
+                return Ok(await _usuarioService.ListarOrganizadoresCampeonatoAtivos());
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }
@@ -51,11 +41,7 @@ namespace kivoBackend.Presentation.Controller
         {
             try
             {
-                var organizadores = await _organizadorTimeRepository.ObterComIncludes(o => o.Usuario);
-                var retorno = organizadores
-                    .Where(o => o.Usuario != null && o.Usuario.Ativo && o.Usuario.EstadoAdministrativo == EnumEstadoAdministrativo.Normal && o.Usuario.EnumCargo == EnumCargo.OrganizadorTime)
-                    .Select(o => new { o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
-                return Ok(retorno);
+                return Ok(await _usuarioService.ListarOrganizadoresTimeAtivos());
             }
             catch (Exception ex) { return BadRequest(ex.Message); }
         }

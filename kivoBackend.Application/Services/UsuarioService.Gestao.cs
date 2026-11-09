@@ -165,6 +165,24 @@ public partial class UsuarioService
         }
     }
 
+    public async Task<IEnumerable<OrganizadorResumoDTO>> ListarOrganizadoresCampeonatoAtivos()
+    {
+        var repositorio = _organizadorCampeonatoRepository ?? throw new InvalidOperationException("Repositório de organizadores obrigatório.");
+        var organizadores = await repositorio.ObterComIncludes(o => o.Usuario);
+        return organizadores
+            .Where(o => o.Usuario != null && o.Usuario.Ativo && o.Usuario.EstadoAdministrativo == EnumEstadoAdministrativo.Normal && o.Usuario.EnumCargo == EnumCargo.OrganizadorCampeonato)
+            .Select(o => new OrganizadorResumoDTO { Id = o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
+    }
+
+    public async Task<IEnumerable<OrganizadorResumoDTO>> ListarOrganizadoresTimeAtivos()
+    {
+        var repositorio = _organizadorTimeRepository ?? throw new InvalidOperationException("Repositório de organizadores obrigatório.");
+        var organizadores = await repositorio.ObterComIncludes(o => o.Usuario);
+        return organizadores
+            .Where(o => o.Usuario != null && o.Usuario.Ativo && o.Usuario.EstadoAdministrativo == EnumEstadoAdministrativo.Normal && o.Usuario.EnumCargo == EnumCargo.OrganizadorTime)
+            .Select(o => new OrganizadorResumoDTO { Id = o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
+    }
+
     public Task<bool> ResponsavelValido(Guid perfilId, EnumCargo cargo, bool permitirAdmin = false) => Db.Usuarios.AnyAsync(u => u.Ativo && u.EstadoAdministrativo == EnumEstadoAdministrativo.Normal && (u.EnumCargo == cargo || permitirAdmin && u.EnumCargo == EnumCargo.Administrador) &&
         (cargo == EnumCargo.OrganizadorTime ? u.OrganizadorTime != null && u.OrganizadorTime.Id == perfilId : u.OrganizadorCampeonato != null && u.OrganizadorCampeonato.Id == perfilId));
 }
