@@ -1,10 +1,13 @@
 using System.Security.Claims;
 using System.Data.Common;
+using kivoBackend.Application.Auth;
 using kivoBackend.Application.DTO;
 using kivoBackend.Application.Services;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
+using kivoBackend.Infrastructure.Auth;
 using kivoBackend.Infrastructure.Data;
+using kivoBackend.Infrastructure.Transactions;
 using kivoBackend.Infrastructure.Repositories;
 using kivoBackend.Presentation.Auth;
 using kivoBackend.Tests.TestSupport;
@@ -33,7 +36,7 @@ public class GestaoUsuarioConcurrencyTests
         public readonly AppDbContext Db;
         private readonly ServiceProvider provider;
         public UserManager<IdentityUser> Manager => provider.GetRequiredService<UserManager<IdentityUser>>();
-        public UsuarioService Service => new(new RepositoryGenerics<Usuario>(Db), new RepositoryUsuario(Db), Manager, new FakeEmailService(), new InMemoryRepo<CodigoReativacao>(), new FakeVerificationCodeService(), new FakeNotificacaoService(), Db);
+        public UsuarioService Service => new(new RepositoryGenerics<Usuario>(Db), new RepositoryUsuario(Db), Manager, new FakeEmailService(), new InMemoryRepo<CodigoReativacao>(), new FakeVerificationCodeService(), new FakeNotificacaoService(), Db, new UsuarioGestaoTransacao(Db));
         public Fixture(IInterceptor? interceptor = null, string? sqlConnection = null, bool createDatabase = true)
         {
             var options = new DbContextOptionsBuilder<AppDbContext>();
@@ -66,7 +69,7 @@ public class GestaoUsuarioConcurrencyTests
         }
         public ClaimsPrincipal Principal(Usuario u, int? version = null) => new(new ClaimsIdentity(new[] {
             new Claim(ClaimTypes.NameIdentifier, u.Id.ToString()), new Claim("Cargo", u.EnumCargo.ToString()), new Claim(ClaimTypes.Role, u.EnumCargo.ToString()),
-            new Claim(UsuarioSessionValidation.VersionClaim, (version ?? u.VersaoSessao).ToString()) }, "test"));
+            new Claim(SessaoClaims.VersaoSessao, (version ?? u.VersaoSessao).ToString()) }, "test"));
         public async ValueTask DisposeAsync()
         {
             if (ownedDatabase != null && ownedDatabase.StartsWith("KivoT15Test_", StringComparison.Ordinal) && new SqlConnectionStringBuilder(Connection.ConnectionString).InitialCatalog == ownedDatabase)
@@ -93,7 +96,7 @@ public class GestaoUsuarioConcurrencyTests
     public async Task TokenSemVersaoOuCargoDivergente_Rejeitado()
     {
         await using var f = new Fixture(); var user = await f.User(); var claims = f.Principal(user);
-        ((ClaimsIdentity)claims.Identity!).RemoveClaim(claims.FindFirst(UsuarioSessionValidation.VersionClaim)!);
+        ((ClaimsIdentity)claims.Identity!).RemoveClaim(claims.FindFirst(SessaoClaims.VersaoSessao)!);
         Assert.False(await UsuarioSessionValidation.Valida(f.Db, claims));
         var old = f.Principal(user); user.EnumCargo = EnumCargo.Torcedor; await f.Db.SaveChangesAsync();
         Assert.False(await UsuarioSessionValidation.Valida(f.Db, old));

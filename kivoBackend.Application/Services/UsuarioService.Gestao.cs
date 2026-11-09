@@ -1,4 +1,5 @@
 using kivoBackend.Application.DTO;
+using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
 using Microsoft.AspNetCore.Identity;
@@ -14,7 +15,8 @@ public partial class UsuarioService
             throw new InvalidOperationException("Conta restrita pela administração. Entre em contato com um administrador.");
     }
 
-    private kivoBackend.Infrastructure.Data.AppDbContext Db => _db ?? throw new InvalidOperationException("Contexto transacional obrigatório.");
+    private IAppDbContext Db => _db ?? throw new InvalidOperationException("Contexto transacional obrigatório.");
+    private IUsuarioGestaoTransacao Transacao => _transacao ?? throw new InvalidOperationException("Contexto transacional obrigatório.");
     private static GestaoUsuarioException Conflito(string code, string msg, object? impedimentos = null) => new(code, msg, impedimentos);
     private static void ConferirIdentity(IdentityResult result)
     {
@@ -74,7 +76,7 @@ public partial class UsuarioService
         ConferirIdentity(await _userManager.UpdateSecurityStampAsync(identity));
     }
 
-    public Task AlterarEstadoAdministrativo(Guid id, Guid autorId, string acao) => UsuarioGestaoTransaction.Executar(Db, async () =>
+    public Task AlterarEstadoAdministrativo(Guid id, Guid autorId, string acao) => Transacao.Executar(async () =>
     {
         await ValidarAutor(autorId);
         var usuario = await Db.Usuarios.SingleOrDefaultAsync(u => u.Id == id) ?? throw new KeyNotFoundException("Usuário não encontrado.");
@@ -96,7 +98,7 @@ public partial class UsuarioService
         return true;
     });
 
-    public Task AlterarCargoAdministrativo(Guid id, Guid autorId, AlterarCargoUsuarioDTO dto) => UsuarioGestaoTransaction.Executar(Db, async () =>
+    public Task AlterarCargoAdministrativo(Guid id, Guid autorId, AlterarCargoUsuarioDTO dto) => Transacao.Executar(async () =>
     {
         await ValidarAutor(autorId);
         if (!Enum.IsDefined(dto.Cargo)) throw new ArgumentException("Cargo inválido.");
@@ -161,6 +163,24 @@ public partial class UsuarioService
                 Db.ContasBanco.Add(u.OrganizadorCampeonato.ContaBanco);
             }
         }
+    }
+
+    public async Task<IEnumerable<OrganizadorResumoDTO>> ListarOrganizadoresCampeonatoAtivos()
+    {
+        var repositorio = _organizadorCampeonatoRepository ?? throw new InvalidOperationException("Repositório de organizadores obrigatório.");
+        var organizadores = await repositorio.ObterComIncludes(o => o.Usuario);
+        return organizadores
+            .Where(o => o.Usuario != null && o.Usuario.Ativo && o.Usuario.EstadoAdministrativo == EnumEstadoAdministrativo.Normal && o.Usuario.EnumCargo == EnumCargo.OrganizadorCampeonato)
+            .Select(o => new OrganizadorResumoDTO { Id = o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
+    }
+
+    public async Task<IEnumerable<OrganizadorResumoDTO>> ListarOrganizadoresTimeAtivos()
+    {
+        var repositorio = _organizadorTimeRepository ?? throw new InvalidOperationException("Repositório de organizadores obrigatório.");
+        var organizadores = await repositorio.ObterComIncludes(o => o.Usuario);
+        return organizadores
+            .Where(o => o.Usuario != null && o.Usuario.Ativo && o.Usuario.EstadoAdministrativo == EnumEstadoAdministrativo.Normal && o.Usuario.EnumCargo == EnumCargo.OrganizadorTime)
+            .Select(o => new OrganizadorResumoDTO { Id = o.Id, Nome = o.Usuario.Nome, Email = o.Usuario.Email });
     }
 
     public Task<bool> ResponsavelValido(Guid perfilId, EnumCargo cargo, bool permitirAdmin = false) => Db.Usuarios.AnyAsync(u => u.Ativo && u.EstadoAdministrativo == EnumEstadoAdministrativo.Normal && (u.EnumCargo == cargo || permitirAdmin && u.EnumCargo == EnumCargo.Administrador) &&

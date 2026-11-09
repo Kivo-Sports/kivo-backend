@@ -4,7 +4,9 @@ using kivoBackend.Application.Services;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
 using kivoBackend.Core.Interfaces;
+using kivoBackend.Infrastructure.Auth;
 using kivoBackend.Infrastructure.Data;
+using kivoBackend.Infrastructure.Transactions;
 using kivoBackend.Infrastructure.Repositories;
 using kivoBackend.Presentation.Auth;
 using kivoBackend.Presentation.Documentation;
@@ -204,6 +206,8 @@ builder.Services.AddAuthentication(options =>
 // Generic Repository / Service / Dependency Injection
 builder.Services.AddScoped(typeof(IRepositoryGenerics<>), typeof(RepositoryGenerics<>));
 builder.Services.AddScoped(typeof(IServiceGenerics<>), typeof(ServiceGenerics<>));
+builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+builder.Services.AddScoped<IUsuarioGestaoTransacao, UsuarioGestaoTransacao>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IRepositoryUsuario, RepositoryUsuario>();
 builder.Services.AddScoped<TokenService>();

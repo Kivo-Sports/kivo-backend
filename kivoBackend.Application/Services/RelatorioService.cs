@@ -2,7 +2,6 @@ using kivoBackend.Application.DTO;
 using kivoBackend.Application.Interfaces;
 using kivoBackend.Core.Entities;
 using kivoBackend.Core.Enums;
-using kivoBackend.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace kivoBackend.Application.Services;
@@ -18,10 +17,10 @@ public class RelatorioService : IRelatorioService
 {
     private static readonly TimeZoneInfo FusoRelatorio = ObterFusoSaoPaulo();
 
-    private readonly AppDbContext _context;
+    private readonly IAppDbContext _context;
     private readonly TimeProvider _relogio;
 
-    public RelatorioService(AppDbContext context, TimeProvider? relogio = null)
+    public RelatorioService(IAppDbContext context, TimeProvider? relogio = null)
     {
         _context = context;
         _relogio = relogio ?? TimeProvider.System;

@@ -14,6 +14,8 @@ namespace kivoBackend.Application.Interfaces
         Task<GestaoUsuarioPagina> ListarGestao(GestaoUsuarioFiltro filtro);
         Task AlterarEstadoAdministrativo(Guid id, Guid autorId, string acao);
         Task AlterarCargoAdministrativo(Guid id, Guid autorId, AlterarCargoUsuarioDTO dto);
+        Task<IEnumerable<kivoBackend.Application.DTO.OrganizadorResumoDTO>> ListarOrganizadoresCampeonatoAtivos();
+        Task<IEnumerable<kivoBackend.Application.DTO.OrganizadorResumoDTO>> ListarOrganizadoresTimeAtivos();
         Task<bool> ResponsavelValido(Guid perfilId, kivoBackend.Core.Enums.EnumCargo cargo, bool permitirAdmin = false);
         Task<Usuario> CriarUsuario(Usuario usuario, string senha);
         Task<Usuario> ObterUsuarioPorId(Guid id);

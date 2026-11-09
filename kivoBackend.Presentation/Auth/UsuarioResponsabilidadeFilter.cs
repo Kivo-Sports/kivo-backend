@@ -1,5 +1,5 @@
 using System.Data;
-using kivoBackend.Application.Services;
+using kivoBackend.Infrastructure.Auth;
 using kivoBackend.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;

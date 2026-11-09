@@ -1,5 +1,6 @@
 using kivoBackend.Application.Services;
 using kivoBackend.Core.Entities;
+using kivoBackend.Core.Enums;
 using kivoBackend.Tests.TestSupport;
 
 namespace kivoBackend.Tests.Unit.Domain;
@@ -73,5 +74,32 @@ public class TimeServiceTests
         await service.Remover(time.Id);
 
         Assert.Equal(0, repo.Count);
+    }
+
+    private static Campeonato CampeonatoEm(DateTime inicio, DateTime fim) => new()
+    {
+        Id = Guid.NewGuid(), Nome = "C", DataInicio = inicio, DataFim = fim, EnumStatusCampeonato = EnumStatusCampeonato.InscricoesAbertas
+    };
+
+    [Fact]
+    public async Task ParticipaDeCampeonatoAtivo_TimeEmCampeonatoComInscricoesAbertas_RetornaTrue()
+    {
+        var timeId = Guid.NewGuid();
+        var campeonato = CampeonatoEm(DateTime.Now.AddDays(-1), DateTime.Now.AddDays(5));
+        var vinculo = new CampeonatoTime { CampeonatoId = campeonato.Id, TimeId = timeId, Campeonato = campeonato };
+        var service = new TimeService(new InMemoryTimeRepo(), new InMemoryRepo<CampeonatoTime>(vinculo));
+
+        Assert.True(await service.ParticipaDeCampeonatoAtivo(timeId));
+    }
+
+    [Fact]
+    public async Task ParticipaDeCampeonatoAtivo_TimeSoEmCampeonatoFinalizado_RetornaFalse()
+    {
+        var timeId = Guid.NewGuid();
+        var campeonato = CampeonatoEm(DateTime.Now.AddDays(-10), DateTime.Now.AddDays(-5));
+        var vinculo = new CampeonatoTime { CampeonatoId = campeonato.Id, TimeId = timeId, Campeonato = campeonato };
+        var service = new TimeService(new InMemoryTimeRepo(), new InMemoryRepo<CampeonatoTime>(vinculo));
+
+        Assert.False(await service.ParticipaDeCampeonatoAtivo(timeId));
     }
 }

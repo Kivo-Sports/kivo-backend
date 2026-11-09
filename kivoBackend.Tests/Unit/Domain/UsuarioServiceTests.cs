@@ -555,4 +555,33 @@ public class UsuarioServiceTests
 
         Assert.Equal(usuario.Id, resultado.Id);
     }
+
+    [Fact]
+    public async Task ListarOrganizadoresCampeonatoAtivos_IgnoraInativosRestritosEOutrosCargos()
+    {
+        OrganizadorCampeonato Org(EnumCargo cargo, bool ativo, EnumEstadoAdministrativo estado, string nome)
+        {
+            var u = NovoUsuario(cargo, ativo);
+            u.Nome = nome;
+            u.EstadoAdministrativo = estado;
+            return new OrganizadorCampeonato { Id = Guid.NewGuid(), UsuarioId = u.Id, Usuario = u };
+        }
+
+        var valido = Org(EnumCargo.OrganizadorCampeonato, true, EnumEstadoAdministrativo.Normal, "Valido");
+        var inativo = Org(EnumCargo.OrganizadorCampeonato, false, EnumEstadoAdministrativo.Normal, "Inativo");
+        var restrito = Org(EnumCargo.OrganizadorCampeonato, true, EnumEstadoAdministrativo.Bloqueado, "Restrito");
+        var outroCargo = Org(EnumCargo.Torcedor, true, EnumEstadoAdministrativo.Normal, "OutroCargo");
+        var semUsuario = new OrganizadorCampeonato { Id = Guid.NewGuid() };
+        var service = new UsuarioService(new InMemoryRepo<Usuario>(), new FakeRepositoryUsuario(),
+            UserManagerTestFactory.Create(new FakeUserStore()), new FakeEmailService(), new InMemoryRepo<CodigoReativacao>(),
+            new FakeVerificationCodeService(), new FakeNotificacaoService(),
+            organizadorCampeonatoRepository: new InMemoryRepo<OrganizadorCampeonato>(valido, inativo, restrito, outroCargo, semUsuario));
+
+        var resultado = (await service.ListarOrganizadoresCampeonatoAtivos()).ToList();
+
+        var unico = Assert.Single(resultado);
+        Assert.Equal(valido.Id, unico.Id);
+        Assert.Equal("Valido", unico.Nome);
+        Assert.Equal(valido.Usuario.Email, unico.Email);
+    }
 }

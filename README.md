@@ -67,6 +67,8 @@ kivoBackend/
 └── kivoBackend.sln                     # Solution Visual Studio
 ```
 
+Camadas, regra de dependência e padrões adotados: [docs/arquitetura.md](docs/arquitetura.md).
+
 ### Entidades Principais
 
 - **Usuario** → Usuário da plataforma (pode ser Torcedor, Organizador ou Administrador)
