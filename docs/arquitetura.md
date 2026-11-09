@@ -61,7 +61,7 @@ dotnet test --filter DependencyRuleTests
 ### Query Service
 
 - **Onde:** `kivoBackend.Application/Services/RelatorioService.cs`.
-- **Por quê:** os relatórios só leem. Eles consultam e agrupam direto pelo contexto, sem passar por repositórios de escrita, e as agregações rodam no banco.
+- **Por quê:** os relatórios só leem. Eles consultam pelo `IAppDbContext` com `AsNoTracking`, sem passar pelos repositórios de escrita. No dashboard administrativo, as contagens e os agrupamentos (usuários por perfil, campeonatos por esporte) são feitos no banco com `GROUP BY`/`COUNT`. Nos painéis de organizador, parte das estatísticas ainda é calculada em memória depois da consulta.
 
 ### Adapter / Strategy para integrações externas
 

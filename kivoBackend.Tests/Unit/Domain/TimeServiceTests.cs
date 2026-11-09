@@ -82,7 +82,7 @@ public class TimeServiceTests
     };
 
     [Fact]
-    public async Task ParticipaDeCampeonatoAtivo_TimeEmCampeonatoEmAndamento_RetornaTrue()
+    public async Task ParticipaDeCampeonatoAtivo_TimeEmCampeonatoComInscricoesAbertas_RetornaTrue()
     {
         var timeId = Guid.NewGuid();
         var campeonato = CampeonatoEm(DateTime.Now.AddDays(-1), DateTime.Now.AddDays(5));
